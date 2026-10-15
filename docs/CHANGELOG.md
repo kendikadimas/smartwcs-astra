@@ -1,0 +1,212 @@
+# Changelog Dokumentasi & Kontrak
+
+Mencatat perubahan pada `docs/` (ADR, ERD, Functional Boundary, Use Case, RBAC, API Specification, OpenAPI), `CLAUDE.md`, dan `README.md`. Entri terbaru di atas. Acuan utama: PRD Smart WCS v0.1 (`docs/PRD Smart WCS.pdf`).
+
+Format: `[file] perubahan` -- dasar perubahan.
+
+## 2026-10-06
+
+### Pelengkapan dokumen untuk scope baru + update versi dependency (status: masih Proposed)
+
+**CLAUDE.md**
+- Tabel dokumen wajib dibaca: status 4 file (`FUNCTIONAL_BOUNDARY.md`, `USE_CASE.md`, `RBAC.md`, `openapi-smart-wcs.yaml`) diperbarui dari "belum direvisi" jadi "Revisi 2026-10-06".
+- Section Stack: versi dependency di-update (lihat ADR di bawah), aturan kerja nomor 2 dan 3 disesuaikan karena openapi-smart-wcs.yaml dan RBAC.md sekarang sudah mencakup modul/role baru.
+
+**ADR**
+- Section 2 (Decision summary): versi dependency dicek ulang per 6 Oktober 2026 dan di-update -- Next.js 14+ -> 16 (LTS; 14 EOL, 15 mendekati EOL), Node.js 20 LTS -> 24 LTS (Node 26 jadi Active LTS 28 Okt 2026), PostgreSQL dipin ke 18 (19 masih beta), Prisma dipin ke 7.x (8 masih RC), Auth.js diperjelas sebagai v5 beta (`next-auth@beta`) bukan v4, plus versi mqtt.js/node-opcua/Socket.IO/TanStack Query.
+- Section 3: catatan sumber versi ditambahkan (npm registry + endoflife.date, per 6 Okt 2026).
+- Section 5: 2 risiko baru -- Auth.js v5 masih beta (perlu keputusan eksplisit auth stable vs App Router-native), transisi Node LTS di tengah jadwal Phase 1.
+
+**FUNCTIONAL_BOUNDARY**
+- ERP ditambahkan sebagai sistem eksternal baru di matrix tanggung jawab dan batas detail (FR-13: WCS cuma terima & simpan, bukan planning engine).
+- 3 open item baru: update stock vs ERP, validasi kapasitas sebelum delivery, boundary antar 4 Interface Operator baru.
+
+**USE_CASE**
+- 4 aktor baru (ERP, PUDU Cloud API, Operator Produksi, Operator Box/Packaging, Operator Delivery) ditambahkan ke daftar aktor.
+- UC-13 s/d UC-16 didetailkan penuh (precondition/main flow/alternate flow/postcondition), mengikuti format UC-01 s/d UC-12.
+
+**RBAC**
+- 3 role baru ditambahkan ke Section 1 (Role & Aktor) dan matriks akses baru Section 2.1 untuk 4 modul baru.
+- Section 3: 11 aturan endpoint baru untuk modul ERP/Production Line/Packaging/Delivery.
+- Section 4: 3 open question baru, termasuk keputusan role baru vs sub-permission yang masih jadi working assumption.
+
+**openapi-smart-wcs.yaml**
+- Versi dinaikkan ke `0.4.0-proposed`. 4 tag baru (ERP Integration, Production Line Interface, Packaging Interface, Delivery Interface), 14 path baru, 10 schema baru (`ProductionPlan`, `CustomerOrder`, `ProductionLineRequestType`, `ProductionLineRequest`, `ProductionLineRequestCreateRequest`, `PackagingRequest`, `PackagingRequestCreateRequest`, `DeliveryStatus`, `DeliveryRequest`, `DeliveryRequestCreateRequest`). `Role` enum ditambah 3 nilai baru. Tervalidasi lewat `yaml.safe_load` (62 path, 54 schema total).
+
+## 2026-10-05
+
+### Revisi besar: tech stack Next.js full-stack + perluasan scope end-to-end (status: Proposed, belum dikonfirmasi)
+
+Dipicu oleh referensi arsitektur operasional (`Draft_WCS.pptx`) yang menunjukkan dua hal belum tercermin di dokumen Phase 0: (1) implementasi sudah memakai Next.js, bukan Spring Boot; (2) scope sebenarnya end-to-end dari ERP/customer order sampai delivery, bukan cuma task dispatching di dalam warehouse. **Kedua perubahan berstatus Proposed** -- PRD v0.1 belum diperbarui, menunggu konfirmasi formal Astra/Winteq sebelum Phase 1 lanjut.
+
+**ADR**
+- Section 2 (Decision summary): backend Spring Boot (Java) -> Next.js (Node.js/TypeScript); ORM Spring Data JPA -> Prisma; real-time WebSocket/STOMP -> Socket.IO/`ws` di custom Node server; MQTT client Paho -> mqtt.js; OPC UA Eclipse Milo -> node-opcua (ditandai Proposed, bukan Decided -- lihat risiko); Auth Spring Security -> Auth.js/JWT custom; frontend React+Vite -> menyatu ke Next.js yang sama dengan backend.
+- Section 1.1 baru: perluasan scope end-to-end, empat FR diusulkan (FR-13 ERP Integration, FR-14 Production Line Interface, FR-15 Packaging Interface, FR-16 Delivery-to-Customer Interface).
+- Section 3, 4, 5, 6 diperbarui: justifikasi tiap keputusan baru, tabel alternatif dibalik (Spring Boot/Milo jadi alternatif tidak dipilih), risiko baru (OPC UA node-opcua kurang matang, WebSocket butuh custom server, tim perlu ramp-up Node/TS, dua jalur demand ERP+WMS perlu functional boundary jelas), checklist next steps bertambah (PoC node-opcua, validasi custom server, konfirmasi FR baru ke PRD).
+
+**ARCHITECTURE**
+- Diagram konteks (Section 1): WCS Core disebut juga "Middleware", posisi di antara ERP dan RMS/RCS; 4 modul baru (ERP Integration, Production Line Interface, Packaging Interface, Delivery Interface) sebagai task source baru; ERP terhubung langsung (bukan garis putus-putus lewat WMS saja).
+- Tabel ISA-95 (Section 2): tambah baris Production, Packaging, Delivery.
+- Tabel interface (Section 3): 4 baris baru (ERP->WCS, Operator Produksi/Box/Delivery <-> WCS); baris existing diberi anotasi tooling baru (node-opcua, mqtt.js, Socket.IO/`ws`, Prisma).
+- Section 4: header WebSocket/STOMP -> Socket.IO/`ws`, nama topik dipertahankan sama sebagai kontrak.
+
+**ERD**
+- Kelompok baru "ERP & Production Integration Data": entity `Line`, `ProductionPlan`, `CustomerOrder`, `ProductionLineRequest`, `PackagingRequest`, `DeliveryRequest` -- semuanya di luar PRD Section 9 (beda dari entity usulan sebelumnya yang mengisi gap di PRD yang sudah ada; enam entity ini scope-nya sama sekali baru).
+- Catatan desain: pola `taskId` nullable mengikuti `MaterialRequest` yang sudah ada; open question soal `Task.source` perlu enum baru atau tidak untuk 4 task source baru ini.
+
+**API_SPECIFICATION**
+- 4 modul baru (Ringkasan Modul, UC-13 s/d UC-16, tabel endpoint per modul): ERP Integration (3 endpoint), Production Line Interface (4), Packaging Interface (3), Delivery Interface (4) -- total 14 endpoint draft, **belum masuk `openapi-smart-wcs.yaml`** sehingga total resmi masih 93 endpoint/60 schema sampai YAML direvisi.
+- Section 4: 5 schema baru (`ProductionPlan`, `CustomerOrder`, `ProductionLineRequest`, `PackagingRequest`, `DeliveryRequest`).
+
+**Belum dikerjakan (menunggu konfirmasi Astra/Winteq):**
+- Update `openapi-smart-wcs.yaml` dengan 4 modul/14 endpoint/5 schema baru di atas.
+- Update PRD v0.1 untuk memformalkan FR-13 s/d FR-16.
+- PoC `node-opcua` untuk FR-07 (lihat ADR Section 5).
+- Keputusan RBAC: role baru untuk Operator Produksi/Box/Delivery atau sub-permission dari role yang sudah ada.
+- `ADAPTER_CONTRACT.md`, `API_CONVENTIONS.md`, `TASK_STATE_MACHINE.md`, `DATA_DICTIONARY.md` belum disentuh -- perlu direview ulang terhadap perubahan stack dan scope ini.
+
+## 2026-10-02
+
+### Melengkapi Phase 0 (OpenAPI v0.3.0 → v0.4.0)
+
+Menutup gap Phase 0 hasil penilaian terhadap PRD (output: arsitektur, functional boundary, data model, API standard, aturan WES). Prinsip dari PRD; angka dan mekanisme rinci ditandai "Usulan" di masing-masing dokumen.
+
+**Dokumen baru**
+- `docs/ARCHITECTURE.md`: diagram komponen (Mermaid), pemetaan ISA-95 (PRD §4), tabel interface (PRD §10), kontrak real-time STOMP/MQTT, aturan dispatching (FR-03), target non-fungsional (PRD §8), kriteria WES lengkap Simple/Intermediate/Complex plus aturan penentuan (PRD §5.1, §5.2).
+- `docs/ADAPTER_CONTRACT.md`: interface `ExecutionAdapter`, tipe data, capability, aturan perilaku, pemetaan error ke `failureCode`, blueprint Pudu (VDA5050 vs API proprietary), checklist konformansi. (CLAUDE.md sebelumnya merujuk kontrak ini ke "ADR Section 3" yang hanya menyebut 4 nama.)
+- `docs/API_CONVENTIONS.md`: versioning, autentikasi (JWT dan API key per Integration, scope per systemType), format dan katalog error, pagination, idempotensi, kontrak event keluar ke WMS (outbox, HMAC, at-least-once).
+- `docs/DATA_DICTIONARY.md`: nilai baku enum/kode dan satuan data, dengan kolom dasar (PRD/OpenAPI/Usulan).
+
+**OpenAPI (v0.4.0, 93 endpoint, 60 schema)**
+- 16 endpoint baru: CRUD `/nodes` dan `/edges` (FR-04, UC-05); `GET /warehouse-map` (FR-09); `GET /inventory` dan `POST /inventory/sync` (FR-01); `GET /material-movements` (FR-01); `GET /tasks/{id}/missions` (FR-06, traceability); `GET /reports/alarm-pareto` (FR-10); `POST /material-requests/{id}/retry` (FR-12, UC-08); `POST /integrations/{id}/rotate-key` (FR-11).
+- 14 schema baru: `Capabilities`, `Node`, `NodeCreateRequest`, `Edge`, `EdgeCreateRequest`, `WarehouseMap`, `InventoryItem`, `InventorySyncRequest`, `InventorySyncResult`, `MaterialMovement`, `Mission`, `AlarmParetoItem`, `ApiKeyResult`, `OutboundEvent`.
+- Security scheme `apiKeyAuth` (`X-API-Key`); 10 operasi menerima JWT atau API key, `POST /inventory/sync` hanya API key.
+- Respons `401` dan `403` dideklarasikan di semua operasi yang diamankan (91 operasi); `Error` mendapat `details` dan `traceId`.
+- Pagination `page`/`pageSize` dengan respons `{items,total}` untuk `/events`, `/alarms`, `/material-requests`, dan tiga log (sebelumnya array polos); endpoint baru yang volumenya tinggi mengikuti pola yang sama.
+- `Location.nodeId`, `Equipment.capabilities` (di schema dan request); `Alarm.clearedBy/clearedAt` sudah dari entri sebelumnya.
+- KPI `metric`: ditambah `TASK_RETRY_RATE`, `TRAVEL_TIME`, `IDLE_TIME` (PRD FR-10).
+- Diverifikasi: YAML valid, 334 `$ref` terselesaikan, dan 93 operasi cocok persis (metode, path, modul) dengan `API_SPECIFICATION.md`. Schema `OutboundEvent` didokumentasikan tapi tidak dirujuk operasi mana pun (payload keluar, bukan request/response).
+
+**ERD**
+- Entity baru: `InventoryItem` (operational inventory view, FR-01; bentuknya usulan karena PRD §9 tidak mendefinisikannya) dan `OutboxEvent`.
+- Field baru: `Equipment.capabilities` (JSONB), `Mission.externalMissionId/attempt/createdAt/updatedAt`, `MaterialMovement.containerId/quantity/resourceType/resourceId` (PRD §3 Traceability: equipment dan hasil proses), `Integration.apiKeyHash/apiKeyRotatedAt`. Nilai status `Equipment` dan `Mission` diisi.
+- **V1 migration**: `equipment.capabilities JSONB NOT NULL DEFAULT '{}'` ditambahkan (V1 belum pernah dijalankan, jadi diubah langsung, bukan lewat V2).
+
+**RBAC**
+- Baris endpoint baru; `POST /tasks` dan `PATCH /tasks/{id}/status` kini lewat API key; Section 5 baru (scope API key WMS dan RCS/PLC).
+- **Keputusan dari PRD:** `POST /material-requests` hanya untuk Operator. PRD FR-12 menyebut request dibuat lewat WCS Interface dan PRD §6.1 mendefinisikan WMS sebagai pemberi *task*, bukan material request. UC-08 dan API_SPECIFICATION yang menyebut WMS sebagai aktor disesuaikan; WMS mengirim kebutuhan lewat `POST /tasks` (UC-01).
+
+**Lainnya**
+- **Use Case**: UC-08 aktor hanya Operator; UC-11 menyebut sinkronisasi inventory; baris aktor WMS diperbarui.
+- **ADR**: referensi ke `ADAPTER_CONTRACT.md`; checklist Section 6 diperbarui (draft OpenAPI, ERD, dan repo ditandai selesai; dua item review baru); Section 9 baru (daftar dokumen turunan).
+- **Functional Boundary**: area abu-abu #1 diberi catatan asumsi sementara.
+- **CLAUDE.md**: tabel dokumen wajib, aturan #5 menunjuk `ADAPTER_CONTRACT.md`, jumlah endpoint jadi 93.
+- **API_SPECIFICATION**: 93 endpoint, 60 schema, tabel modul dan pemetaan UC diperbarui.
+
+### State machine, retry, dan idempotensi task (status: diusulkan)
+
+Phase 0 gap: aturan retry/state machine dan idempotensi `POST /tasks`. Prinsipnya dari PRD (§11, FR-02, FR-03, FR-06, §8, §14); angka dan mekanisme rinci adalah usulan engineering dan ditandai begitu di dokumennya.
+
+- **Baru**: `docs/TASK_STATE_MACHINE.md` -- tabel transisi, kebijakan retry (otomatis hanya untuk kegagalan sementara, maks 3 kali, jeda 5/15/45 detik; retry manual oleh Supervisor), penanganan komunikasi putus, katalog `failureCode`, idempotensi lewat `externalRef`, daftar properti konfigurasi, dan tabel pemisah "dari PRD" vs "usulan".
+- **ERD**: `Task.externalRef` (unik bersama `source`), `Task.retryCount`, dan nilai `failureCode`.
+- **OpenAPI**: schema baru `FailureCode`; `externalRef` di `Task` dan `TaskCreateRequest`; `retryCount` di `Task`; `POST /tasks` mendapat respons 200 (duplikat identik) dan 409 (`IDEMPOTENCY_PAYLOAD_MISMATCH`); deskripsi `PATCH /tasks/{id}/status` (callback ganda), `/cancel`, dan `/retry`. Total 77 endpoint, 46 schema. YAML sudah diparse dan semua `$ref` terselesaikan.
+- **Use Case**: UC-01 menambah `externalRef` di payload dan alternate flow 1a; UC-03 alternate 6a menunjuk ke kebijakan retry.
+- **Functional Boundary**: area abu-abu #2 diberi catatan usulan sementara (status FAILED dari RCS dianggap final), belum dikonfirmasi Winteq/Pudu.
+- **API_SPECIFICATION**: jumlah schema jadi 46, field Task diperbarui. **CLAUDE.md**: dokumen baru masuk tabel dokumen wajib.
+- Belum ditentukan: nilai timeout dan durasi RUNNING per `taskType`, serta apakah RCS sudah reassign robot lain sebelum melapor FAILED.
+
+### Sinkronisasi ERD dengan OpenAPI v0.3.0
+
+Phase 0 gap A (lihat penilaian Phase 0 di percakapan): schema OpenAPI yang belum punya padanan di ERD.
+
+**ERD -- entity baru**
+- `MaterialRequest` (PRD FR-12, UC-08). Nilai `status` masih mengikuti OpenAPI sementara (keputusan terbuka).
+- `Discrepancy` (PRD FR-01, UC-11).
+- `Integration` (UC-10), dengan `credentials` JSONB terenkripsi dan write-only. Ditempatkan di Security Data karena di luar daftar entity PRD 9.1-9.4; bukan bagian migration V1.
+- `DiagnosticLog` tidak dibuat sebagai tabel: tampilan atas `Event` dengan sourceType EQUIPMENT/ROBOT.
+
+**ERD -- field baru atau diubah**
+- `Event.errorCode` (nullable); `Event.sourceType` dinormalkan ke huruf besar EQUIPMENT/ROBOT/TASK.
+- `Alarm.clearedBy`, `Alarm.clearedAt` -- UC-06 langkah 7 mencatat waktu clear tapi tidak ada kolomnya.
+- `EquipmentStatus.x, y` -- sudah ada di OpenAPI (PRD FR-09), belum di ERD.
+- `RobotStatus.currentTaskId` -- sudah ada di OpenAPI, belum di ERD.
+- `IntegrationLog`: `systemName` diganti `integrationId` (FK Integration); ditambah `status`, `errorMessage`; `direction` jadi INBOUND/OUTBOUND.
+- `User`: ditambah `fullName`, `active`, `createdAt`. `Role.name`: 5 nilai tetap sesuai enum OpenAPI.
+- `AuditLog`: `userId` jadi nullable (login gagal); ditambah `username`, `targetType`, `targetId`, `result`, `ipAddress`; `details` diganti `beforeValue`/`afterValue`.
+- Catatan desain: daftar kolom JSONB diperbarui; catatan bahwa operational inventory view (PRD FR-01) belum dimodelkan karena PRD §9 tidak mendefinisikan entity-nya.
+
+**OpenAPI**
+- `Alarm`: ditambah `clearedBy`, `clearedAt`.
+
+**Dampak ke implementasi**
+- `V1__init_master_data.sql` tidak terpengaruh (hanya 10 tabel master data PRD 9.1). Entity baru di atas masuk migration V2 dan seterusnya.
+
+### Implementasi: migration master data
+
+- **Baru**: `backend/src/main/resources/db/migration/V1__init_master_data.sql` -- 10 tabel master data (warehouse, zone, node, location, edge, material, equipment, robot, station, route) mengikuti ERD terbaru, termasuk `location.node_id`, `station.location_id/name`, dan Route berbasis Location.
+- Keputusan yang tidak ditentukan ERD/PRD, ditulis di komentar SQL agar bisa ditinjau: `UNIQUE (zone_id, code)` pada location, `UNIQUE` pada `material.sku`, `UNIQUE` pada route (zone, from, to, resource_type), CHECK `from <> to` pada edge dan route, CHECK nilai `station_type` dan `resource_type`, default `equipment.status = 'OFFLINE'`, FK `ON DELETE RESTRICT`.
+- Belum divalidasi ke Postgres sungguhan (Docker Desktop engine tidak merespons saat dicoba). Jalankan lewat `docker compose up` atau `mvn spring-boot:run` untuk memastikan Flyway menerimanya.
+- **CLAUDE.md, README.md**: status implementasi diperbarui (V1 sudah ada; V2 dst. untuk tabel Transaction/Event/Security masuk daftar "Belum ada").
+
+### Rekonsiliasi dokumen dengan PRD v0.1
+
+**ADR**
+- Baris VDA5050 di tabel keputusan: dari "dikonfirmasi didukung native" menjadi standar acuan opsional per vendor (Pudu T600 native, T300 belum terverifikasi). Kalimat terkait di Section 3 disesuaikan. -- PRD §13 "jika diperlukan", §10 WCS-RCS "vendor API".
+- Backend: "Java 17/21 LTS" menjadi "Spring Boot 3.3.4 (Java 21 LTS)". Checklist Section 6 diubah jadi konfirmasi ke tim Astra. -- `backend/pom.xml` sudah Java 21.
+
+**ERD**
+- Task: ditambah kolom `source` (WMS/WES/MANUAL/API) beserta catatan bahwa `source`/`destination` di PRD 9.5 berarti lokasi asal/tujuan. -- PRD FR-02, §9.5, §11.
+- Station: ditambah `locationId` (FK Location), `name`, dan nilai `stationType` (PICKUP/DROPOFF/CHARGING/STAGING). -- PRD §9.5 "location/station", OpenAPI.
+- Alarm.status: dari "Active/Acknowledge/Clear" menjadi `ACTIVE/ACKNOWLEDGED/CLEARED`. -- PRD FR-08, OpenAPI.
+
+**Functional Boundary**
+- Baris "Task priority & scheduling lintas-proses" dipecah: penentuan prioritas (WMS Ya, WES Ya saat ada) dan scheduling/batching (WES saja). -- PRD §4, §5.1.
+
+**Use Case**
+- UC-11: status `DONE` menjadi `COMPLETED`. -- PRD §11.
+- UC-05: pelaku di ringkasan dari "Supervisor" menjadi "WCS Administrator". -- PRD §6.1.
+
+**RBAC**
+- Maintenance/Engineer dikeluarkan dari `POST /alarms/{id}/acknowledge` dan `POST /alarms/{id}/clear` agar konsisten dengan matriks Section 2 dan catatan Section 4. -- PRD §6.1 (Maintenance "mengecek" alarm).
+- Jumlah modul 11 menjadi 12, versi spec v0.2.0 menjadi v0.3.0. Catatan "belum ada endpoint" untuk password self-service dan audit log dihapus.
+- Ditambah baris matriks dan endpoint untuk Audit & Security Log (Administrator dan Supervisor Read). -- UC-12, OpenAPI v0.3.0.
+- Ditambah keputusan terbuka #4 (siapa boleh clear alarm, bentrok dengan UC-06 langkah 6) dan #5 (cakupan audit log Supervisor).
+
+**OpenAPI**
+- `IntegrationProtocol`: ditambah `MODBUS_TCP`. -- PRD FR-07.
+- Deskripsi server: referensi "ADR Section 4" dibetulkan ke "ADR Section 7".
+
+**API_SPECIFICATION / CLAUDE.md**
+- Jumlah modul 13 menjadi 12 (dihitung dari tag OpenAPI).
+- CLAUDE.md: klaim `V1__init_master_data.sql` "sudah ada" dihapus dan dipindah ke daftar "Belum ada". -- file tidak ada di repo; README sudah benar.
+
+### Penambahan untuk kebutuhan PRD yang belum tercakup
+
+- **ERD**: tabel baru `TaskStatusHistory` (historyId, taskId, fromStatus, toStatus, reason, changedBy, changedAt). -- PRD FR-02 "history dan timestamp setiap perubahan status", §14 Traceability.
+- **OpenAPI**: endpoint baru `GET /tasks/{taskId}/history` dan schema `TaskStatusHistory`. Total 77 endpoint, 45 schema.
+- **ERD & OpenAPI**: field `eventType` pada `Event`. -- PRD FR-08 "ID, waktu, sumber, jenis, severity, pesan".
+- **API_SPECIFICATION / CLAUDE.md**: angka disesuaikan menjadi 77 endpoint, 45 schema; Task Management 7 endpoint.
+
+### Skema Route dan peta
+
+- **ERD**: Route dari berbasis Node (`originNodeId`/`destinationNodeId`) menjadi berbasis Location (`zoneId`, `fromLocationId`, `toLocationId`, `resourceType`, `isActive`), sesuai OpenAPI. -- PRD §9.5 (task menunjuk Location/Station), FR-04 (path planning AMR oleh RCS).
+- **ERD**: `Location.nodeId` (FK Node, nullable) ditambahkan sebagai penghubung Location dengan graf peta Node/Edge. -- PRD FR-09 (warehouse map dan posisi robot).
+- **ERD**: catatan desain baru tentang pemisahan Route (Location) dan peta (Node/Edge). `RobotStatus.lastNodeId` sengaja ditunda sampai protokol adapter Pudu jelas.
+- OpenAPI tidak berubah; endpoint Node/Edge ditambah saat peta dikerjakan.
+
+### Masih terbuka (belum diputuskan)
+
+- Siapa yang boleh clear alarm: Supervisor saja (RBAC) atau juga Operator (UC-06 langkah 6).
+- Akses audit log untuk Supervisor.
+- Status Material Request: set UC-08 (PENDING/VALIDATED/TASK_CREATED/REJECTED/FAILED) atau `TaskStatus` seperti OpenAPI sekarang.
+- PRD internal: penamaan Phase 2-4 berbeda antara §13 (roadmap) dan §13.1 (jadwal); KPI FR-10 memuat metrik (travel/idle time, retry rate, alarm Pareto) yang tidak ada di tabel §12 (OpenAPI mengikuti FR-10 yang lebih lengkap).
+- Akses Maintenance ke `GET /tasks/{taskId}/history` dan `/missions` (saat ini mengikuti modul Task Management: None).
+- **Menunggu konfirmasi Astra/Winteq/Pudu** (dokumen sudah memuat usulan awal, ditandai "Usulan"):
+  - Angka target non-fungsional (`ARCHITECTURE.md` bagian 6).
+  - Kebijakan retry, timeout, dan masa tenggang komunikasi (`TASK_STATE_MACHINE.md`); apakah RCS Pudu sudah reassign robot lain sebelum melapor FAILED.
+  - Ambang battery dispatch dan siapa yang memutuskan charging (Functional Boundary, area abu-abu #1).
+  - Model Pudu (T300/T600) dan dukungan VDA5050; detail protokol per vendor (`ADAPTER_CONTRACT.md` bagian 7, 9).
+  - 5 area abu-abu Functional Boundary lainnya (retry di layer mana, traffic multi-vendor, staleness inventory, konflik safety vs throughput).
+  - Bentuk `InventoryItem` (PRD tidak mendefinisikan entity ini), cakupan scope API key, mekanisme HMAC pada event keluar.
+  - Review seluruh dokumen Phase 0 oleh tim engineering (ADR masih Draft).
+  - Penilaian kategori WES per project (`ARCHITECTURE.md` bagian 7).

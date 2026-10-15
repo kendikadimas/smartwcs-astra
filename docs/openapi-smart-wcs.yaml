@@ -1,0 +1,2023 @@
+openapi: 3.0.3
+info:
+  title: Smart WCS Platform API
+  version: "0.4.0-proposed"
+  description: >
+    API draft untuk Smart WCS Platform (Astra Otoparts - Divisi Winteq), Phase 0.
+    Mengacu ke PRD v0.2 - revisi (duplikat PRD v0.1, 23 Sep 2026, + tambahan
+    scope end-to-end) Section 7 (Functional Requirements), Section 9.5
+    (Minimum Task Object), Section 10 (Integration & Interface Requirements),
+    Section 11 (Task State Machine), dan Section 6 (Users & External System -
+    8 aktor manusia: Warehouse Operator, Warehouse Supervisor, WCS
+    Administrator, Maintenance/Engineer, System Integrator, Operator Produksi,
+    Operator Box/Packaging, Operator Delivery; sistem eksternal: WMS, RCS,
+    PLC/Equipment Controller, ERP, PUDU Cloud API). Scope Simple: WMS -> WCS
+    langsung, tanpa WES. v0.2.0 menambahkan endpoint untuk Use Case Doc UC-09
+    (diagnosa equipment & koneksi) dan UC-10 (konfigurasi & troubleshooting
+    integrasi sistem), kelola user & role, serta melengkapi CRUD master data
+    (route, station, update/delete). v0.3.0 menambahkan audit log (FR-11,
+    UC-12), discrepancy notification inventory (FR-01, UC-11), dan field
+    posisi (x/y) pada EquipmentStatus (FR-09).
+
+    **v0.4.0-proposed [Revisi 2026-10-05]** menambahkan 4 modul untuk scope
+    end-to-end ERP-to-delivery yang diusulkan di ADR.md Section 1.1: ERP
+    Integration (FR-13, UC-13), Production Line Interface (FR-14, UC-14),
+    Packaging Interface (FR-15, UC-15), Delivery Interface (FR-16, UC-16).
+    **Status endpoint di modul-modul ini masih usulan**, menunggu konfirmasi
+    resmi dari Astra/Winteq sebelum dianggap kontrak final - lihat PRD v0.2
+    Section 15 "Open Items". Role PRODUCTION_OPERATOR, PACKAGING_OPERATOR,
+    dan DELIVERY_OPERATOR yang menyertainya juga berstatus usulan (RBAC.md
+    belum final soal role baru vs sub-permission).
+servers:
+  - url: https://wcs.local/api/v1
+    description: WCS Core, on-premise LAN warehouse (lihat ADR Section 4)
+
+tags:
+  - name: Auth
+    description: FR-11 Security & Audit
+  - name: User & Role Management
+    description: FR-11 Kelola user & role (aktor WCS Administrator, UC-05)
+  - name: Master Data
+    description: FR-01 Master Data and Inventory Visibility
+  - name: Equipment & Robot
+    description: FR-05, FR-06, FR-07 Equipment/AMR/PLC Integration
+  - name: Task Management
+    description: FR-02, FR-03, FR-04 Task, Dispatching, Routing
+  - name: Event & Alarm
+    description: FR-08 Event and Alarm Management
+  - name: Monitoring
+    description: FR-09 Monitoring
+  - name: Diagnostics
+    description: Riwayat error/log equipment & robot untuk troubleshooting (aktor Maintenance/Engineer, UC-09)
+  - name: Integration Config
+    description: Konfigurasi, test koneksi, dan log integrasi ke WMS/RCS/PLC (aktor System Integrator, UC-10)
+  - name: KPI and Reporting
+    description: FR-10 Reporting and KPI
+  - name: Material Request
+    description: FR-12 Material Request / Shopping
+  - name: Audit & Security Log
+    description: FR-11 Audit log perubahan konfigurasi dan aktivitas penting pengguna (UC-12)
+  - name: ERP Integration
+    description: >-
+      [Revisi 2026-10-05, Usulan] FR-13 Sinkronisasi Planning Produksi dan
+      Order Delivery dari ERP (UC-13)
+  - name: Production Line Interface
+    description: >-
+      [Revisi 2026-10-05, Usulan] FR-14 Request raw material dan serah-terima
+      finish good dari Operator Produksi (UC-14)
+  - name: Packaging Interface
+    description: >-
+      [Revisi 2026-10-05, Usulan] FR-15 Request packaging/box dari Operator
+      Box/Packaging (UC-15)
+  - name: Delivery Interface
+    description: >-
+      [Revisi 2026-10-05, Usulan] FR-16 Calling robot delivery dan tracking
+      pengiriman ke customer dari Operator Delivery (UC-16)
+
+security:
+  - bearerAuth: []
+
+paths:
+  # ---------- Auth (FR-11) ----------
+  /auth/login:
+    post:
+      tags: [Auth]
+      summary: Login dan terima JWT
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, password]
+              properties:
+                username: { type: string }
+                password: { type: string, format: password }
+      responses:
+        "200":
+          description: Login berhasil
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  accessToken: { type: string }
+                  expiresIn: { type: integer, example: 3600 }
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ---------- User & Role Management (FR-11, UC-05) ----------
+  /users:
+    get:
+      tags: [User & Role Management]
+      summary: List user
+      parameters:
+        - { name: roleId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/User" }
+    post:
+      tags: [User & Role Management]
+      summary: Buat user baru (hanya WCS Administrator)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserCreateRequest" }
+      responses:
+        "201":
+          description: Dibuat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+
+  /users/{userId}:
+    parameters:
+      - { name: userId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [User & Role Management]
+      summary: Detail user
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [User & Role Management]
+      summary: Update user (role, status aktif, dll)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/UserUpdateRequest" }
+      responses:
+        "200":
+          description: Diperbarui
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/User" }
+    delete:
+      tags: [User & Role Management]
+      summary: Nonaktifkan user
+      responses:
+        "204":
+          description: User dinonaktifkan
+
+  /roles:
+    get:
+      tags: [User & Role Management]
+      summary: List role yang tersedia (Warehouse Operator, Warehouse Supervisor, WCS Administrator, Maintenance/Engineer, System Integrator)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Role" }
+
+  # ---------- Master Data (FR-01) ----------
+  /warehouses:
+    get:
+      tags: [Master Data]
+      summary: List warehouse
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Warehouse" }
+    post:
+      tags: [Master Data]
+      summary: Buat warehouse baru
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WarehouseCreateRequest" }
+      responses:
+        "201":
+          description: Dibuat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Warehouse" }
+
+  /warehouses/{warehouseId}:
+    parameters:
+      - { name: warehouseId, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      tags: [Master Data]
+      summary: Ubah data warehouse
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/WarehouseCreateRequest" }
+      responses:
+        "200":
+          description: Diperbarui
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Warehouse" }
+    delete:
+      tags: [Master Data]
+      summary: Hapus warehouse (hanya jika tidak punya zone aktif)
+      responses:
+        "204":
+          description: Dihapus
+
+  /zones:
+    get:
+      tags: [Master Data]
+      summary: List zone, bisa difilter per warehouse
+      parameters:
+        - { name: warehouseId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Zone" }
+    post:
+      tags: [Master Data]
+      summary: Buat zone baru
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ZoneCreateRequest" }
+      responses:
+        "201":
+          description: Dibuat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Zone" }
+
+  /zones/{zoneId}:
+    parameters:
+      - { name: zoneId, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      tags: [Master Data]
+      summary: Ubah data zone
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ZoneCreateRequest" }
+      responses:
+        "200":
+          description: Diperbarui
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Zone" }
+    delete:
+      tags: [Master Data]
+      summary: Hapus zone
+      responses:
+        "204":
+          description: Dihapus
+
+  /locations:
+    get:
+      tags: [Master Data]
+      summary: List location, bisa difilter per zone
+      parameters:
+        - { name: zoneId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Location" }
+    post:
+      tags: [Master Data]
+      summary: Buat location baru
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LocationCreateRequest" }
+      responses:
+        "201":
+          description: Dibuat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Location" }
+
+  /locations/{locationId}:
+    parameters:
+      - { name: locationId, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      tags: [Master Data]
+      summary: Ubah data location
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/LocationCreateRequest" }
+      responses:
+        "200":
+          description: Diperbarui
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Location" }
+    delete:
+      tags: [Master Data]
+      summary: Hapus location
+      responses:
+        "204":
+          description: Dihapus
+
+  /routes:
+    get:
+      tags: [Master Data]
+      summary: List route antar lokasi
+      parameters:
+        - { name: zoneId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Route" }
+    post:
+      tags: [Master Data]
+      summary: Buat route baru
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RouteCreateRequest" }
+      responses:
+        "201":
+          description: Dibuat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Route" }
+
+  /routes/{routeId}:
+    parameters:
+      - { name: routeId, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      tags: [Master Data]
+      summary: Ubah data route
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RouteCreateRequest" }
+      responses:
+        "200":
+          description: Diperbarui
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Route" }
+    delete:
+      tags: [Master Data]
+      summary: Hapus route
+      responses:
+        "204":
+          description: Dihapus
+
+  /stations:
+    get:
+      tags: [Master Data]
+      summary: List station (titik pickup/dropoff/charging)
+      parameters:
+        - { name: zoneId, in: query, schema: { type: string, format: uuid } }
+        - { name: stationType, in: query, schema: { type: string, enum: [PICKUP, DROPOFF, CHARGING, STAGING] } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Station" }
+    post:
+      tags: [Master Data]
+      summary: Buat station baru
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StationCreateRequest" }
+      responses:
+        "201":
+          description: Dibuat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Station" }
+
+  /stations/{stationId}:
+    parameters:
+      - { name: stationId, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      tags: [Master Data]
+      summary: Ubah data station
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/StationCreateRequest" }
+      responses:
+        "200":
+          description: Diperbarui
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Station" }
+    delete:
+      tags: [Master Data]
+      summary: Hapus station
+      responses:
+        "204":
+          description: Dihapus
+
+  /materials:
+    get:
+      tags: [Master Data]
+      summary: List material
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Material" }
+    post:
+      tags: [Master Data]
+      summary: Buat master material baru
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MaterialCreateRequest" }
+      responses:
+        "201":
+          description: Dibuat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Material" }
+
+  /materials/{materialId}:
+    parameters:
+      - { name: materialId, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      tags: [Master Data]
+      summary: Ubah data material
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MaterialCreateRequest" }
+      responses:
+        "200":
+          description: Diperbarui
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Material" }
+    delete:
+      tags: [Master Data]
+      summary: Hapus material
+      responses:
+        "204":
+          description: Dihapus
+
+  # ---------- Equipment & Robot (FR-05, FR-06, FR-07) ----------
+  /equipment:
+    get:
+      tags: [Equipment & Robot]
+      summary: List equipment, bisa difilter per zone/status
+      parameters:
+        - { name: zoneId, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Equipment" }
+    post:
+      tags: [Equipment & Robot]
+      summary: Daftarkan equipment baru (FR-05)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EquipmentCreateRequest" }
+      responses:
+        "201":
+          description: Dibuat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Equipment" }
+
+  /equipment/{equipmentId}:
+    parameters:
+      - { name: equipmentId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Equipment & Robot]
+      summary: Detail equipment
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Equipment" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Equipment & Robot]
+      summary: Update konfigurasi equipment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/EquipmentUpdateRequest" }
+      responses:
+        "200":
+          description: Diperbarui
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Equipment" }
+    delete:
+      tags: [Equipment & Robot]
+      summary: Hapus/nonaktifkan equipment
+      responses:
+        "204":
+          description: Dihapus
+
+  /equipment/{equipmentId}/status:
+    parameters:
+      - { name: equipmentId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Equipment & Robot]
+      summary: Status real-time equipment (FR-09)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/EquipmentStatus" }
+
+  /robots:
+    get:
+      tags: [Equipment & Robot]
+      summary: List robot/AMR terdaftar (FR-06)
+      parameters:
+        - { name: zoneId, in: query, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Robot" }
+    post:
+      tags: [Equipment & Robot]
+      summary: Daftarkan robot baru lewat Adapter (FR-06)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RobotCreateRequest" }
+      responses:
+        "201":
+          description: Dibuat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Robot" }
+
+  /robots/{robotId}:
+    parameters:
+      - { name: robotId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Equipment & Robot]
+      summary: Detail robot
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Robot" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Equipment & Robot]
+      summary: Update konfigurasi robot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/RobotCreateRequest" }
+      responses:
+        "200":
+          description: Diperbarui
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Robot" }
+    delete:
+      tags: [Equipment & Robot]
+      summary: Hapus/nonaktifkan robot
+      responses:
+        "204":
+          description: Dihapus
+
+  /robots/{robotId}/status:
+    parameters:
+      - { name: robotId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Equipment & Robot]
+      summary: Status real-time robot - posisi, battery, mission aktif (FR-06, FR-09)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/RobotStatus" }
+
+  /equipment/{equipmentId}/logs:
+    parameters:
+      - { name: equipmentId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Diagnostics]
+      summary: Riwayat error/event equipment untuk troubleshooting (UC-09, aktor Maintenance/Engineer)
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: severity, in: query, schema: { type: string, enum: [INFO, WARNING, ERROR, CRITICAL] } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DiagnosticLog" }
+
+  /robots/{robotId}/logs:
+    parameters:
+      - { name: robotId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Diagnostics]
+      summary: Riwayat error/event robot untuk troubleshooting (UC-09, aktor Maintenance/Engineer)
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: severity, in: query, schema: { type: string, enum: [INFO, WARNING, ERROR, CRITICAL] } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DiagnosticLog" }
+
+  # ---------- Task Management (FR-02, FR-03, FR-04) ----------
+  /tasks:
+    post:
+      tags: [Task Management]
+      summary: Buat task baru (dari WMS, WES, atau manual request)
+      description: >
+        Task source bersifat agnostic sesuai FR-02 - field `source` menandai
+        asal task (WMS/WES/MANUAL/API) tanpa mengubah skema request.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/TaskCreateRequest" }
+      responses:
+        "201":
+          description: Task dibuat, status awal CREATED
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "400":
+          $ref: "#/components/responses/BadRequest"
+    get:
+      tags: [Task Management]
+      summary: List/query task
+      parameters:
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/TaskStatus" } }
+        - { name: zoneId, in: query, schema: { type: string, format: uuid } }
+        - { name: priority, in: query, schema: { type: integer } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 20 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/Task" }
+                  total: { type: integer }
+
+  /tasks/{taskId}:
+    parameters:
+      - { name: taskId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Task Management]
+      summary: Detail task
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /tasks/{taskId}/status:
+    parameters:
+      - { name: taskId, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      tags: [Task Management]
+      summary: Transisi status task sesuai state machine (PRD Section 11)
+      description: >
+        Transisi valid: CREATED->VALIDATED->QUEUED->ASSIGNED->DISPATCHED->
+        RUNNING->COMPLETED|FAILED, FAILED->RETRY->QUEUED. Status apa pun
+        bisa pindah ke CANCELLED selama task belum selesai.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: "#/components/schemas/TaskStatus" }
+                failureCode: { type: string, nullable: true }
+                assignedResourceId: { type: string, format: uuid, nullable: true }
+                resourceType: { $ref: "#/components/schemas/ResourceType" }
+      responses:
+        "200":
+          description: Status diperbarui
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+        "409":
+          description: Transisi status tidak valid
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Error" }
+
+  /tasks/{taskId}/cancel:
+    parameters:
+      - { name: taskId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [Task Management]
+      summary: Batalkan task (FR-02)
+      responses:
+        "200":
+          description: Task dibatalkan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+
+  /tasks/{taskId}/retry:
+    parameters:
+      - { name: taskId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [Task Management]
+      summary: Retry task yang FAILED (FR-02, FR-03)
+      responses:
+        "200":
+          description: Task dikirim ulang ke antrian (QUEUED)
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Task" }
+
+  # ---------- Event & Alarm (FR-08) ----------
+  /events:
+    get:
+      tags: [Event & Alarm]
+      summary: List event
+      parameters:
+        - { name: severity, in: query, schema: { type: string, enum: [INFO, WARNING, ERROR, CRITICAL] } }
+        - { name: sourceType, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Event" }
+
+  /alarms:
+    get:
+      tags: [Event & Alarm]
+      summary: List alarm
+      parameters:
+        - { name: status, in: query, schema: { type: string, enum: [ACTIVE, ACKNOWLEDGED, CLEARED] } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Alarm" }
+
+  /alarms/{alarmId}/acknowledge:
+    parameters:
+      - { name: alarmId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [Event & Alarm]
+      summary: Acknowledge alarm oleh operator
+      responses:
+        "200":
+          description: Alarm diakui
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Alarm" }
+
+  /alarms/{alarmId}/clear:
+    parameters:
+      - { name: alarmId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [Event & Alarm]
+      summary: Clear/reset alarm
+      responses:
+        "200":
+          description: Alarm dibersihkan
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Alarm" }
+
+  # ---------- Monitoring (FR-09) ----------
+  /monitoring/overview:
+    get:
+      tags: [Monitoring]
+      summary: Ringkasan kondisi warehouse real-time (task, equipment, alarm)
+      parameters:
+        - { name: warehouseId, in: query, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  activeTasks: { type: integer }
+                  queuedTasks: { type: integer }
+                  equipmentOnline: { type: integer }
+                  equipmentOffline: { type: integer }
+                  activeAlarms: { type: integer }
+
+  /monitoring/connections:
+    get:
+      tags: [Monitoring]
+      summary: Status koneksi WCS ke sistem/equipment lain (FR-09)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+                  properties:
+                    systemName: { type: string, example: "Pudu RCS" }
+                    status: { type: string, enum: [CONNECTED, DISCONNECTED, DEGRADED] }
+                    lastSeenAt: { type: string, format: date-time }
+
+  # ---------- Integration Config (UC-10, System Integrator) ----------
+  /integrations:
+    get:
+      tags: [Integration Config]
+      summary: List koneksi integrasi ke sistem eksternal (WMS, RCS, PLC)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Integration" }
+    post:
+      tags: [Integration Config]
+      summary: Daftarkan koneksi integrasi baru (hanya System Integrator)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IntegrationCreateRequest" }
+      responses:
+        "201":
+          description: Dibuat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Integration" }
+
+  /integrations/{integrationId}:
+    parameters:
+      - { name: integrationId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Integration Config]
+      summary: Detail konfigurasi integrasi
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Integration" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+    patch:
+      tags: [Integration Config]
+      summary: Ubah konfigurasi integrasi (endpoint, kredensial, parameter protokol)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IntegrationUpdateRequest" }
+      responses:
+        "200":
+          description: Diperbarui
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Integration" }
+    delete:
+      tags: [Integration Config]
+      summary: Hapus konfigurasi integrasi
+      responses:
+        "204":
+          description: Dihapus
+
+  /integrations/{integrationId}/test:
+    parameters:
+      - { name: integrationId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [Integration Config]
+      summary: Test/ping koneksi ke sistem eksternal (UC-10)
+      responses:
+        "200":
+          description: Hasil test koneksi
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/IntegrationTestResult" }
+
+  /integrations/{integrationId}/logs:
+    parameters:
+      - { name: integrationId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Integration Config]
+      summary: Log percobaan koneksi & pertukaran pesan untuk troubleshooting (UC-10)
+      parameters:
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: status, in: query, schema: { type: string, enum: [SUCCESS, FAILED] } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/IntegrationLog" }
+
+  # ---------- KPI & Reporting (FR-10) ----------
+  /reports/summary:
+    get:
+      tags: [KPI and Reporting]
+      summary: Ringkasan laporan gabungan untuk Supervisor (UC-07) - beberapa metric sekaligus plus breakdown per zone/equipment
+      parameters:
+        - { name: warehouseId, in: query, required: true, schema: { type: string, format: uuid } }
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ReportSummary" }
+
+  /kpi:
+    get:
+      tags: [KPI and Reporting]
+      summary: Ambil nilai KPI (throughput, completion rate, dll)
+      parameters:
+        - name: metric
+          in: query
+          required: true
+          schema:
+            type: string
+            enum:
+              - TASK_THROUGHPUT
+              - TASK_COMPLETION_RATE
+              - TASK_CYCLE_TIME
+              - TASK_WAITING_TIME
+              - TASK_FAILURE_RATE
+              - EQUIPMENT_UTILIZATION
+              - AMR_UTILIZATION
+              - ALARM_RATE
+        - { name: from, in: query, required: true, schema: { type: string, format: date-time } }
+        - { name: to, in: query, required: true, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  metric: { type: string }
+                  value: { type: number }
+                  unit: { type: string, example: "percent" }
+
+  # ---------- Material Request (FR-12) ----------
+  /material-requests:
+    post:
+      tags: [Material Request]
+      summary: Buat permintaan material lewat WCS Interface (FR-12)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/MaterialRequestCreateRequest" }
+      responses:
+        "201":
+          description: Request dibuat, task eksekusi otomatis dibuat di belakang layar
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MaterialRequest" }
+    get:
+      tags: [Material Request]
+      summary: List material request
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/MaterialRequest" }
+
+  /material-requests/{requestId}:
+    parameters:
+      - { name: requestId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Material Request]
+      summary: Status material request
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/MaterialRequest" }
+
+  # ---------- Discrepancy / Inventory Reconciliation (FR-01, UC-11) ----------
+  /discrepancies:
+    get:
+      tags: [Master Data]
+      summary: List discrepancy antara hasil eksekusi task WCS dan data WMS (FR-01, UC-11)
+      parameters:
+        - { name: taskId, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { type: string, enum: [OPEN, NOTIFIED, RESOLVED] } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/Discrepancy" }
+
+  /discrepancies/{discrepancyId}:
+    parameters:
+      - { name: discrepancyId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Master Data]
+      summary: Detail discrepancy
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Discrepancy" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /discrepancies/{discrepancyId}/notify:
+    parameters:
+      - { name: discrepancyId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [Master Data]
+      summary: Kirim/kirim-ulang notifikasi discrepancy ke WMS (FR-01)
+      responses:
+        "200":
+          description: Notifikasi terkirim ke WMS
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Discrepancy" }
+
+  /discrepancies/{discrepancyId}/resolve:
+    parameters:
+      - { name: discrepancyId, in: path, required: true, schema: { type: string, format: uuid } }
+    post:
+      tags: [Master Data]
+      summary: Tandai discrepancy sudah direkonsiliasi
+      responses:
+        "200":
+          description: Discrepancy ditandai resolved
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Discrepancy" }
+
+  # ---------- Audit & Security Log (FR-11, UC-12) ----------
+  /audit-logs:
+    get:
+      tags: [Audit & Security Log]
+      summary: List audit log perubahan konfigurasi dan aktivitas penting pengguna (FR-11, UC-12)
+      parameters:
+        - { name: userId, in: query, schema: { type: string, format: uuid } }
+        - { name: action, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: page, in: query, schema: { type: integer, default: 1 } }
+        - { name: pageSize, in: query, schema: { type: integer, default: 20 } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  items:
+                    type: array
+                    items: { $ref: "#/components/schemas/AuditLog" }
+                  total: { type: integer }
+
+  /audit-logs/{auditLogId}:
+    parameters:
+      - { name: auditLogId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Audit & Security Log]
+      summary: Detail satu entry audit log
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/AuditLog" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /users/me/password:
+    patch:
+      tags: [Auth]
+      summary: Ubah password akun sendiri (self-service, FR-11)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [oldPassword, newPassword]
+              properties:
+                oldPassword: { type: string, format: password }
+                newPassword: { type: string, format: password }
+      responses:
+        "200":
+          description: Password diperbarui
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  # ====================================================================
+  # [Revisi 2026-10-05, Usulan] Scope end-to-end ERP -> Delivery.
+  # Lihat ADR.md Section 1.1 dan API_SPECIFICATION.md. Belum dikonfirmasi
+  # resmi oleh Astra/Winteq - kontrak di bawah ini bisa berubah.
+  # ====================================================================
+
+  # ---------- ERP Integration (FR-13, UC-13) ----------
+  /erp/production-plans:
+    get:
+      tags: [ERP Integration]
+      summary: List Planning Produksi per shift yang sudah disinkronkan dari ERP (FR-13)
+      parameters:
+        - { name: lineId, in: query, schema: { type: string } }
+        - { name: shiftDate, in: query, schema: { type: string, format: date } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ProductionPlan" }
+
+  /erp/customer-orders:
+    get:
+      tags: [ERP Integration]
+      summary: List Order Delivery dari ERP (FR-13)
+      parameters:
+        - { name: status, in: query, schema: { type: string } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/CustomerOrder" }
+
+  /erp/sync:
+    post:
+      tags: [ERP Integration]
+      summary: >-
+        Trigger sinkronisasi manual/webhook dari ERP (Get Method, lihat
+        ARCHITECTURE.md Section 3); dipanggil ERP atau dijadwalkan WCS
+      responses:
+        "200":
+          description: Sinkronisasi selesai
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  productionPlansSynced: { type: integer }
+                  customerOrdersSynced: { type: integer }
+                  syncedAt: { type: string, format: date-time }
+
+  # ---------- Production Line Interface (FR-14, UC-14) ----------
+  /production-line/material-requests:
+    post:
+      tags: [Production Line Interface]
+      summary: Operator Produksi request raw material (tipe, qty, line) ke warehouse (FR-14)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/ProductionLineRequestCreateRequest" }
+      responses:
+        "201":
+          description: Request dibuat, diteruskan ke Warehouse Operator
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProductionLineRequest" }
+
+  /production-line/finish-goods:
+    post:
+      tags: [Production Line Interface]
+      summary: >-
+        Notifikasi finish produksi percycle -> trigger calling AMR untuk
+        pick-drop finish good ke Packaging (FR-14)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [lineId, materialId, quantity]
+              properties:
+                lineId: { type: string }
+                materialId: { type: string, format: uuid }
+                quantity: { type: number }
+      responses:
+        "201":
+          description: Request finish-good pickup dibuat, calling robot dipicu
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProductionLineRequest" }
+
+  /production-line/requests:
+    get:
+      tags: [Production Line Interface]
+      summary: List request per line/shift
+      parameters:
+        - { name: lineId, in: query, schema: { type: string } }
+        - { name: requestType, in: query, schema: { $ref: "#/components/schemas/ProductionLineRequestType" } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/ProductionLineRequest" }
+
+  /production-line/requests/{requestId}:
+    parameters:
+      - { name: requestId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Production Line Interface]
+      summary: Status request (material atau finish good pickup)
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/ProductionLineRequest" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------- Packaging Interface (FR-15, UC-15) ----------
+  /packaging/requests:
+    post:
+      tags: [Packaging Interface]
+      summary: Request box packaging untuk finish good (FR-15)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/PackagingRequestCreateRequest" }
+      responses:
+        "201":
+          description: Request dibuat
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PackagingRequest" }
+    get:
+      tags: [Packaging Interface]
+      summary: List packaging request
+      parameters:
+        - { name: status, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/PackagingRequest" }
+
+  /packaging/requests/{requestId}:
+    parameters:
+      - { name: requestId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Packaging Interface]
+      summary: Status packaging request
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/PackagingRequest" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  # ---------- Delivery Interface (FR-16, UC-16) ----------
+  /delivery/requests:
+    post:
+      tags: [Delivery Interface]
+      summary: >-
+        Operator Delivery calling robot untuk proses pengiriman, terhubung
+        ke CustomerOrder (FR-16)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/DeliveryRequestCreateRequest" }
+      responses:
+        "201":
+          description: Delivery request dibuat, calling robot dipicu
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeliveryRequest" }
+    get:
+      tags: [Delivery Interface]
+      summary: List delivery request, filter per order/status
+      parameters:
+        - { name: orderId, in: query, schema: { type: string, format: uuid } }
+        - { name: status, in: query, schema: { $ref: "#/components/schemas/DeliveryStatus" } }
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/DeliveryRequest" }
+
+  /delivery/requests/{requestId}:
+    parameters:
+      - { name: requestId, in: path, required: true, schema: { type: string, format: uuid } }
+    get:
+      tags: [Delivery Interface]
+      summary: Detail satu delivery request
+      responses:
+        "200":
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeliveryRequest" }
+        "404":
+          $ref: "#/components/responses/NotFound"
+
+  /delivery/requests/{requestId}/status:
+    parameters:
+      - { name: requestId, in: path, required: true, schema: { type: string, format: uuid } }
+    patch:
+      tags: [Delivery Interface]
+      summary: Update status pengiriman (DISPATCHED/DELIVERED/FAILED)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [status]
+              properties:
+                status: { $ref: "#/components/schemas/DeliveryStatus" }
+      responses:
+        "200":
+          description: Status diperbarui
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/DeliveryRequest" }
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  responses:
+    BadRequest:
+      description: Request tidak valid
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    Unauthorized:
+      description: Autentikasi gagal
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+    NotFound:
+      description: Data tidak ditemukan
+      content:
+        application/json:
+          schema: { $ref: "#/components/schemas/Error" }
+
+  schemas:
+    Error:
+      type: object
+      properties:
+        code: { type: string }
+        message: { type: string }
+
+    ResourceType:
+      type: string
+      enum: [EQUIPMENT, ROBOT]
+
+    TaskStatus:
+      type: string
+      description: Sesuai PRD Section 11 Task State Machine
+      enum:
+        - CREATED
+        - VALIDATED
+        - QUEUED
+        - ASSIGNED
+        - DISPATCHED
+        - RUNNING
+        - COMPLETED
+        - FAILED
+        - RETRY
+        - CANCELLED
+
+    TaskSource:
+      type: string
+      enum: [WMS, WES, MANUAL, API]
+
+    # ---- User & Role ----
+    Role:
+      type: string
+      description: >-
+        5 nilai pertama adalah role tetap (PRD v0.1). 3 nilai terakhir
+        [Revisi 2026-10-05, Usulan] untuk scope end-to-end - belum final,
+        lihat RBAC.md Section 4 soal keputusan role baru vs sub-permission.
+      enum:
+        - WAREHOUSE_OPERATOR
+        - WAREHOUSE_SUPERVISOR
+        - WCS_ADMINISTRATOR
+        - MAINTENANCE_ENGINEER
+        - SYSTEM_INTEGRATOR
+        - PRODUCTION_OPERATOR
+        - PACKAGING_OPERATOR
+        - DELIVERY_OPERATOR
+
+    User:
+      type: object
+      properties:
+        userId: { type: string, format: uuid }
+        username: { type: string }
+        fullName: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        active: { type: boolean }
+        createdAt: { type: string, format: date-time }
+
+    UserCreateRequest:
+      type: object
+      required: [username, password, fullName, role]
+      properties:
+        username: { type: string }
+        password: { type: string, format: password }
+        fullName: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+
+    UserUpdateRequest:
+      type: object
+      properties:
+        fullName: { type: string }
+        role: { $ref: "#/components/schemas/Role" }
+        active: { type: boolean }
+
+    # ---- Master Data ----
+    Warehouse:
+      type: object
+      properties:
+        warehouseId: { type: string, format: uuid }
+        name: { type: string }
+        address: { type: string }
+    WarehouseCreateRequest:
+      type: object
+      required: [name]
+      properties:
+        name: { type: string }
+        address: { type: string }
+
+    Zone:
+      type: object
+      properties:
+        zoneId: { type: string, format: uuid }
+        warehouseId: { type: string, format: uuid }
+        name: { type: string }
+        zoneType: { type: string }
+    ZoneCreateRequest:
+      type: object
+      required: [warehouseId, name]
+      properties:
+        warehouseId: { type: string, format: uuid }
+        name: { type: string }
+        zoneType: { type: string }
+
+    Location:
+      type: object
+      properties:
+        locationId: { type: string, format: uuid }
+        zoneId: { type: string, format: uuid }
+        code: { type: string }
+        locationType: { type: string }
+
+    Material:
+      type: object
+      properties:
+        materialId: { type: string, format: uuid }
+        sku: { type: string }
+        name: { type: string }
+        unit: { type: string }
+    MaterialCreateRequest:
+      type: object
+      required: [sku, name, unit]
+      properties:
+        sku: { type: string }
+        name: { type: string }
+        unit: { type: string }
+
+    LocationCreateRequest:
+      type: object
+      required: [zoneId, code, locationType]
+      properties:
+        zoneId: { type: string, format: uuid }
+        code: { type: string }
+        locationType: { type: string }
+
+    Route:
+      type: object
+      properties:
+        routeId: { type: string, format: uuid }
+        zoneId: { type: string, format: uuid }
+        fromLocationId: { type: string, format: uuid }
+        toLocationId: { type: string, format: uuid }
+        resourceType: { $ref: "#/components/schemas/ResourceType" }
+        active: { type: boolean }
+    RouteCreateRequest:
+      type: object
+      required: [zoneId, fromLocationId, toLocationId, resourceType]
+      properties:
+        zoneId: { type: string, format: uuid }
+        fromLocationId: { type: string, format: uuid }
+        toLocationId: { type: string, format: uuid }
+        resourceType: { $ref: "#/components/schemas/ResourceType" }
+        active: { type: boolean, default: true }
+
+    Station:
+      type: object
+      properties:
+        stationId: { type: string, format: uuid }
+        zoneId: { type: string, format: uuid }
+        locationId: { type: string, format: uuid }
+        name: { type: string }
+        stationType: { type: string, enum: [PICKUP, DROPOFF, CHARGING, STAGING] }
+    StationCreateRequest:
+      type: object
+      required: [zoneId, locationId, name, stationType]
+      properties:
+        zoneId: { type: string, format: uuid }
+        locationId: { type: string, format: uuid }
+        name: { type: string }
+        stationType: { type: string, enum: [PICKUP, DROPOFF, CHARGING, STAGING] }
+
+    # ---- Equipment & Robot ----
+    Equipment:
+      type: object
+      properties:
+        equipmentId: { type: string, format: uuid }
+        locationId: { type: string, format: uuid }
+        equipmentType: { type: string, example: "CONVEYOR" }
+        vendor: { type: string }
+        status: { type: string, example: "ONLINE" }
+    EquipmentCreateRequest:
+      type: object
+      required: [locationId, equipmentType, vendor]
+      properties:
+        locationId: { type: string, format: uuid }
+        equipmentType: { type: string }
+        vendor: { type: string }
+    EquipmentUpdateRequest:
+      type: object
+      properties:
+        locationId: { type: string, format: uuid }
+        status: { type: string }
+
+    EquipmentStatus:
+      type: object
+      properties:
+        equipmentId: { type: string, format: uuid }
+        status: { type: string }
+        x: { type: number, description: "Posisi X pada warehouse map (FR-09)" }
+        y: { type: number, description: "Posisi Y pada warehouse map (FR-09)" }
+        recordedAt: { type: string, format: date-time }
+
+    Robot:
+      type: object
+      properties:
+        robotId: { type: string, format: uuid }
+        equipmentId: { type: string, format: uuid }
+        vendor: { type: string, example: "Pudu" }
+        model: { type: string, example: "T600" }
+        protocol: { type: string, example: "VDA5050" }
+    RobotCreateRequest:
+      type: object
+      required: [vendor, model, protocol]
+      properties:
+        vendor: { type: string }
+        model: { type: string }
+        protocol: { type: string }
+
+    RobotStatus:
+      type: object
+      properties:
+        robotId: { type: string, format: uuid }
+        status: { type: string, example: "RUNNING" }
+        battery: { type: number, example: 82.5 }
+        x: { type: number }
+        y: { type: number }
+        currentTaskId: { type: string, format: uuid, nullable: true }
+        recordedAt: { type: string, format: date-time }
+
+    # ---- Task (PRD 9.5 Minimum Task Object) ----
+    Task:
+      type: object
+      properties:
+        taskId: { type: string, format: uuid }
+        taskType: { type: string, example: "MOVE" }
+        source: { $ref: "#/components/schemas/TaskSource" }
+        sourceLocationId: { type: string, format: uuid }
+        destinationLocationId: { type: string, format: uuid }
+        materialId: { type: string, format: uuid, nullable: true }
+        containerId: { type: string, nullable: true }
+        quantity: { type: number, nullable: true }
+        priority: { type: integer, example: 1 }
+        status: { $ref: "#/components/schemas/TaskStatus" }
+        resourceType: { $ref: "#/components/schemas/ResourceType" }
+        assignedResourceId: { type: string, format: uuid, nullable: true }
+        createdAt: { type: string, format: date-time }
+        startedAt: { type: string, format: date-time, nullable: true }
+        completedAt: { type: string, format: date-time, nullable: true }
+        failureCode: { type: string, nullable: true }
+
+    TaskCreateRequest:
+      type: object
+      required: [taskType, source, sourceLocationId, destinationLocationId, priority]
+      properties:
+        taskType: { type: string, example: "MOVE" }
+        source: { $ref: "#/components/schemas/TaskSource" }
+        sourceLocationId: { type: string, format: uuid }
+        destinationLocationId: { type: string, format: uuid }
+        materialId: { type: string, format: uuid, nullable: true }
+        containerId: { type: string, nullable: true }
+        quantity: { type: number, nullable: true }
+        priority: { type: integer }
+
+    # ---- Event & Alarm ----
+    Event:
+      type: object
+      properties:
+        eventId: { type: string, format: uuid }
+        sourceType: { type: string, example: "ROBOT" }
+        sourceId: { type: string, format: uuid }
+        severity: { type: string, enum: [INFO, WARNING, ERROR, CRITICAL] }
+        message: { type: string }
+        occurredAt: { type: string, format: date-time }
+
+    Alarm:
+      type: object
+      properties:
+        alarmId: { type: string, format: uuid }
+        eventId: { type: string, format: uuid }
+        status: { type: string, enum: [ACTIVE, ACKNOWLEDGED, CLEARED] }
+        acknowledgedBy: { type: string, format: uuid, nullable: true }
+        acknowledgedAt: { type: string, format: date-time, nullable: true }
+
+    # ---- Material Request ----
+    MaterialRequest:
+      type: object
+      properties:
+        requestId: { type: string, format: uuid }
+        materialId: { type: string, format: uuid }
+        quantity: { type: number }
+        destinationLocationId: { type: string, format: uuid }
+        status: { $ref: "#/components/schemas/TaskStatus" }
+        taskId: { type: string, format: uuid, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    MaterialRequestCreateRequest:
+      type: object
+      required: [materialId, quantity, destinationLocationId]
+      properties:
+        materialId: { type: string, format: uuid }
+        quantity: { type: number }
+        destinationLocationId: { type: string, format: uuid }
+
+    # ---- Diagnostics (UC-09) ----
+    DiagnosticLog:
+      type: object
+      properties:
+        logId: { type: string, format: uuid }
+        sourceType: { type: string, enum: [EQUIPMENT, ROBOT] }
+        sourceId: { type: string, format: uuid }
+        severity: { type: string, enum: [INFO, WARNING, ERROR, CRITICAL] }
+        message: { type: string }
+        errorCode: { type: string, nullable: true }
+        occurredAt: { type: string, format: date-time }
+
+    # ---- Integration Config (UC-10) ----
+    IntegrationSystemType:
+      type: string
+      enum: [WMS, RCS, PLC]
+
+    IntegrationProtocol:
+      type: string
+      enum: [REST, MQTT, OPC_UA, VDA5050]
+
+    Integration:
+      type: object
+      properties:
+        integrationId: { type: string, format: uuid }
+        systemType: { $ref: "#/components/schemas/IntegrationSystemType" }
+        name: { type: string, example: "Pudu RCS - Zone A" }
+        protocol: { $ref: "#/components/schemas/IntegrationProtocol" }
+        endpointUrl: { type: string, example: "mqtt://rcs.local:1883" }
+        status: { type: string, enum: [CONNECTED, DISCONNECTED, DEGRADED] }
+        lastTestedAt: { type: string, format: date-time, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    IntegrationCreateRequest:
+      type: object
+      required: [systemType, name, protocol, endpointUrl]
+      properties:
+        systemType: { $ref: "#/components/schemas/IntegrationSystemType" }
+        name: { type: string }
+        protocol: { $ref: "#/components/schemas/IntegrationProtocol" }
+        endpointUrl: { type: string }
+        credentials:
+          type: object
+          description: Disimpan terenkripsi, tidak pernah dikembalikan di response GET
+          additionalProperties: true
+
+    IntegrationUpdateRequest:
+      type: object
+      properties:
+        name: { type: string }
+        endpointUrl: { type: string }
+        credentials:
+          type: object
+          additionalProperties: true
+
+    IntegrationTestResult:
+      type: object
+      properties:
+        integrationId: { type: string, format: uuid }
+        success: { type: boolean }
+        latencyMs: { type: integer, nullable: true }
+        message: { type: string }
+        testedAt: { type: string, format: date-time }
+
+    IntegrationLog:
+      type: object
+      properties:
+        logId: { type: string, format: uuid }
+        integrationId: { type: string, format: uuid }
+        direction: { type: string, enum: [INBOUND, OUTBOUND] }
+        status: { type: string, enum: [SUCCESS, FAILED] }
+        payloadSummary: { type: string, nullable: true }
+        errorMessage: { type: string, nullable: true }
+        occurredAt: { type: string, format: date-time }
+
+    # ---- Discrepancy (FR-01, UC-11) ----
+    Discrepancy:
+      type: object
+      properties:
+        discrepancyId: { type: string, format: uuid }
+        taskId: { type: string, format: uuid }
+        materialId: { type: string, format: uuid, nullable: true }
+        expectedQuantity: { type: number }
+        actualQuantity: { type: number }
+        expectedLocationId: { type: string, format: uuid, nullable: true }
+        actualLocationId: { type: string, format: uuid, nullable: true }
+        status: { type: string, enum: [OPEN, NOTIFIED, RESOLVED] }
+        detectedAt: { type: string, format: date-time }
+        notifiedAt: { type: string, format: date-time, nullable: true }
+        resolvedAt: { type: string, format: date-time, nullable: true }
+
+    # ---- Audit & Security Log (FR-11, UC-12) ----
+    AuditLog:
+      type: object
+      properties:
+        auditLogId: { type: string, format: uuid }
+        userId: { type: string, format: uuid, nullable: true }
+        username: { type: string, nullable: true }
+        action: { type: string, example: "ROLE_CHANGED" }
+        targetType: { type: string, example: "USER", nullable: true }
+        targetId: { type: string, format: uuid, nullable: true }
+        beforeValue: { type: object, additionalProperties: true, nullable: true }
+        afterValue: { type: object, additionalProperties: true, nullable: true }
+        result: { type: string, enum: [SUCCESS, FAILED] }
+        ipAddress: { type: string, nullable: true }
+        occurredAt: { type: string, format: date-time }
+
+    # ---- Reporting ----
+    ReportSummary:
+      type: object
+      properties:
+        warehouseId: { type: string, format: uuid }
+        from: { type: string, format: date-time }
+        to: { type: string, format: date-time }
+        metrics:
+          type: object
+          properties:
+            taskThroughput: { type: number }
+            taskCompletionRate: { type: number }
+            taskCycleTimeAvgSec: { type: number }
+            taskFailureRate: { type: number }
+            equipmentUtilization: { type: number }
+            amrUtilization: { type: number }
+            alarmRate: { type: number }
+        byZone:
+          type: array
+          items:
+            type: object
+            properties:
+              zoneId: { type: string, format: uuid }
+              zoneName: { type: string }
+              taskThroughput: { type: number }
+              equipmentUtilization: { type: number }
+
+    # ====================================================================
+    # [Revisi 2026-10-05, Usulan] ERP & Production Integration Data.
+    # Detail lengkap di ERD.md bagian "ERP & Production Integration Data".
+    # Belum dikonfirmasi resmi - lihat PRD v0.2 Section 15 "Open Items".
+    # ====================================================================
+
+    # ---- ERP Integration (FR-13) ----
+    ProductionPlan:
+      type: object
+      description: "[Revisi 2026-10-05, Usulan]"
+      properties:
+        planId: { type: string, format: uuid }
+        lineId: { type: string }
+        materialId: { type: string, format: uuid }
+        shiftDate: { type: string, format: date }
+        shiftNumber: { type: integer }
+        plannedQty: { type: number }
+        source: { type: string, enum: [ERP] }
+        syncedAt: { type: string, format: date-time }
+
+    CustomerOrder:
+      type: object
+      description: "[Revisi 2026-10-05, Usulan]"
+      properties:
+        orderId: { type: string, format: uuid }
+        customerName: { type: string }
+        materialId: { type: string, format: uuid }
+        quantity: { type: number }
+        requestedDeliveryAt: { type: string, format: date-time }
+        status: { type: string, enum: [PENDING, IN_PROGRESS, FULFILLED, CANCELLED] }
+        source: { type: string, enum: [ERP] }
+
+    # ---- Production Line Interface (FR-14) ----
+    ProductionLineRequestType:
+      type: string
+      enum: [RAW_MATERIAL, FINISH_GOOD_PICKUP]
+
+    ProductionLineRequest:
+      type: object
+      description: "[Revisi 2026-10-05, Usulan]"
+      properties:
+        requestId: { type: string, format: uuid }
+        lineId: { type: string }
+        requestType: { $ref: "#/components/schemas/ProductionLineRequestType" }
+        materialId: { type: string, format: uuid }
+        quantity: { type: number }
+        status: { $ref: "#/components/schemas/TaskStatus" }
+        taskId: { type: string, format: uuid, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    ProductionLineRequestCreateRequest:
+      type: object
+      required: [lineId, materialId, quantity]
+      properties:
+        lineId: { type: string }
+        materialId: { type: string, format: uuid }
+        quantity: { type: number }
+
+    # ---- Packaging Interface (FR-15) ----
+    PackagingRequest:
+      type: object
+      description: "[Revisi 2026-10-05, Usulan]"
+      properties:
+        packagingRequestId: { type: string, format: uuid }
+        materialId: { type: string, format: uuid }
+        boxType: { type: string }
+        quantity: { type: number }
+        status: { $ref: "#/components/schemas/TaskStatus" }
+        taskId: { type: string, format: uuid, nullable: true }
+        createdAt: { type: string, format: date-time }
+
+    PackagingRequestCreateRequest:
+      type: object
+      required: [materialId, boxType, quantity]
+      properties:
+        materialId: { type: string, format: uuid }
+        boxType: { type: string }
+        quantity: { type: number }
+
+    # ---- Delivery Interface (FR-16) ----
+    DeliveryStatus:
+      type: string
+      enum: [PENDING, DISPATCHED, DELIVERED, FAILED]
+
+    DeliveryRequest:
+      type: object
+      description: "[Revisi 2026-10-05, Usulan]"
+      properties:
+        deliveryRequestId: { type: string, format: uuid }
+        orderId: { type: string, format: uuid }
+        taskId: { type: string, format: uuid, nullable: true }
+        status: { $ref: "#/components/schemas/DeliveryStatus" }
+        dispatchedAt: { type: string, format: date-time, nullable: true }
+        deliveredAt: { type: string, format: date-time, nullable: true }
+
+    DeliveryRequestCreateRequest:
+      type: object
+      required: [orderId]
+      properties:
+        orderId: { type: string, format: uuid }

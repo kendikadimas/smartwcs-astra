@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Smart WCS — Dashboard Prototype</title>
+<style>
+  :root{
+    --bg:#f8fafc; --surface:#ffffff; --border:#e2e8f0;
+    --text:#0f172a; --muted:#64748b; --accent:#2563eb; --accent-weak:#eff6ff;
+    --ok:#15803d; --ok-bg:#f0fdf4; --warn:#b45309; --warn-bg:#fffbeb; --err:#b91c1c; --err-bg:#fef2f2;
+    --idle:#64748b; --idle-bg:#f1f5f9;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:system-ui,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--text);font-size:14px}
+  a,button,input{font-family:inherit}
+  :focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+  .app{display:flex;min-height:100vh}
+
+  /* Sidebar */
+  .sidebar{width:260px;background:var(--surface);border-right:1px solid var(--border);padding:18px 14px;display:flex;flex-direction:column;flex-shrink:0}
+  .brand{display:flex;align-items:center;gap:10px;padding:4px 10px 16px}
+  .brand .mark{width:30px;height:30px;border-radius:8px;background:var(--accent);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:13px;flex-shrink:0}
+  .brand .name{font-weight:700;font-size:14px;line-height:1.2}
+  .brand .sub{font-size:11px;color:var(--muted)}
+
+  .role-pick{padding:0 2px 14px}
+  .role-pick label{display:block;font-size:10.5px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;margin-bottom:5px}
+  .role-pick select{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 8px;font-size:12.5px;color:var(--text)}
+
+  .nav-scroll{flex:1;overflow-y:auto}
+  .nav-group-label{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em;padding:10px 10px 4px}
+  .nav-item{display:flex;align-items:center;gap:10px;width:100%;text-align:left;background:none;border:none;border-radius:8px;padding:9px 10px;color:var(--text);font-size:13px;cursor:pointer}
+  .nav-item svg{width:16px;height:16px;flex-shrink:0;color:var(--muted)}
+  .nav-item:hover{background:var(--bg)}
+  .nav-item[aria-current="true"]{background:var(--accent-weak);color:var(--accent);font-weight:600}
+  .nav-item[aria-current="true"] svg{color:var(--accent)}
+  .nav-item .nbadge{margin-left:auto;background:var(--err);color:#fff;font-size:10px;font-weight:700;border-radius:999px;padding:1px 6px}
+
+  .profile-card{display:flex;align-items:center;gap:10px;padding:10px;border-top:1px solid var(--border);margin-top:10px;background:none;border-left:none;border-right:none;border-bottom:none;width:100%;cursor:pointer;border-radius:8px;text-align:left}
+  .profile-card:hover{background:var(--bg)}
+  .profile-card .avatar{width:32px;height:32px;border-radius:8px;background:var(--idle-bg);color:var(--text);display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0}
+  .profile-card .pname{font-size:12.5px;font-weight:600}
+  .profile-card .prole{font-size:11px;color:var(--muted)}
+  .profile-card .pchev{margin-left:auto;color:var(--muted)}
+
+  /* Mobile nav toggle */
+  .backdrop{display:none}
+  @media (max-width:900px){
+    .sidebar{position:fixed;left:0;top:0;height:100%;transform:translateX(-100%);transition:transform .2s ease;z-index:20;box-shadow:2px 0 12px rgba(0,0,0,.08)}
+    .sidebar[data-open="true"]{transform:translateX(0)}
+    .backdrop[data-open="true"]{display:block;position:fixed;inset:0;background:rgba(15,23,42,.35);z-index:15}
+  }
+
+  /* Main */
+  .main{flex:1;min-width:0;display:flex;flex-direction:column}
+  .topbar{display:flex;align-items:center;gap:14px;padding:10px 20px;border-bottom:1px solid var(--border);background:var(--surface)}
+  .icon-btn{position:relative;background:none;border:1px solid var(--border);border-radius:8px;width:34px;height:34px;display:flex;align-items:center;justify-content:center;cursor:pointer;color:var(--text);flex-shrink:0}
+  .icon-btn:hover{border-color:var(--accent);color:var(--accent)}
+  .icon-btn svg{width:17px;height:17px}
+  .icon-btn .bdot{position:absolute;top:-4px;right:-4px;background:var(--err);color:#fff;font-size:9px;font-weight:700;border-radius:999px;min-width:14px;height:14px;display:flex;align-items:center;justify-content:center;padding:0 3px}
+  .menu-toggle{display:none}
+  @media (max-width:900px){.menu-toggle{display:flex}}
+
+  .search-box{flex:1;max-width:460px;display:flex;align-items:center;gap:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:7px 10px;color:var(--muted)}
+  .search-box svg{width:15px;height:15px;flex-shrink:0}
+  .search-box input{flex:1;border:none;background:none;outline:none;font-size:13px;color:var(--text)}
+  .search-box kbd{font-size:10.5px;color:var(--muted);border:1px solid var(--border);border-radius:5px;padding:1px 5px;background:var(--surface)}
+
+  .top-right{display:flex;align-items:center;gap:10px;margin-left:auto;flex-shrink:0}
+  .status-pill{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ok);background:var(--ok-bg);border-radius:999px;padding:5px 10px;white-space:nowrap}
+  .status-pill .dot{width:6px;height:6px;border-radius:50%;background:var(--ok)}
+  .clock{font-size:12px;color:var(--muted);white-space:nowrap;display:none}
+  @media (min-width:1100px){.clock{display:block}}
+
+  .banner{background:var(--warn-bg);color:var(--warn);font-size:12px;padding:8px 24px;border-bottom:1px solid var(--border)}
+  .content{padding:20px 24px;display:flex;flex-direction:column;gap:18px;max-width:1280px;width:100%}
+  .page-head h1{font-size:19px;margin:0}
+  .page-head .desc{font-size:12.5px;color:var(--muted);margin-top:3px}
+
+  /* KPI v2 */
+  .kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:14px}
+  .kpi-card{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px;display:flex;gap:12px;align-items:flex-start}
+  .kpi-icon{width:38px;height:38px;border-radius:9px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .kpi-icon svg{width:18px;height:18px}
+  .kpi-blue{background:var(--accent-weak);color:var(--accent)}
+  .kpi-green{background:var(--ok-bg);color:var(--ok)}
+  .kpi-amber{background:var(--warn-bg);color:var(--warn)}
+  .kpi-red{background:var(--err-bg);color:var(--err)}
+  .kpi-label{font-size:12px;color:var(--muted)}
+  .kpi-value{font-size:23px;font-weight:700;margin-top:2px}
+  .kpi-delta{font-size:11px;margin-top:3px;display:flex;align-items:center;gap:4px}
+  .kpi-delta.up{color:var(--ok)} .kpi-delta.down{color:var(--err)}
+  .kpi-delta svg{width:10px;height:10px}
+  .kpi-delta span{color:var(--muted)}
+
+  .grid2{display:grid;grid-template-columns:1.9fr 1fr;gap:16px;align-items:start}
+  .grid2 > *{min-width:0}
+  @media (max-width:1050px){.grid2{grid-template-columns:1fr}}
+
+  .panel{background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;min-width:0}
+  .panel-head{display:flex;align-items:center;gap:8px;padding:13px 16px;border-bottom:1px solid var(--border)}
+  .panel-head .pi{width:20px;height:20px;color:var(--accent);flex-shrink:0}
+  .panel-head h2{font-size:13.5px;margin:0;font-weight:600}
+  .panel-head .hint{font-size:11px;color:var(--muted);margin-left:auto}
+  .panel-head .viewall{font-size:12px;color:var(--accent);margin-left:auto;background:none;border:none;cursor:pointer;display:flex;align-items:center;gap:3px}
+  .panel-body{padding:4px 0;overflow-x:auto}
+  .panel-pad{padding:14px 16px}
+
+  /* Toolbar: status tabs + search + filter + create */
+  .toolbar{display:flex;align-items:center;gap:10px;padding:12px 16px;border-bottom:1px solid var(--border);flex-wrap:wrap}
+  .seg{display:flex;gap:4px;background:var(--bg);border-radius:8px;padding:3px}
+  .seg button{background:none;border:none;border-radius:6px;padding:6px 10px;font-size:12px;color:var(--muted);cursor:pointer;white-space:nowrap}
+  .seg button[aria-current="true"]{background:var(--surface);color:var(--text);box-shadow:0 1px 2px rgba(0,0,0,.06);font-weight:600}
+  .toolbar .mini-search{display:flex;align-items:center;gap:6px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:6px 9px;font-size:12.5px;min-width:160px}
+  .toolbar .mini-search svg{width:13px;height:13px;color:var(--muted)}
+  .toolbar .mini-search input{border:none;background:none;outline:none;font-size:12.5px;width:100%}
+
+  table{width:100%;border-collapse:collapse;font-size:12.5px}
+  th{text-align:left;color:var(--muted);font-weight:500;padding:9px 16px;border-bottom:1px solid var(--border);white-space:nowrap}
+  td{padding:10px 16px;border-bottom:1px solid var(--border);white-space:nowrap}
+  tbody tr:last-child td{border-bottom:none}
+  tbody tr:hover{background:var(--bg)}
+  .empty-row td{color:var(--muted);text-align:center;white-space:normal;padding:22px}
+
+  .badge{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:6px;font-size:11.5px;font-weight:600}
+  .badge .dot{width:6px;height:6px;border-radius:50%}
+  .b-queued{background:var(--idle-bg);color:var(--idle)} .b-queued .dot{background:var(--idle)}
+  .b-dispatched{background:var(--accent-weak);color:var(--accent)} .b-dispatched .dot{background:var(--accent)}
+  .b-progress{background:var(--warn-bg);color:var(--warn)} .b-progress .dot{background:var(--warn)}
+  .b-done{background:var(--ok-bg);color:var(--ok)} .b-done .dot{background:var(--ok)}
+  .b-failed{background:var(--err-bg);color:var(--err)} .b-failed .dot{background:var(--err)}
+  .b-online{background:var(--ok-bg);color:var(--ok)} .b-online .dot{background:var(--ok)}
+  .b-offline{background:var(--idle-bg);color:var(--idle)} .b-offline .dot{background:var(--idle)}
+  .b-error{background:var(--err-bg);color:var(--err)} .b-error .dot{background:var(--err)}
+  .prio-high{background:var(--err-bg);color:var(--err)}
+  .prio-medium{background:var(--warn-bg);color:var(--warn)}
+  .prio-low{background:var(--ok-bg);color:var(--ok)}
+
+  .ptrack{background:#eef2f6;border-radius:4px;height:7px;width:70px;display:inline-block;vertical-align:middle;margin-right:6px}
+  .pfill{height:100%;border-radius:4px;background:var(--accent)}
+  .pcell{display:flex;align-items:center;gap:6px;font-size:11.5px;color:var(--muted)}
+
+  .row-menu-wrap{position:relative;display:inline-block}
+  .dots-btn{background:none;border:none;cursor:pointer;color:var(--muted);padding:4px;border-radius:6px}
+  .dots-btn:hover{background:var(--bg);color:var(--text)}
+  .row-menu{position:absolute;right:0;top:100%;background:var(--surface);border:1px solid var(--border);border-radius:8px;box-shadow:0 6px 16px rgba(0,0,0,.1);min-width:140px;z-index:10;padding:4px;display:none}
+  .row-menu[data-open="true"]{display:block}
+  .row-menu button{display:block;width:100%;text-align:left;background:none;border:none;padding:7px 9px;font-size:12px;border-radius:6px;cursor:pointer;color:var(--text)}
+  .row-menu button:hover{background:var(--bg)}
+
+  .btn{background:var(--surface);border:1px solid var(--border);color:var(--text);font-size:12.5px;padding:7px 12px;border-radius:8px;cursor:pointer}
+  .btn:hover{border-color:var(--accent);color:var(--accent)}
+  .btn:disabled{opacity:.5;cursor:default}
+  .btn-primary{background:var(--accent);border-color:var(--accent);color:#fff;display:flex;align-items:center;gap:6px}
+  .btn-primary:hover{opacity:.92;color:#fff}
+  .btn-row{display:flex;gap:8px;padding:12px 16px;border-top:1px solid var(--border);flex-wrap:wrap}
+
+  /* Side widgets: Assigned Equipment */
+  .side-list{display:flex;flex-direction:column}
+  .side-item{display:flex;align-items:center;gap:10px;padding:11px 16px;border-bottom:1px solid var(--border)}
+  .side-item:last-child{border-bottom:none}
+  .side-ic{width:30px;height:30px;border-radius:8px;background:var(--idle-bg);color:var(--text);display:flex;align-items:center;justify-content:center;flex-shrink:0}
+  .side-ic svg{width:15px;height:15px}
+  .side-main{flex:1;min-width:0}
+  .side-name{font-size:12.5px;font-weight:600;display:flex;align-items:center;gap:6px}
+  .side-sub{font-size:11px;color:var(--muted);margin-top:1px}
+  .side-track{width:60px;flex-shrink:0}
+
+  .alarm-text{flex:1;min-width:0}
+
+  .page[data-active="false"]{display:none}
+  .role-flag{font-size:10px;color:var(--warn);background:var(--warn-bg);padding:2px 7px;border-radius:999px;margin-left:8px;font-weight:600}
+  footer{padding:14px 24px;color:var(--muted);font-size:11px}
+</style>
+</head>
+<body>
+
+<div class="app">
+  <div class="backdrop" id="backdrop" onclick="closeNav()"></div>
+
+  <aside class="sidebar" id="sidebar">
+    <div class="brand">
+      <div class="mark">WCS</div>
+      <div>
+        <div class="name">Smart WCS</div>
+        <div class="sub">Warehouse Control System</div>
+      </div>
+    </div>
+
+    <div class="role-pick">
+      <label for="roleSelect">Demo — ganti role</label>
+      <select id="roleSelect" onchange="setRole(this.value)">
+        <optgroup label="Role baku">
+          <option value="operator">Warehouse Operator</option>
+          <option value="supervisor">Warehouse Supervisor</option>
+          <option value="admin">WCS Administrator</option>
+          <option value="maintenance">Maintenance / Engineer</option>
+          <option value="integrator">System Integrator</option>
+        </optgroup>
+        <optgroup label="Role usulan (UC-14–16)">
+          <option value="prod">Operator Produksi</option>
+          <option value="packaging">Operator Box/Packaging</option>
+          <option value="delivery">Operator Delivery</option>
+        </optgroup>
+      </select>
+    </div>
+
+    <nav class="nav-scroll" id="navScroll"></nav>
+
+    <button class="profile-card" id="profileBtn" onclick="document.getElementById('roleSelect').focus()">
+      <div class="avatar" id="profileAvatar">NK</div>
+      <div>
+        <div class="pname">Demo User</div>
+        <div class="prole" id="profileRole">Warehouse Operator</div>
+      </div>
+      <svg class="pchev" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 18l6-6-6-6"/></svg>
+    </button>
+  </aside>
+
+  <div class="main">
+    <div class="topbar">
+      <button class="icon-btn menu-toggle" aria-label="Buka menu" onclick="openNav()">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+      </button>
+      <div class="search-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+        <input id="globalSearch" type="text" placeholder="Search task ID, location, equipment, or keyword...">
+        <kbd>Ctrl K</kbd>
+      </div>
+      <div class="top-right">
+        <span class="status-pill"><span class="dot"></span>System Operational</span>
+        <span class="clock" id="clock"></span>
+        <button class="icon-btn" aria-label="Notifikasi" onclick="document.getElementById('alarmsAnchor')?.scrollIntoView({behavior:'smooth'})">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+          <span class="bdot" id="bellBadge" style="display:none">3</span>
+        </button>
+        <button class="icon-btn" aria-label="Fullscreen" onclick="toggleFullscreen()">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 3H5a2 2 0 00-2 2v3M16 3h3a2 2 0 012 2v3M8 21H5a2 2 0 01-2-2v-3M16 21h3a2 2 0 002-2v-3"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <div class="banner">
+      Prototype wireframe (data dummy). Operator Overview di-desain mengikuti referensi <code>docs/ui/operatordashboard.png</code>. Role bertanda "usulan" (UC-14–16) belum final, menunggu konfirmasi Astra/Winteq (PRD Section 15).
+    </div>
+
+    <div class="content" id="content">
+
+      <!-- ============ OPERATOR ============ -->
+      <div class="page" data-role="operator" data-tab="overview">
+        <div class="page-head" style="margin-bottom:4px">
+          <h1>Operations Overview</h1>
+          <div class="desc">Monitor assigned tasks, equipment status, and warehouse operations in real-time.</div>
+        </div>
+
+        <div class="kpis" style="margin-bottom:18px">
+          <div class="kpi-card">
+            <div class="kpi-icon kpi-blue"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 4h8M8 4a2 2 0 00-2 2v13a1 1 0 001.5.87L12 18l4.5 1.87A1 1 0 0018 19V6a2 2 0 00-2-2"/></svg></div>
+            <div><div class="kpi-label">My Active Tasks</div><div class="kpi-value">8</div><div class="kpi-delta up"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5l7 10H5z"/></svg>+2 <span>vs previous shift</span></div></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon kpi-green"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 5v14l11-7z"/></svg></div>
+            <div><div class="kpi-label">Running Tasks</div><div class="kpi-value">5</div><div class="kpi-delta up"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5l7 10H5z"/></svg>+1 <span>vs previous shift</span></div></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon kpi-amber"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg></div>
+            <div><div class="kpi-label">Queued Tasks</div><div class="kpi-value">2</div><div class="kpi-delta down"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 19L5 9h14z"/></svg>-1 <span>vs previous shift</span></div></div>
+          </div>
+          <div class="kpi-card">
+            <div class="kpi-icon kpi-red"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="9"/><path d="M9 9l6 6M15 9l-6 6"/></svg></div>
+            <div><div class="kpi-label">Failed Tasks</div><div class="kpi-value">1</div><div class="kpi-delta down"><svg viewBox="0 0 24 24" fill="currentColor"><path d="M12 5l7 10H5z"/></svg>+1 <span>vs previous shift</span></div></div>
+          </div>
+        </div>
+
+        <div class="grid2">
+          <div style="display:flex;flex-direction:column;gap:18px">
+
+            <div class="panel">
+              <div class="panel-head">
+                <svg class="pi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 4h8M8 4a2 2 0 00-2 2v13a1 1 0 001.5.87L12 18l4.5 1.87A1 1 0 0018 19V6a2 2 0 00-2-2"/></svg>
+                <h2>My Tasks</h2>
+              </div>
+              <div class="toolbar">
+                <div class="seg" id="taskSeg" data-table="opTaskTable">
+                  <button aria-current="true" onclick="filterByStatus('opTaskTable','all',this)">All 8</button>
+                  <button onclick="filterByStatus('opTaskTable','running',this)">Running 5</button>
+                  <button onclick="filterByStatus('opTaskTable','queued',this)">Queued 2</button>
+                  <button onclick="filterByStatus('opTaskTable','completed',this)">Completed 12</button>
+                  <button onclick="filterByStatus('opTaskTable','failed',this)">Failed 1</button>
+                </div>
+                <div class="mini-search">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+                  <input placeholder="Search my tasks..." oninput="searchTable('opTaskTable', this.value)">
+                </div>
+                <button class="btn btn-primary" style="margin-left:auto" onclick="alert('Prototype — buka form Create Task (belum diimplementasi)')">
+                  <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+                  Create Task
+                </button>
+              </div>
+              <div class="panel-body">
+                <table id="opTaskTable">
+                  <thead><tr><th>Task ID</th><th>Type</th><th>Source</th><th>Dest.</th><th>Priority</th><th>Resource</th><th>Status</th><th>Progress</th><th>ETA</th><th></th></tr></thead>
+                  <tbody>
+                    <tr data-status="running" data-search="tsk-20261002-001 move st-01 st-05 amr-01"><td>TSK-20261002-001</td><td>Move</td><td>ST-01</td><td>ST-05</td><td><span class="badge prio-high">High</span></td><td>AMR-01</td><td><span class="badge b-dispatched"><span class="dot"></span>Running</span></td><td><span class="pcell"><span class="ptrack"><span class="pfill" style="width:60%"></span></span>60%</span></td><td>14:32</td><td><div class="row-menu-wrap"><button class="dots-btn" onclick="toggleMenu(this)">⋮</button><div class="row-menu"><button onclick="closeMenus()">Lihat Detail</button><button onclick="closeMenus()">Batalkan Task</button></div></div></td></tr>
+                    <tr data-status="running" data-search="tsk-20261002-002 pick r-12-03 st-02 conveyor-03"><td>TSK-20261002-002</td><td>Pick</td><td>R-12-03</td><td>ST-02</td><td><span class="badge prio-medium">Medium</span></td><td>Conveyor-03</td><td><span class="badge b-dispatched"><span class="dot"></span>Running</span></td><td><span class="pcell"><span class="ptrack"><span class="pfill" style="width:30%"></span></span>30%</span></td><td>14:35</td><td><div class="row-menu-wrap"><button class="dots-btn" onclick="toggleMenu(this)">⋮</button><div class="row-menu"><button onclick="closeMenus()">Lihat Detail</button><button onclick="closeMenus()">Batalkan Task</button></div></div></td></tr>
+                    <tr data-status="queued" data-search="tsk-20261002-003 putaway st-03 r-08-01 amr-02"><td>TSK-20261002-003</td><td>Putaway</td><td>ST-03</td><td>R-08-01</td><td><span class="badge prio-medium">Medium</span></td><td>AMR-02</td><td><span class="badge b-queued"><span class="dot"></span>Queued</span></td><td>—</td><td>14:40</td><td><div class="row-menu-wrap"><button class="dots-btn" onclick="toggleMenu(this)">⋮</button><div class="row-menu"><button onclick="closeMenus()">Lihat Detail</button><button onclick="closeMenus()">Batalkan Task</button></div></div></td></tr>
+                    <tr data-status="queued" data-search="tsk-20261002-004 move st-01 st-04 conveyor-01"><td>TSK-20261002-004</td><td>Move</td><td>ST-01</td><td>ST-04</td><td><span class="badge prio-low">Low</span></td><td>Conveyor-01</td><td><span class="badge b-queued"><span class="dot"></span>Queued</span></td><td>—</td><td>14:42</td><td><div class="row-menu-wrap"><button class="dots-btn" onclick="toggleMenu(this)">⋮</button><div class="row-menu"><button onclick="closeMenus()">Lihat Detail</button><button onclick="closeMenus()">Batalkan Task</button></div></div></td></tr>
+                    <tr data-status="running" data-search="tsk-20261002-005 pick r-05-01 st-03 amr-03"><td>TSK-20261002-005</td><td>Pick</td><td>R-05-01</td><td>ST-03</td><td><span class="badge prio-high">High</span></td><td>AMR-03</td><td><span class="badge b-dispatched"><span class="dot"></span>Running</span></td><td><span class="pcell"><span class="ptrack"><span class="pfill" style="width:80%"></span></span>80%</span></td><td>14:30</td><td><div class="row-menu-wrap"><button class="dots-btn" onclick="toggleMenu(this)">⋮</button><div class="row-menu"><button onclick="closeMenus()">Lihat Detail</button><button onclick="closeMenus()">Batalkan Task</button></div></div></td></tr>
+                    <tr data-status="completed" data-search="tsk-20261002-006 move st-02 st-01 amr-01"><td>TSK-20261002-006</td><td>Move</td><td>ST-02</td><td>ST-01</td><td><span class="badge prio-medium">Medium</span></td><td>AMR-01</td><td><span class="badge b-done"><span class="dot"></span>Completed</span></td><td><span class="pcell"><span class="ptrack"><span class="pfill" style="width:100%;background:var(--ok)"></span></span>100%</span></td><td>14:12</td><td><div class="row-menu-wrap"><button class="dots-btn" onclick="toggleMenu(this)">⋮</button><div class="row-menu"><button onclick="closeMenus()">Lihat Detail</button><button onclick="closeMenus()">Batalkan Task</button></div></div></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="panel">
+              <div class="panel-head">
+                <svg class="pi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="9" width="16" height="7" rx="1.5"/><path d="M8 9V6a1 1 0 011-1h6a1 1 0 011 1v3"/></svg>
+                <h2>Equipment Status</h2>
+                <button class="viewall" onclick="setTab('operator','equipment')">View All <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+              </div>
+              <div class="toolbar">
+                <div class="seg">
+                  <button aria-current="true" onclick="filterByType('opEquipTable','all',this)">All 24</button>
+                  <button onclick="filterByType('opEquipTable','amr',this)">AMR 6</button>
+                  <button onclick="filterByType('opEquipTable','conveyor',this)">Conveyor 12</button>
+                  <button onclick="filterByType('opEquipTable','lift',this)">Lift 2</button>
+                  <button onclick="filterByType('opEquipTable','sorter',this)">Sorter 2</button>
+                  <button onclick="filterByType('opEquipTable','others',this)">Others 2</button>
+                </div>
+              </div>
+              <div class="panel-body">
+                <table id="opEquipTable">
+                  <thead><tr><th>Equipment ID</th><th>Type</th><th>Status</th><th>Current Task</th><th>Battery/Load</th><th>Location</th><th></th></tr></thead>
+                  <tbody>
+                    <tr data-type="amr"><td>AMR-01</td><td>AMR</td><td><span class="badge b-online"><span class="dot"></span>Online</span></td><td>TSK-20261002-001</td><td><span class="pcell"><span class="ptrack"><span class="pfill" style="width:60%"></span></span>60%</span></td><td>Aisle 01</td><td><button class="dots-btn" onclick="toggleMenu(this)">⋮</button></td></tr>
+                    <tr data-type="amr"><td>AMR-02</td><td>AMR</td><td><span class="badge b-online"><span class="dot"></span>Online</span></td><td>—</td><td><span class="pcell"><span class="ptrack"><span class="pfill" style="width:100%;background:var(--ok)"></span></span>100%</span></td><td>Charging St.</td><td><button class="dots-btn" onclick="toggleMenu(this)">⋮</button></td></tr>
+                    <tr data-type="amr"><td>AMR-03</td><td>AMR</td><td><span class="badge b-online"><span class="dot"></span>Online</span></td><td>TSK-20261002-005</td><td><span class="pcell"><span class="ptrack"><span class="pfill" style="width:65%"></span></span>65%</span></td><td>Aisle 03</td><td><button class="dots-btn" onclick="toggleMenu(this)">⋮</button></td></tr>
+                    <tr data-type="conveyor"><td>Conveyor-01</td><td>Conveyor</td><td><span class="badge b-online"><span class="dot"></span>Online</span></td><td>TSK-20261002-004</td><td><span class="pcell"><span class="ptrack"><span class="pfill" style="width:100%;background:var(--ok)"></span></span>100%</span></td><td>Line 1</td><td><button class="dots-btn" onclick="toggleMenu(this)">⋮</button></td></tr>
+                    <tr data-type="conveyor"><td>Conveyor-02</td><td>Conveyor</td><td><span class="badge b-online"><span class="dot"></span>Online</span></td><td>—</td><td><span class="pcell" style="color:#cbd5e1"><span class="ptrack"><span class="pfill" style="width:0%"></span></span>0%</span></td><td>Line 2</td><td><button class="dots-btn" onclick="toggleMenu(this)">⋮</button></td></tr>
+                    <tr data-type="conveyor"><td>Conveyor-03</td><td>Conveyor</td><td><span class="badge b-error"><span class="dot"></span>Maintenance</span></td><td>—</td><td><span class="pcell" style="color:#cbd5e1"><span class="ptrack"><span class="pfill" style="width:0%"></span></span>0%</span></td><td>Line 2</td><td><button class="dots-btn" onclick="toggleMenu(this)">⋮</button></td></tr>
+                    <tr data-type="lift"><td>Lift-01</td><td>Lift</td><td><span class="badge b-online"><span class="dot"></span>Online</span></td><td>—</td><td><span class="pcell"><span class="ptrack"><span class="pfill" style="width:100%;background:var(--ok)"></span></span>100%</span></td><td>Lift Zone</td><td><button class="dots-btn" onclick="toggleMenu(this)">⋮</button></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+          </div>
+
+          <div style="display:flex;flex-direction:column;gap:18px">
+            <div class="panel">
+              <div class="panel-head"><h2>Assigned Equipment</h2><button class="viewall" onclick="setTab('operator','equipment')">View All <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button></div>
+              <div class="side-list">
+                <div class="side-item"><div class="side-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/></svg></div><div class="side-main"><div class="side-name">AMR-01 <span class="badge b-online" style="padding:1px 6px"><span class="dot"></span>Online</span></div><div class="side-sub">Status: Executing Task</div></div><div class="side-track"><span class="pcell"><span class="ptrack" style="width:46px"><span class="pfill" style="width:80%"></span></span>80%</span></div></div>
+                <div class="side-item"><div class="side-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/></svg></div><div class="side-main"><div class="side-name">AMR-02 <span class="badge b-online" style="padding:1px 6px"><span class="dot"></span>Online</span></div><div class="side-sub">Status: Idle</div></div><div class="side-track"><span class="pcell"><span class="ptrack" style="width:46px"><span class="pfill" style="width:100%;background:var(--ok)"></span></span>100%</span></div></div>
+                <div class="side-item"><div class="side-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="4" width="16" height="16" rx="3"/></svg></div><div class="side-main"><div class="side-name">AMR-03 <span class="badge b-online" style="padding:1px 6px"><span class="dot"></span>Online</span></div><div class="side-sub">Status: Executing Task</div></div><div class="side-track"><span class="pcell"><span class="ptrack" style="width:46px"><span class="pfill" style="width:65%"></span></span>65%</span></div></div>
+                <div class="side-item"><div class="side-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="10" width="18" height="5" rx="1.5"/></svg></div><div class="side-main"><div class="side-name">Conveyor-01 <span class="badge b-online" style="padding:1px 6px"><span class="dot"></span>Online</span></div><div class="side-sub">Status: Running</div></div><div class="side-track"><span class="pcell"><span class="ptrack" style="width:46px"><span class="pfill" style="width:100%;background:var(--ok)"></span></span>100%</span></div></div>
+                <div class="side-item"><div class="side-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="10" width="18" height="5" rx="1.5"/></svg></div><div class="side-main"><div class="side-name">Conveyor-03 <span class="badge b-error" style="padding:1px 6px"><span class="dot"></span>Maintenance</span></div><div class="side-sub">Status: Standby</div></div><div class="side-track"><span class="pcell" style="color:#cbd5e1"><span class="ptrack" style="width:46px"><span class="pfill" style="width:0%"></span></span>0%</span></div></div>
+                <div class="side-item"><div class="side-ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M7 7l5-5 5 5M7 17l5 5 5-5"/></svg></div><div class="side-main"><div class="side-name">Lift-01 <span class="badge b-online" style="padding:1px 6px"><span class="dot"></span>Online</span></div><div class="side-sub">Status: Idle</div></div><div class="side-track"><span class="pcell"><span class="ptrack" style="width:46px"><span class="pfill" style="width:100%;background:var(--ok)"></span></span>100%</span></div></div>
+              </div>
+            </div>
+
+            <div class="panel" id="alarmsAnchor">
+              <div class="panel-head">
+                <svg class="pi" style="color:var(--err)" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+                <h2>Active Alarms</h2>
+                <button class="viewall" onclick="setTab('operator','alarm')">View All <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+              </div>
+              <div class="panel-body">
+                <table>
+                  <thead><tr><th>Time</th><th>Equipment</th><th>Message</th><th>Severity</th></tr></thead>
+                  <tbody>
+                    <tr><td>14:25</td><td style="color:var(--err)">Conveyor-03</td><td>Motor Overload</td><td><span class="badge b-failed">Critical</span></td></tr>
+                    <tr><td>14:18</td><td style="color:var(--err)">AMR-02</td><td>Connection Lost</td><td><span class="badge prio-high">High</span></td></tr>
+                    <tr><td>13:52</td><td style="color:var(--err)">PLC-01</td><td>Communication Error</td><td><span class="badge prio-high">High</span></td></tr>
+                    <tr><td>12:40</td><td>Conveyor-01</td><td>Sensor Fault</td><td><span class="badge prio-medium">Medium</span></td></tr>
+                    <tr><td>11:25</td><td>AMR-01</td><td>Low Battery</td><td><span class="badge prio-medium">Medium</span></td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- operator / tasks (full list, same table) -->
+      <div class="page" data-role="operator" data-tab="tasks">
+        <div class="page-head" style="margin-bottom:4px"><h1>Tasks</h1><div class="desc">Semua task yang ditugaskan ke kamu.</div></div>
+        <div class="panel">
+          <div class="toolbar">
+            <div class="seg">
+              <button aria-current="true" onclick="filterByStatus('opTaskTable2','all',this)">All 8</button>
+              <button onclick="filterByStatus('opTaskTable2','running',this)">Running 5</button>
+              <button onclick="filterByStatus('opTaskTable2','queued',this)">Queued 2</button>
+              <button onclick="filterByStatus('opTaskTable2','completed',this)">Completed 12</button>
+              <button onclick="filterByStatus('opTaskTable2','failed',this)">Failed 1</button>
+            </div>
+            <div class="mini-search">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="7"/><path d="M21 21l-4-4"/></svg>
+              <input placeholder="Search my tasks..." oninput="searchTable('opTaskTable2', this.value)">
+            </div>
+            <button class="btn btn-primary" style="margin-left:auto" onclick="alert('Prototype — buka form Create Task (belum diimplementasi)')">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 5v14M5 12h14"/></svg>
+              Create Task
+            </button>
+          </div>
+          <div class="panel-body">
+            <table id="opTaskTable2">
+              <thead><tr><th>Task ID</th><th>Type</th><th>Source</th><th>Dest.</th><th>Priority</th><th>Resource</th><th>Status</th><th>Progress</th><th>ETA</th><th></th></tr></thead>
+              <tbody>
+                <tr data-status="running" data-search="tsk-20261002-001 move st-01 st-05 amr-01"><td>TSK-20261002-001</td><td>Move</td><td>ST-01</td><td>ST-05</td><td><span class="badge prio-high">High</span></td><td>AMR-01</td><td><span class="badge b-dispatched"><span class="dot"></span>Running</span></td><td><span class="pcell"><span class="ptrack"><span class="pfill" style="width:60%"></span></span>60%</span></td><td>14:32</td><td><button class="dots-btn" onclick="toggleMenu(this)">⋮</button></td></tr>
+                <tr data-status="running" data-search="tsk-20261002-002 pick r-12-03 st-02 conveyor-03"><td>TSK-20261002-002</td><td>Pick</td><td>R-12-03</td><td>ST-02</td><td><span class="badge prio-medium">Medium</span></td><td>Conveyor-03</td><td><span class="badge b-dispatched"><span class="dot"></span>Running</span></td><td><span class="pcell"><span class="ptrack"><span class="pfill" style="width:30%"></span></span>30%</span></td><td>14:35</td><td><button class="dots-btn" onclick="toggleMenu(this)">⋮</button></td></tr>
+                <tr data-status="queued" data-search="tsk-20261002-003 putaway st-03 r-08-01 amr-02"><td>TSK-20261002-003</td><td>Putaway</td><td>ST-03</td><td>R-08-01</td><td><span class="badge prio-medium">Medium</span></td><td>AMR-02</td><td><span class="badge b-queued"><span class="dot"></span>Queued</span></td><td>—</td><td>14:40</td><td><button class="dots-btn" onclick="toggleMenu(this)">⋮</button></td></tr>
+                <tr data-status="queued" data-search="tsk-20261002-004 move st-01 st-04 conveyor-01"><td>TSK-20261002-004</td><td>Move</td><td>ST-01</td><td>ST-04</td><td><span class="badge prio-low">Low</span></td><td>Conveyor-01</td><td><span class="badge b-queued"><span class="dot"></span>Queued</span></td><td>—</td><td>14:42</td><td><button class="dots-btn" onclick="toggleMenu(this)">⋮</button></td></tr>
+                <tr data-status="running" data-search="tsk-20261002-005 pick r-05-01 st-03 amr-03"><td>TSK-20261002-005</td><td>Pick</td><td>R-05-01</td><td>ST-03</td><td><span class="badge prio-high">High</span></td><td>AMR-03</td><td><span class="badge b-dispatched"><span class="dot"></span>Running</span></td><td><span class="pcell"><span class="ptrack"><span class="pfill" style="width:80%"></span></span>80%</span></td><td>14:30</td><td><button class="dots-btn" onclick="toggleMenu(this)">⋮</button></td></tr>
+                <tr data-status="completed" data-search="tsk-20261002-006 move st-02 st-01 amr-01"><td>TSK-20261002-006</td><td>Move</td><td>ST-02</td><td>ST-01</td><td><span class="badge prio-medium">Medium</span></td><td>AMR-01</td><td><span class="badge b-done"><span class="dot"></span>Completed</span></td><td><span class="pcell"><span class="ptrack"><span class="pfill" style="width:100%;background:var(--ok)"></span></span>100%</span></td><td>14:12</td><td><button class="dots-btn" onclick="toggleMenu(this)">⋮</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- operator / equipment (full list) -->
+      <div class="page" data-role="operator" data-tab="equipment">
+        <div class="page-head" style="margin-bottom:4px"><h1>Equipment & Resources</h1><div class="desc">Status seluruh equipment & robot yang bisa kamu pantau.</div></div>
+        <div class="panel">
+          <div class="toolbar">
+            <div class="seg">
+              <button aria-current="true" onclick="filterByType('opEquipTable2','all',this)">All 24</button>
+              <button onclick="filterByType('opEquipTable2','amr',this)">AMR 6</button>
+              <button onclick="filterByType('opEquipTable2','conveyor',this)">Conveyor 12</button>
+              <button onclick="filterByType('opEquipTable2','lift',this)">Lift 2</button>
+              <button onclick="filterByType('opEquipTable2','sorter',this)">Sorter 2</button>
+              <button onclick="filterByType('opEquipTable2','others',this)">Others 2</button>
+            </div>
+          </div>
+          <div class="panel-body">
+            <table id="opEquipTable2">
+              <thead><tr><th>Equipment ID</th><th>Type</th><th>Status</th><th>Current Task</th><th>Battery/Load</th><th>Location</th><th></th></tr></thead>
+              <tbody>
+                <tr data-type="amr"><td>AMR-01</td><td>AMR</td><td><span class="badge b-online"><span class="dot"></span>Online</span></td><td>TSK-20261002-001</td><td><span class="pcell"><span class="ptrack"><span class="pfill" style="width:60%"></span></span>60%</span></td><td>Aisle 01</td><td><button class="dots-btn" onclick="toggleMenu(this)">⋮</button></td></tr>
+                <tr data-type="amr"><td>AMR-02</td><td>AMR</td><td><span class="badge b-online"><span class="dot"></span>Online</span></td><td>—</td><td><span class="pcell"><span class="ptrack"><span class="pfill" style="width:100%;background:var(--ok)"></span></span>100%</span></td><td>Charging St.</td><td><button class="dots-btn" onclick="toggleMenu(this)">⋮</button></td></tr>
+                <tr data-type="amr"><td>AMR-03</td><td>AMR</td><td><span class="badge b-online"><span class="dot"></span>Online</span></td><td>TSK-20261002-005</td><td><span class="pcell"><span class="ptrack"><span class="pfill" style="width:65%"></span></span>65%</span></td><td>Aisle 03</td><td><button class="dots-btn" onclick="toggleMenu(this)">⋮</button></td></tr>
+                <tr data-type="conveyor"><td>Conveyor-01</td><td>Conveyor</td><td><span class="badge b-online"><span class="dot"></span>Online</span></td><td>TSK-20261002-004</td><td><span class="pcell"><span class="ptrack"><span class="pfill" style="width:100%;background:var(--ok)"></span></span>100%</span></td><td>Line 1</td><td><button class="dots-btn" onclick="toggleMenu(this)">⋮</button></td></tr>
+                <tr data-type="conveyor"><td>Conveyor-02</td><td>Conveyor</td><td><span class="badge b-online"><span class="dot"></span>Online</span></td><td>—</td><td><span class="pcell" style="color:#cbd5e1"><span class="ptrack"><span class="pfill" style="width:0%"></span></span>0%</span></td><td>Line 2</td><td><button class="dots-btn" onclick="toggleMenu(this)">⋮</button></td></tr>
+                <tr data-type="conveyor"><td>Conveyor-03</td><td>Conveyor</td><td><span class="badge b-error"><span class="dot"></span>Maintenance</span></td><td>—</td><td><span class="pcell" style="color:#cbd5e1"><span class="ptrack"><span class="pfill" style="width:0%"></span></span>0%</span></td><td>Line 2</td><td><button class="dots-btn" onclick="toggleMenu(this)">⋮</button></td></tr>
+                <tr data-type="lift"><td>Lift-01</td><td>Lift</td><td><span class="badge b-online"><span class="dot"></span>Online</span></td><td>—</td><td><span class="pcell"><span class="ptrack"><span class="pfill" style="width:100%;background:var(--ok)"></span></span>100%</span></td><td>Lift Zone</td><td><button class="dots-btn" onclick="toggleMenu(this)">⋮</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- operator / alarm (full list) -->
+      <div class="page" data-role="operator" data-tab="alarm">
+        <div class="page-head" style="margin-bottom:4px"><h1>Alarms & Events</h1><div class="desc">Semua alarm aktif. Acknowledge setelah ditindaklanjuti (UC-06).</div></div>
+        <div class="panel">
+          <div class="panel-body">
+            <table>
+              <thead><tr><th>Time</th><th>Equipment</th><th>Message</th><th>Severity</th><th></th></tr></thead>
+              <tbody>
+                <tr><td>14:25</td><td style="color:var(--err)">Conveyor-03</td><td>Motor Overload</td><td><span class="badge b-failed">Critical</span></td><td><button class="btn" onclick="ackAlarm(this)">Acknowledge</button></td></tr>
+                <tr><td>14:18</td><td style="color:var(--err)">AMR-02</td><td>Connection Lost</td><td><span class="badge prio-high">High</span></td><td><button class="btn" onclick="ackAlarm(this)">Acknowledge</button></td></tr>
+                <tr><td>13:52</td><td style="color:var(--err)">PLC-01</td><td>Communication Error</td><td><span class="badge prio-high">High</span></td><td><button class="btn" onclick="ackAlarm(this)">Acknowledge</button></td></tr>
+                <tr><td>12:40</td><td>Conveyor-01</td><td>Sensor Fault</td><td><span class="badge prio-medium">Medium</span></td><td><button class="btn" onclick="ackAlarm(this)">Acknowledge</button></td></tr>
+                <tr><td>11:25</td><td>AMR-01</td><td>Low Battery</td><td><span class="badge prio-medium">Medium</span></td><td><button class="btn" disabled>Acknowledged</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ SUPERVISOR ============ -->
+      <div class="page" data-role="supervisor" data-tab="overview">
+        <div class="grid2">
+          <div class="panel">
+            <div class="panel-head"><h2>Ringkasan Status Task</h2><span class="hint">shift ini · 160 task</span></div>
+            <div class="panel-pad" style="display:flex;gap:20px;align-items:center;flex-wrap:wrap">
+              <svg width="140" height="140" viewBox="0 0 140 140" role="img" aria-label="Donut chart distribusi status task">
+                <g transform="rotate(-90 70 70)">
+                  <circle cx="70" cy="70" r="50" fill="none" stroke="#e2e8f0" stroke-width="20"/>
+                  <circle cx="70" cy="70" r="50" fill="none" stroke="#64748b" stroke-width="20" pathLength="100" stroke-dasharray="3.75 96.25" stroke-dashoffset="0"/>
+                  <circle cx="70" cy="70" r="50" fill="none" stroke="#2563eb" stroke-width="20" pathLength="100" stroke-dasharray="4.375 95.625" stroke-dashoffset="-3.75"/>
+                  <circle cx="70" cy="70" r="50" fill="none" stroke="#b45309" stroke-width="20" pathLength="100" stroke-dasharray="3.125 96.875" stroke-dashoffset="-8.125"/>
+                  <circle cx="70" cy="70" r="50" fill="none" stroke="#15803d" stroke-width="20" pathLength="100" stroke-dasharray="86.875 13.125" stroke-dashoffset="-11.25"/>
+                  <circle cx="70" cy="70" r="50" fill="none" stroke="#b91c1c" stroke-width="20" pathLength="100" stroke-dasharray="1.875 98.125" stroke-dashoffset="-98.125"/>
+                </g>
+                <text x="70" y="66" text-anchor="middle" font-size="20" font-weight="700" fill="#0f172a">139</text>
+                <text x="70" y="82" text-anchor="middle" font-size="9" fill="#64748b">COMPLETED</text>
+              </svg>
+              <table style="width:auto;min-width:170px">
+                <tbody>
+                  <tr><td><span class="badge b-queued"><span class="dot"></span>Queued</span></td><td style="text-align:right;font-weight:600">6</td></tr>
+                  <tr><td><span class="badge b-dispatched"><span class="dot"></span>Dispatched</span></td><td style="text-align:right;font-weight:600">7</td></tr>
+                  <tr><td><span class="badge b-progress"><span class="dot"></span>In Progress</span></td><td style="text-align:right;font-weight:600">5</td></tr>
+                  <tr><td><span class="badge b-done"><span class="dot"></span>Completed</span></td><td style="text-align:right;font-weight:600">139</td></tr>
+                  <tr><td><span class="badge b-failed"><span class="dot"></span>Failed</span></td><td style="text-align:right;font-weight:600">3</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head"><h2>Utilisasi Robot</h2><span class="hint">live (dummy)</span></div>
+            <div class="panel-pad" style="display:flex;flex-direction:column;gap:12px">
+              <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>PUDU-01</span><span style="font-weight:600">82%</span></div><div style="background:#eef2f6;border-radius:4px;height:8px"><div style="width:82%;height:100%;background:#2563eb;border-radius:4px"></div></div></div>
+              <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>PUDU-02</span><span style="font-weight:600">91%</span></div><div style="background:#eef2f6;border-radius:4px;height:8px"><div style="width:91%;height:100%;background:#2563eb;border-radius:4px"></div></div></div>
+              <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>PUDU-03 <span style="color:var(--err)">(error)</span></span><span style="font-weight:600">0%</span></div><div style="background:#eef2f6;border-radius:4px;height:8px"><div style="width:2%;height:100%;background:#b91c1c;border-radius:4px"></div></div></div>
+              <div><div style="display:flex;justify-content:space-between;font-size:12px;margin-bottom:4px"><span>PUDU-05</span><span style="font-weight:600">68%</span></div><div style="background:#eef2f6;border-radius:4px;height:8px"><div style="width:68%;height:100%;background:#2563eb;border-radius:4px"></div></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="page" data-role="supervisor" data-tab="monitoring">
+        <div class="grid2">
+          <div class="panel">
+            <div class="panel-head">
+              <svg class="pi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/></svg>
+              <h2>Task &amp; Status Equipment</h2><span class="hint">UC-04</span>
+            </div>
+            <div class="panel-body">
+              <table>
+                <thead><tr><th>Task</th><th>Material</th><th>Rute</th><th>Status</th><th>Robot</th></tr></thead>
+                <tbody>
+                  <tr><td>TSK-10231</td><td>Brake Pad A12</td><td>RM-01 → PROD-02</td><td><span class="badge b-progress"><span class="dot"></span>IN_PROGRESS</span></td><td>PUDU-02</td></tr>
+                  <tr><td>TSK-10232</td><td>Shock Absorber B4</td><td>PROD-02 → PACK-01</td><td><span class="badge b-dispatched"><span class="dot"></span>DISPATCHED</span></td><td>PUDU-05</td></tr>
+                  <tr><td>TSK-10233</td><td>Filter Oli C7</td><td>PACK-01 → WH-FG</td><td><span class="badge b-queued"><span class="dot"></span>QUEUED</span></td><td>—</td></tr>
+                  <tr><td>TSK-10234</td><td>Gasket Set D2</td><td>WH-RM → RM-01</td><td><span class="badge b-done"><span class="dot"></span>COMPLETED</span></td><td>PUDU-01</td></tr>
+                  <tr><td>TSK-10235</td><td>Spark Plug E9</td><td>PROD-01 → PACK-02</td><td><span class="badge b-failed"><span class="dot"></span>FAILED</span></td><td>PUDU-03</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+          <div class="panel">
+            <div class="panel-head">
+              <svg class="pi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+              <h2>Alarm / Event</h2><span class="hint">UC-06</span>
+            </div>
+            <div class="panel-body">
+              <div class="alarm-item sev-critical" style="display:flex;gap:10px;align-items:flex-start;padding:12px 16px;border-bottom:1px solid var(--border)"><div class="alarm-text"><div style="font-weight:600;font-size:12.5px">PUDU-03</div><div style="font-size:12px;color:var(--muted)">Robot error — collision stop</div></div><button class="btn" onclick="ackAlarm(this)">Acknowledge</button></div>
+              <div class="alarm-item sev-warning" style="display:flex;gap:10px;align-items:flex-start;padding:12px 16px;border-bottom:1px solid var(--border)"><div class="alarm-text"><div style="font-weight:600;font-size:12.5px">Station PACK-01</div><div style="font-size:12px;color:var(--muted)">Konveyor overload warning</div></div><button class="btn" onclick="ackAlarm(this)">Acknowledge</button></div>
+              <div class="alarm-item sev-info" style="display:flex;gap:10px;align-items:flex-start;padding:12px 16px"><div class="alarm-text"><div style="font-weight:600;font-size:12.5px">PUDU-05</div><div style="font-size:12px;color:var(--muted)">Battery rendah (22%)</div></div><button class="btn" disabled>Acknowledged</button></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="page" data-role="supervisor" data-tab="kpi">
+        <div class="panel">
+          <div class="panel-head"><h2>KPI &amp; Laporan</h2><span class="hint">UC-07</span></div>
+          <div class="panel-pad">
+            <svg width="100%" height="90" viewBox="0 0 280 90" role="img" aria-label="Trend throughput 7 shift terakhir" preserveAspectRatio="none">
+              <line x1="0" y1="70" x2="280" y2="70" stroke="#e2e8f0" stroke-width="1"/>
+              <g>
+                <rect x="4"   y="35" width="20" height="35" rx="3" fill="#bfdbfe"/>
+                <rect x="38"  y="27" width="20" height="43" rx="3" fill="#bfdbfe"/>
+                <rect x="72"  y="19" width="20" height="51" rx="3" fill="#bfdbfe"/>
+                <rect x="106" y="31" width="20" height="39" rx="3" fill="#bfdbfe"/>
+                <rect x="140" y="10" width="20" height="60" rx="3" fill="#bfdbfe"/>
+                <rect x="174" y="23" width="20" height="47" rx="3" fill="#bfdbfe"/>
+                <rect x="208" y="4"  width="20" height="66" rx="3" fill="#2563eb"/>
+              </g>
+              <text x="218" y="2" text-anchor="middle" font-size="10" font-weight="700" fill="#2563eb">142</text>
+              <text x="14"  y="82" text-anchor="middle" font-size="8" fill="#64748b">-6</text>
+              <text x="48"  y="82" text-anchor="middle" font-size="8" fill="#64748b">-5</text>
+              <text x="82"  y="82" text-anchor="middle" font-size="8" fill="#64748b">-4</text>
+              <text x="116" y="82" text-anchor="middle" font-size="8" fill="#64748b">-3</text>
+              <text x="150" y="82" text-anchor="middle" font-size="8" fill="#64748b">-2</text>
+              <text x="184" y="82" text-anchor="middle" font-size="8" fill="#64748b">-1</text>
+              <text x="218" y="82" text-anchor="middle" font-size="8" fill="#2563eb">Hari ini</text>
+            </svg>
+            <div class="hint" style="margin:-4px 0 10px 2px;display:block">Throughput task selesai per shift (7 shift terakhir)</div>
+            <table>
+              <thead><tr><th>Metrik</th><th>Shift ini</th><th>Target</th></tr></thead>
+              <tbody>
+                <tr><td>Throughput task selesai</td><td>142</td><td>150</td></tr>
+                <tr><td>Equipment utilization</td><td>76%</td><td>80%</td></tr>
+                <tr><td>Downtime</td><td>34 menit</td><td>&lt;30 menit</td></tr>
+                <tr><td>Task gagal (FAILED)</td><td>3</td><td>0</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="page" data-role="supervisor" data-tab="audit">
+        <div class="panel">
+          <div class="panel-head"><h2>Audit Log</h2><span class="hint">UC-12</span></div>
+          <div class="panel-body">
+            <table>
+              <tbody>
+                <tr><td style="color:var(--muted);width:60px">09:12</td><td>wcs_admin ubah konfigurasi route RM-01→PROD-02</td></tr>
+                <tr><td style="color:var(--muted)">08:47</td><td>operator1 acknowledge alarm PUDU-03</td></tr>
+                <tr><td style="color:var(--muted)">08:30</td><td>supervisor1 ubah priority TSK-10231 ke High</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ ADMIN ============ -->
+      <div class="page" data-role="admin" data-tab="master">
+        <div class="panel">
+          <div class="panel-head"><h2>Master Data</h2><span class="hint">UC-05 · zone/node/equipment/robot/route</span></div>
+          <div class="panel-body">
+            <table>
+              <thead><tr><th>Tipe</th><th>Nama</th><th>Status</th><th></th></tr></thead>
+              <tbody>
+                <tr><td>Robot</td><td>PUDU-01</td><td><span class="badge b-online"><span class="dot"></span>Active</span></td><td><button class="btn">Edit</button></td></tr>
+                <tr><td>Zone</td><td>PACK-01</td><td><span class="badge b-online"><span class="dot"></span>Active</span></td><td><button class="btn">Edit</button></td></tr>
+                <tr><td>Route</td><td>RM-01 → PROD-02</td><td><span class="badge b-online"><span class="dot"></span>Active</span></td><td><button class="btn">Edit</button></td></tr>
+                <tr><td>Equipment</td><td>Konveyor PACK-01</td><td><span class="badge b-error"><span class="dot"></span>Maintenance</span></td><td><button class="btn">Edit</button></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="page" data-role="admin" data-tab="users">
+        <div class="panel">
+          <div class="panel-head"><h2>User &amp; Role</h2></div>
+          <div class="panel-body">
+            <table>
+              <thead><tr><th>User</th><th>Role</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>operator1</td><td>Warehouse Operator</td><td><span class="badge b-online"><span class="dot"></span>Active</span></td></tr>
+                <tr><td>supervisor1</td><td>Warehouse Supervisor</td><td><span class="badge b-online"><span class="dot"></span>Active</span></td></tr>
+                <tr><td>eng1</td><td>Maintenance/Engineer</td><td><span class="badge b-online"><span class="dot"></span>Active</span></td></tr>
+                <tr><td>prod1</td><td>Operator Produksi</td><td><span class="badge b-online"><span class="dot"></span>Active</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ MAINTENANCE ============ -->
+      <div class="page" data-role="maintenance" data-tab="diagnosa">
+        <div class="panel">
+          <div class="panel-head"><h2>Diagnosa Equipment &amp; Koneksi</h2><span class="hint">UC-09</span></div>
+          <div class="panel-body">
+            <table>
+              <thead><tr><th>Equipment</th><th>Koneksi</th><th>Status</th><th>Error Code</th><th>Last Ping</th></tr></thead>
+              <tbody>
+                <tr><td>PUDU-03</td><td>MQTT</td><td><span class="badge b-error"><span class="dot"></span>Error</span></td><td>E-COLLISION-04</td><td>2 menit lalu</td></tr>
+                <tr><td>PUDU-05</td><td>MQTT</td><td><span class="badge b-online"><span class="dot"></span>Online</span></td><td>—</td><td>3 detik lalu</td></tr>
+                <tr><td>PLC Konveyor PACK-01</td><td>OPC UA</td><td><span class="badge b-offline"><span class="dot"></span>Offline</span></td><td>CONN-TIMEOUT</td><td>14 menit lalu</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="page" data-role="maintenance" data-tab="alarm">
+        <div class="panel">
+          <div class="panel-head">
+            <svg class="pi" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>
+            <h2>Alarm / Event</h2><span class="hint">UC-06</span>
+          </div>
+          <div class="panel-body">
+            <div style="display:flex;gap:10px;align-items:flex-start;padding:12px 16px;border-bottom:1px solid var(--border)"><div class="alarm-text"><div style="font-weight:600;font-size:12.5px">PUDU-03</div><div style="font-size:12px;color:var(--muted)">Robot error — collision stop</div></div><button class="btn" onclick="ackAlarm(this)">Acknowledge</button></div>
+            <div style="display:flex;gap:10px;align-items:flex-start;padding:12px 16px;border-bottom:1px solid var(--border)"><div class="alarm-text"><div style="font-weight:600;font-size:12.5px">Station PACK-01</div><div style="font-size:12px;color:var(--muted)">Konveyor overload warning</div></div><button class="btn" onclick="ackAlarm(this)">Acknowledge</button></div>
+            <div style="display:flex;gap:10px;align-items:flex-start;padding:12px 16px"><div class="alarm-text"><div style="font-weight:600;font-size:12.5px">PUDU-05</div><div style="font-size:12px;color:var(--muted)">Battery rendah (22%)</div></div><button class="btn" disabled>Acknowledged</button></div>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ INTEGRATOR ============ -->
+      <div class="page" data-role="integrator" data-tab="integrasi">
+        <div class="panel">
+          <div class="panel-head"><h2>Status Integrasi Sistem</h2><span class="hint">UC-10</span></div>
+          <div class="panel-body">
+            <table>
+              <thead><tr><th>Sistem</th><th>Protokol</th><th>Status</th><th>Last Sync</th></tr></thead>
+              <tbody>
+                <tr><td>WMS</td><td>REST API</td><td><span class="badge b-online"><span class="dot"></span>Connected</span></td><td>12 detik lalu</td></tr>
+                <tr><td>RCS</td><td>REST API</td><td><span class="badge b-online"><span class="dot"></span>Connected</span></td><td>30 detik lalu</td></tr>
+                <tr><td>PLC Gateway</td><td>OPC UA</td><td><span class="badge b-error"><span class="dot"></span>Error</span></td><td>14 menit lalu</td></tr>
+                <tr><td>ERP<span class="role-flag">usulan</span></td><td>REST API</td><td><span class="badge b-online"><span class="dot"></span>Connected</span></td><td>1 menit lalu</td></tr>
+                <tr><td>PUDU Cloud API</td><td>HTTPS Webhook</td><td><span class="badge b-online"><span class="dot"></span>Connected</span></td><td>5 detik lalu</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============ PROD / PACKAGING / DELIVERY ============ -->
+      <div class="page" data-role="prod" data-tab="produksi">
+        <div class="panel">
+          <div class="panel-head"><h2>Production Line Interface</h2><span class="hint">UC-14 · usulan</span></div>
+          <div class="panel-body">
+            <table>
+              <thead><tr><th>Request</th><th>Material</th><th>Qty</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>Request Raw Material</td><td>Brake Pad A12</td><td>50</td><td><span class="badge b-progress"><span class="dot"></span>Menunggu Robot</span></td></tr>
+                <tr><td>Lapor Finish Good</td><td>Shock Absorber B4</td><td>120</td><td><span class="badge b-done"><span class="dot"></span>Dikirim ke Packaging</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary">+ Request Raw Material</button>
+            <button class="btn">+ Lapor Finish Good</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="page" data-role="packaging" data-tab="packaging">
+        <div class="panel">
+          <div class="panel-head"><h2>Packaging Interface</h2><span class="hint">UC-15 · usulan</span></div>
+          <div class="panel-body">
+            <table>
+              <thead><tr><th>Request</th><th>Tipe Box</th><th>Qty</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>Filter Oli C7</td><td>Box-M</td><td>80</td><td><span class="badge b-progress"><span class="dot"></span>Menunggu Robot</span></td></tr>
+                <tr><td>Gasket Set D2</td><td>Box-S</td><td>200</td><td><span class="badge b-done"><span class="dot"></span>Dikirim ke WH Finish Good</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary">+ Request Packaging</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="page" data-role="delivery" data-tab="delivery">
+        <div class="panel">
+          <div class="panel-head"><h2>Delivery-to-Customer Interface</h2><span class="hint">UC-16 · usulan</span></div>
+          <div class="panel-body">
+            <table>
+              <thead><tr><th>Order Delivery</th><th>Customer</th><th>Robot</th><th>Status</th></tr></thead>
+              <tbody>
+                <tr><td>DO-5021</td><td>Bengkel Jaya Motor</td><td>PUDU-02</td><td><span class="badge b-progress"><span class="dot"></span>On the way</span></td></tr>
+                <tr><td>DO-5022</td><td>Toko Sparepart Abadi</td><td>—</td><td><span class="badge b-queued"><span class="dot"></span>Menunggu Robot</span></td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary">+ Calling Robot Delivery</button>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <footer>
+      Prototype wireframe — bukan implementasi final. Lihat <code>docs/USE_CASE.md</code> dan <code>docs/RBAC.md</code> untuk kontrak lengkap sebelum dijadikan komponen Next.js.
+    </footer>
+  </div>
+</div>
+
+<script>
+const ICONS = {
+  overview: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/><rect x="14" y="14" width="7" height="7" rx="1"/></svg>',
+  tasks: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/></svg>',
+  equipment: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="4" y="9" width="16" height="7" rx="1.5"/><path d="M8 9V6a1 1 0 011-1h6a1 1 0 011 1v3"/></svg>',
+  alarm: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M18 8a6 6 0 10-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.7 21a2 2 0 01-3.4 0"/></svg>',
+  kpi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 3v18h18"/><path d="M7 15l4-5 3 3 5-7"/></svg>',
+  audit: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M9 12h6M9 16h6M9 8h6"/><rect x="5" y="3" width="14" height="18" rx="2"/></svg>',
+  master: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 7h16M4 12h16M4 17h16"/></svg>',
+  users: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="3"/><path d="M2 20c0-3 3-5 7-5s7 2 7 5"/><circle cx="18" cy="8" r="2.3"/><path d="M15 15.2c2.8.4 5 2 5 4.8"/></svg>',
+  diagnosa: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v4M12 18v4M4.9 4.9l2.8 2.8M16.3 16.3l2.8 2.8M2 12h4M18 12h4M4.9 19.1l2.8-2.8M16.3 7.7l2.8-2.8"/></svg>',
+  integrasi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M8 7H5a2 2 0 00-2 2v2a2 2 0 002 2h3M16 7h3a2 2 0 012 2v2a2 2 0 01-2 2h-3M8 7v10M16 7v10"/></svg>',
+  produksi: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/></svg>',
+  packaging: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 8l-9-5-9 5 9 5 9-5z"/><path d="M3 8v8l9 5 9-5V8M12 13v8"/></svg>',
+  delivery: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="7" width="13" height="10" rx="1"/><path d="M14 10h4l3 3v4h-7z"/><circle cx="6" cy="19" r="1.6"/><circle cx="17.5" cy="19" r="1.6"/></svg>',
+  monitoring: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/></svg>',
+};
+
+const ROLES = {
+  operator:    { title: "Warehouse Operator", initials: "WO",
+                 tabs: [
+                   {k:"overview",l:"Operations Overview",group:"OVERVIEW",icon:"overview"},
+                   {k:"tasks",l:"Tasks",group:"OPERATIONS",icon:"tasks"},
+                   {k:"equipment",l:"Equipment & Resources",group:"MONITORING",icon:"equipment"},
+                   {k:"alarm",l:"Alarms & Events",group:"MONITORING",icon:"alarm",badge:3},
+                 ]},
+  supervisor:  { title: "Warehouse Supervisor", initials: "WS",
+                 tabs: [
+                   {k:"overview",l:"Overview",group:"OVERVIEW",icon:"overview"},
+                   {k:"monitoring",l:"Monitoring",group:"OPERATIONS",icon:"monitoring"},
+                   {k:"kpi",l:"KPI & Laporan",group:"REPORTS",icon:"kpi"},
+                   {k:"audit",l:"Audit Log",group:"REPORTS",icon:"audit"},
+                 ]},
+  admin:       { title: "WCS Administrator", initials: "WA",
+                 tabs: [
+                   {k:"master",l:"Master Data",group:"SETTINGS",icon:"master"},
+                   {k:"users",l:"User & Role",group:"SETTINGS",icon:"users"},
+                 ]},
+  maintenance: { title: "Maintenance / Engineer", initials: "ME",
+                 tabs: [
+                   {k:"diagnosa",l:"Diagnosa Equipment",group:"MONITORING",icon:"diagnosa"},
+                   {k:"alarm",l:"Alarm",group:"MONITORING",icon:"alarm"},
+                 ]},
+  integrator:  { title: "System Integrator", initials: "SI",
+                 tabs: [{k:"integrasi",l:"Status Integrasi",group:"INTEGRATION",icon:"integrasi"}]},
+  prod:        { title: "Operator Produksi", initials: "OP",
+                 tabs: [{k:"produksi",l:"Production Line",group:"OPERATIONS",icon:"produksi"}]},
+  packaging:   { title: "Operator Box/Packaging", initials: "OB",
+                 tabs: [{k:"packaging",l:"Packaging",group:"OPERATIONS",icon:"packaging"}]},
+  delivery:    { title: "Operator Delivery", initials: "OD",
+                 tabs: [{k:"delivery",l:"Delivery",group:"OPERATIONS",icon:"delivery"}]},
+};
+
+function renderNav(role){
+  const nav = document.getElementById("navScroll");
+  nav.innerHTML = "";
+  let lastGroup = null;
+  ROLES[role].tabs.forEach((t, i) => {
+    if (t.group !== lastGroup){
+      const lbl = document.createElement("div");
+      lbl.className = "nav-group-label";
+      lbl.textContent = t.group;
+      nav.appendChild(lbl);
+      lastGroup = t.group;
+    }
+    const b = document.createElement("button");
+    b.className = "nav-item";
+    b.setAttribute("aria-current", i === 0 ? "true" : "false");
+    b.innerHTML = (ICONS[t.icon] || "") + "<span>" + t.l + "</span>" + (t.badge ? '<span class="nbadge">' + t.badge + "</span>" : "");
+    b.onclick = () => setTab(role, t.k);
+    b.dataset.tabKey = t.k;
+    nav.appendChild(b);
+  });
+}
+
+function setRole(role){
+  document.getElementById("roleSelect").value = role;
+  document.getElementById("profileRole").textContent = ROLES[role].title;
+  document.getElementById("profileAvatar").textContent = ROLES[role].initials;
+  renderNav(role);
+  setTab(role, ROLES[role].tabs[0].k);
+  closeNav();
+}
+
+function setTab(role, tab){
+  document.querySelectorAll(".nav-item").forEach(btn => {
+    btn.setAttribute("aria-current", btn.dataset.tabKey === tab ? "true" : "false");
+  });
+  document.querySelectorAll(".page").forEach(el => {
+    el.dataset.active = (el.dataset.role === role && el.dataset.tab === tab) ? "true" : "false";
+  });
+  document.getElementById("bellBadge").style.display = (role === "operator") ? "flex" : "none";
+  document.getElementById("content").scrollTop = 0;
+  closeMenus();
+}
+
+function filterByStatus(tableId, status, btn){
+  btn.parentElement.querySelectorAll("button").forEach(b => b.setAttribute("aria-current", "false"));
+  btn.setAttribute("aria-current", "true");
+  const rows = document.getElementById(tableId).querySelectorAll("tbody tr");
+  let visible = 0;
+  rows.forEach(r => {
+    const show = status === "all" || r.dataset.status === status;
+    r.style.display = show ? "" : "none";
+    if (show) visible++;
+  });
+  toggleEmptyNotice(tableId, visible);
+}
+function filterByType(tableId, type, btn){
+  btn.parentElement.querySelectorAll("button").forEach(b => b.setAttribute("aria-current", "false"));
+  btn.setAttribute("aria-current", "true");
+  const rows = document.getElementById(tableId).querySelectorAll("tbody tr");
+  let visible = 0;
+  rows.forEach(r => {
+    const show = type === "all" || r.dataset.type === type;
+    r.style.display = show ? "" : "none";
+    if (show) visible++;
+  });
+  toggleEmptyNotice(tableId, visible);
+}
+function toggleEmptyNotice(tableId, visibleCount){
+  const table = document.getElementById(tableId);
+  let notice = table.querySelector(".empty-row");
+  if (visibleCount === 0){
+    if (!notice){
+      notice = document.createElement("tr");
+      notice.className = "empty-row";
+      const cols = table.querySelectorAll("thead th").length;
+      notice.innerHTML = "<td colspan=\"" + cols + "\">Tidak ada data untuk filter ini.</td>";
+      table.querySelector("tbody").appendChild(notice);
+    }
+    notice.style.display = "";
+  } else if (notice){
+    notice.style.display = "none";
+  }
+}
+function searchTable(tableId, query){
+  const q = query.trim().toLowerCase();
+  document.getElementById(tableId).querySelectorAll("tbody tr[data-search]").forEach(r => {
+    r.style.display = r.dataset.search.includes(q) ? "" : "none";
+  });
+}
+
+function toggleMenu(btn){
+  const menu = btn.nextElementSibling;
+  const open = menu.dataset.open === "true";
+  closeMenus();
+  if (!open) menu.dataset.open = "true";
+}
+function closeMenus(){
+  document.querySelectorAll(".row-menu").forEach(m => m.dataset.open = "false");
+}
+document.addEventListener("click", e => {
+  if (!e.target.closest(".row-menu-wrap")) closeMenus();
+});
+
+function ackAlarm(btn){
+  btn.textContent = "Acknowledged";
+  btn.disabled = true;
+  btn.closest("tr").style.opacity = 0.55;
+}
+
+function openNav(){
+  document.getElementById("sidebar").dataset.open = "true";
+  document.getElementById("backdrop").dataset.open = "true";
+}
+function closeNav(){
+  document.getElementById("sidebar").dataset.open = "false";
+  document.getElementById("backdrop").dataset.open = "false";
+}
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape"){ closeNav(); closeMenus(); }
+  if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k"){
+    e.preventDefault();
+    document.getElementById("globalSearch").focus();
+  }
+});
+
+document.getElementById("globalSearch").addEventListener("input", e => {
+  if (document.querySelector('.page[data-role="operator"][data-tab="overview"]').dataset.active === "true"){
+    searchTable("opTaskTable", e.target.value);
+  }
+  if (document.querySelector('.page[data-role="operator"][data-tab="tasks"]').dataset.active === "true"){
+    searchTable("opTaskTable2", e.target.value);
+  }
+});
+
+function toggleFullscreen(){
+  if (!document.fullscreenElement){
+    document.documentElement.requestFullscreen().catch(() => {});
+  } else {
+    document.exitFullscreen();
+  }
+}
+
+function tickClock(){
+  const el = document.getElementById("clock");
+  const now = new Date();
+  const opts = { weekday: "short", day: "numeric", month: "short", year: "numeric" };
+  el.textContent = now.toLocaleDateString("en-GB", opts) + " " + now.toLocaleTimeString("en-GB");
+}
+tickClock();
+setInterval(tickClock, 1000);
+
+setRole("operator");
+</script>
+
+</body>
+</html>
