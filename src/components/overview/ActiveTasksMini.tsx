@@ -10,6 +10,7 @@ import {
   ArrowDownToLine,
   ArrowRight,
 } from 'lucide-react';
+import { PriorityBadge } from '@/components/ui/Badge';
 import { ActiveTaskMini } from '@/types/overview';
 
 interface ActiveTasksMiniProps {
@@ -120,21 +121,6 @@ export function ActiveTasksMini({ tasks }: ActiveTasksMiniProps) {
             {mockTasks.map((t) => {
               const Icon = t.icon;
 
-              // Priority Badge Styles
-              let prioBg = '#eff6ff';
-              let prioColor = '#2563eb';
-              let prioBorder = '#bfdbfe';
-
-              if (t.priority === 'High') {
-                prioBg = '#fef2f2';
-                prioColor = '#dc2626';
-                prioBorder = '#fecaca';
-              } else if (t.priority === 'Medium') {
-                prioBg = '#fffbeb';
-                prioColor = '#d97706';
-                prioBorder = '#fde68a';
-              }
-
               // Status Badge Styles
               let statBg = '#eff6ff';
               let statColor = '#2563eb';
@@ -170,21 +156,7 @@ export function ActiveTasksMini({ tasks }: ActiveTasksMiniProps) {
                   </td>
                   <td style={{ color: '#475569', fontSize: '11.5px', padding: '7px 2px', whiteSpace: 'nowrap' }}>{t.destination}</td>
                   <td style={{ padding: '7px 4px' }}>
-                    <span
-                      style={{
-                        display: 'inline-block',
-                        padding: '2px 7px',
-                        borderRadius: '4px',
-                        fontSize: '10.5px',
-                        fontWeight: 700,
-                        backgroundColor: prioBg,
-                        border: `1px solid ${prioBorder}`,
-                        color: prioColor,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {t.priority}
-                    </span>
+                    <PriorityBadge priority={t.priority} />
                   </td>
                   <td style={{ padding: '7px 4px' }}>
                     <span
