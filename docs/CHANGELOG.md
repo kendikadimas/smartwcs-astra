@@ -4,6 +4,32 @@ Mencatat perubahan pada `docs/` (ADR, ERD, Functional Boundary, Use Case, RBAC, 
 
 Format: `[file] perubahan` -- dasar perubahan.
 
+## 2026-10-19
+
+### ERD v3 + integrasi PUDU Cloud API (T600) + perapian repo
+
+Dasar: eksplorasi dokumentasi PUDU Open Platform (43 API & callback dipetakan field per field), audit data model terhadap best practice, dan uji skema di PostgreSQL 16 dengan simulasi alur data PUDU (binding, sync peta, delivery task, callback ganda, error, 600 data posisi).
+
+**ERD.md (ditulis ulang, v3)** -- 44 tabel (35 inti + 9 adapter PUDU), dibangkitkan dari model yang sama dengan `prisma/schema.prisma`.
+- Semua kolom waktu jadi `TIMESTAMPTZ` (UTC).
+- `IntegrationLog` jadi antrean callback: status `PENDING/SUCCESS/FAILED/IGNORED`, kolom baru `traceId`, `messageType`, `robotId`, `callbackCodeValid`, `httpStatus`, `responseCode`, `attempts`, `nextAttemptAt`, `processedAt`; UNIQUE (integrationId, direction, traceId) untuk idempotensi retry PUDU.
+- `Event`: kolom baru `externalErrorId`, `externalLevel`, `integrationLogId`, `payload`, `taskId`. `TaskStatusHistory`: kolom baru `integrationLogId`.
+- UNIQUE baru: `Task (source, externalRef)` (sebelumnya hanya catatan), `Robot.equipmentId`, `User.username`, `Role.name`.
+- 9 tabel PUDU: `PuduRobot`, `PuduRobotState`, `PuduRobotStatusLog`, `PuduPoseLog` (dipartisi bulanan), `PuduMap` (terhubung ke Warehouse/Zone), `PuduRobotMap`, `PuduMapElement` (soft delete), `PuduTask` (1:1 Mission), `PuduTaskStop`.
+- Bagian baru: tabel constraint/index/aturan hapus, dan "Di mana data PUDU disimpan".
+
+**prisma/schema.prisma** -- dari kosong jadi 44 model; lolos validator Prisma (0 warning). **prisma/sql/pudu_pose_log_partition.sql** -- partisi bulanan `PuduPoseLog` (dipasang manual di migration awal).
+
+**PUDU_INTEGRATION.md (baru)** -- base URL per region, autentikasi HMAC, alur callback (simpan dulu, balas 200, worker mengurai), alur end-to-end, keputusan API (tidak ada API register/list robot/group dan on/off robot, pose report maks 1000x, traffic control auto-allow, scope T600 tanpa lifting/transport), usulan pemetaan status PUDU ke WCS, katalog 43 API, lampiran pemetaan 177 field ke kolom.
+
+**ADR** -- Section 7.1 baru: pengecualian LAN-first untuk PUDU Cloud API (butuh internet) beserta mitigasinya; model pilot diputuskan T600 lewat Cloud API; risiko baru (ketergantungan internet, tidak ada API register/list robot); referensi Spring yang tersisa di Section 3 dan 8.2 disesuaikan ke Next.js; catatan 4 dokumen turunan yang belum ada di repo.
+
+**FUNCTIONAL_BOUNDARY** -- catatan keputusan sementara di area abu-abu #1 (baterai) dan #3 (traffic control: WCS selalu ALLOW).
+
+**CLAUDE.md** -- tabel dokumen ditambah `PUDU_INTEGRATION.md` dan `prisma/schema.prisma`; bagian Status implementasi ditulis ulang sesuai kondisi repo; aturan kerja baru untuk schema, migration, dan adapter PUDU.
+
+**Kode** -- 4 error ESLint di `src/app/tasks/page.tsx` diperbaiki (export CSV/JSON dipindah ke helper di luar render, `useMemo` diurutkan sebelum handler, persentase KPI aman saat total 0); import tak terpakai dibersihkan; README modul task dan equipment-adapter diperbarui; `.env.example` ditambahkan; `@types/node` disamakan dengan Node 24; font Geist dipindah dari `next/font/google` ke paket `geist` (dibundel lokal) supaya `next build` tidak butuh internet, sesuai ADR Section 7; `wcs-smart-docs-package.zip` (duplikat `docs/`) dihapus. Tersisa 1 warning ESLint yang disengaja: form Create Task belum punya input quantity (`setQuantity` belum dipakai).
+
 ## 2026-10-06
 
 ### Pelengkapan dokumen untuk scope baru + update versi dependency (status: masih Proposed)

@@ -29,12 +29,14 @@ PUDU sebagai pilot.
 | Dokumen | Isi | Status | Kapan dibaca |
 | --- | --- | --- | --- |
 | `docs/PRD_Smart_WCS_v0.2_Revisi.docx` | Product requirements lengkap, FR-01–FR-16 | Revisi 0.2 | Sebelum apapun — ini sumber kebenaran scope produk |
-| `docs/ADR.md` | Keputusan stack teknologi (Next.js) + justifikasi + risiko | Revisi 2026-10-05 | Sebelum setup apapun |
-| `docs/ERD.md` | Data model, termasuk entity baru ERP/Production/Packaging/Delivery | Revisi 2026-10-05 | Sebelum bikin schema Prisma |
+| `docs/ADR.md` | Keputusan stack teknologi (Next.js) + justifikasi + risiko, termasuk Section 7.1 (PUDU Cloud API butuh internet) | Revisi 2026-10-19 | Sebelum setup apapun |
+| `docs/ERD.md` | Data model v3: 44 tabel (inti + ERP usulan + 9 tabel adapter PUDU), constraint, index | **Revisi 2026-10-19 (v3)** | Sebelum menyentuh `prisma/schema.prisma` |
+| `prisma/schema.prisma` | Implementasi ERD v3 (Prisma 7). **Sumber kebenaran schema** — harus selalu sinkron dengan `ERD.md` | **Baru 2026-10-19** | Sebelum query/migration apa pun |
+| `docs/PUDU_INTEGRATION.md` | Integrasi PUDU Cloud API: base URL, autentikasi HMAC, alur callback, scope T600, pemetaan status & field ke tabel | **Baru 2026-10-19** | Sebelum menulis kode di `src/modules/equipment-adapter/pudu` |
 | `docs/API_SPECIFICATION.md` | Ringkasan modul + endpoint, termasuk 4 modul baru | Revisi 2026-10-05 | Referensi cepat endpoint |
 | `docs/ARCHITECTURE.md` | Gambaran arsitektur sistem | Revisi 2026-10-05 | Sebelum setup struktur project |
-| `docs/CHANGELOG.md` | Riwayat perubahan dokumen | Revisi 2026-10-05 | Kalau butuh histori keputusan |
-| `docs/FUNCTIONAL_BOUNDARY.md` | Batas tanggung jawab WCS vs WMS/RCS/PLC/ERP | Revisi 2026-10-06 | Sebelum implementasi business logic, termasuk FR-13 |
+| `docs/CHANGELOG.md` | Riwayat perubahan dokumen | Revisi 2026-10-19 | Kalau butuh histori keputusan |
+| `docs/FUNCTIONAL_BOUNDARY.md` | Batas tanggung jawab WCS vs WMS/RCS/PLC/ERP | Revisi 2026-10-19 | Sebelum implementasi business logic, termasuk FR-13 |
 | `docs/USE_CASE.md` | Use case UC-01–UC-16 (UC-13–16 detail lengkap) | Revisi 2026-10-06 | Sebelum implementasi fitur/endpoint, termasuk modul baru |
 | `docs/RBAC.md` | Role & matriks akses, termasuk 3 role baru | Revisi 2026-10-06 | Sebelum implementasi auth/guard |
 | `docs/openapi-smart-wcs.yaml` | Kontrak API lengkap (OpenAPI 3.0.3), v0.4.0-proposed | Revisi 2026-10-06 | Saat implementasi route handler/schema |
@@ -75,11 +77,13 @@ diasumsikan jawabannya saat implementasi.
 - Data-fetching client: **TanStack Query v5**
 - Deployment: Docker Compose, **on-premise/LAN-first** — operasi inti (task
   execution, dispatching, monitoring, dashboard) tidak boleh bergantung pada
-  internet (lihat ADR.md Section 7)
+  internet (lihat ADR.md Section 7). **Pengecualian yang disadari:** kontrol
+  robot PUDU pilot lewat PUDU Cloud API butuh internet (ADR.md Section 7.1)
 - Equipment integration: **Adapter Framework** — kontrak interface baku
   (register, status, mission command, event), satu implementasi per vendor.
-  Vendor pilot adalah **PUDU** (Open Platform Cloud API — Open API untuk
-  command dari WCS, Callback Notification untuk event dari PUDU). Tujuan
+  Vendor pilot adalah **PUDU T600** (Open Platform Cloud API — Open API untuk
+  command dari WCS dengan autentikasi HMAC, Callback Notification untuk event
+  dari PUDU). Detail di `docs/PUDU_INTEGRATION.md`. Tujuan
   akhir arsitektur ini **multi-vendor** — adapter PUDU adalah blueprint,
   bukan batasan.
 
@@ -100,16 +104,23 @@ Material Request.
 Maintenance/Engineer, System Integrator (baku) + Operator Produksi, Operator
 Box/Packaging, Operator Delivery (baru, role/RBAC-nya belum diformalkan).
 
-## Status implementasi
+## Status implementasi (per 2026-10-19)
 
-Skeleton sebelumnya (`backend/` Spring Boot, `frontend/` React+Vite) dibangun
-untuk stack **lama** dan **tidak lagi sesuai keputusan ADR terbaru** — jangan
-dilanjutkan begitu saja di atas skeleton itu. Sebelum lanjut Phase 1, konfirmasi
-dulu: apakah mulai ulang skeleton infra untuk Next.js (`package.json`,
-`server.ts`, Prisma schema), atau skeleton existing mau dipertahankan sebagai
-referensi migrasi data (V1 migration SQL di skeleton lama masih relevan
-sebagai referensi struktur tabel master data, tinggal dipindah ke Prisma
-schema).
+- **Infra:** Next.js 16 + custom server (`server.ts`, Socket.IO di path `/ws`),
+  Prisma 7 dengan `@prisma/adapter-pg`, PostgreSQL 18 di `docker-compose.yml`.
+  Config Prisma ada di `prisma7.config.ts`.
+- **Database:** `prisma/schema.prisma` sudah berisi ERD v3 (44 model). Migration
+  belum dibuat. Migration pertama wajib mengikuti langkah di
+  `prisma/sql/pudu_pose_log_partition.sql` (partisi `PuduPoseLog`).
+- **UI:** halaman Overview dan Task Management sudah jadi, **sengaja masih
+  memakai data mock** (`src/data/mock*.ts`). Halaman lain masih
+  `PlaceholderPage`. Tahap ini memang UI statis — jangan sambungkan UI ke
+  database atau PUDU kecuali diminta.
+- **Modul domain** (`src/modules/*`): baru berisi README, belum ada kode.
+- **Belum ada:** API route (`src/app/api/`), auth, adapter PUDU, worker callback.
+- **Dokumen yang dirujuk tapi belum ada di repo:** `ADAPTER_CONTRACT.md`,
+  `API_CONVENTIONS.md`, `TASK_STATE_MACHINE.md`, `DATA_DICTIONARY.md`. Jangan
+  mengasumsikan isinya (lihat catatan di ADR.md Section 9).
 
 ## Aturan kerja untuk Claude Code di repo ini
 
@@ -141,6 +152,20 @@ schema).
 8. Field yang masih open question (lihat PRD Section 15 "Open Items") jangan
    diasumsikan jawabannya saat implementasi — flag saja di PR/komentar kalau
    relevan.
+9. **Schema database:** setiap perubahan `prisma/schema.prisma` harus ikut
+   diperbarui di `docs/ERD.md` (dan sebaliknya), lalu dibuat lewat
+   `prisma migrate dev` — jangan `db push`. Semua kolom waktu `Timestamptz`
+   (UTC). Nilai enum WCS divalidasi di aplikasi (Zod), status mentah vendor
+   disimpan apa adanya.
+10. **Adapter PUDU:** ikuti `docs/PUDU_INTEGRATION.md`. Endpoint callback hanya
+    memverifikasi `CallbackCode`, menyimpan ke `IntegrationLog` (`ON CONFLICT`
+    traceId) dan membalas 200 dalam 5 detik; penguraian dilakukan worker.
+    Semua tulis data PUDU memakai upsert pada kunci unik di `ERD.md`. Elemen
+    peta tidak pernah di-DELETE (soft delete). Lifting/transport/robot group
+    di luar scope T600.
+11. **Kredensial** (`PUDU_API_APP_SECRET`, `PUDU_CALLBACK_CODE`, `AUTH_SECRET`)
+    hanya dari environment (`.env`, lihat `.env.example`) — jangan di-commit
+    dan jangan dikirim ke client/browser.
 
 ## Catatan konteks developer
 

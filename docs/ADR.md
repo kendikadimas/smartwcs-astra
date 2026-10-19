@@ -71,7 +71,7 @@ Implikasi arsitektur (detail diagram ada di `ARCHITECTURE.md` Section 1):
 | Auth | ~~Spring Security + JWT~~ -> **Auth.js v5 (`next-auth@beta`, App Router-native) / middleware JWT custom (`jose`)** | **Revised 2026-10-06** -- Auth.js v5 masih berstatus beta (5.0.0-beta.x) per Okt 2026 meski sudah dipakai luas di App Router; kalau butuh stabilitas penuh, pakai jalur JWT custom (`jose`) sebagai fallback, bukan `next-auth@4` yang didesain untuk Pages Router |
 | Containerization | Docker + Docker Compose | Decided (tidak berubah) |
 | Frontend dashboard | ~~React + Vite + TanStack Query~~ -> **Next.js (App Router) + TanStack Query v5, satu codebase dengan backend** | Revised 2026-10-05/06 |
-| AMR interoperability standard | VDA5050 (opsional per vendor) | Decided sebagai standar acuan; PRD Section 13 menyebut VDA 5050 "jika diperlukan". Pudu T600 native, T300 belum terverifikasi (lihat Section 3 dan 5) |
+| AMR interoperability standard | VDA5050 (opsional per vendor) | Decided sebagai standar acuan; PRD Section 13 menyebut VDA 5050 "jika diperlukan". Pudu T600 native, T300 belum terverifikasi (lihat Section 3 dan 5). **[Revisi 2026-10-19]** Pilot T600 diintegrasikan lewat PUDU Open Platform Cloud API (proprietary), bukan VDA5050 -- lihat Section 7.1 |
 
 ## 3. Justifikasi per layer
 
@@ -117,9 +117,11 @@ anggap angka ini berlaku selamanya:
 - TanStack Query v5, mqtt.js 5.x, node-opcua 2.179.x, Socket.IO 4.8.x --
   semuanya versi stabil terbaru per pengecekan ini, tidak ada status beta/RC.
 
-**Equipment Integration -- Adapter Framework multi-vendor.** Karena AMR/RCS berasal dari beberapa merek, Adapter bukan sekadar satu kelas per vendor, melainkan framework dengan kontrak interface baku (register, status, mission command, event; signature lengkap, capability, pemetaan error, dan checklist konformansi ada di `ADAPTER_CONTRACT.md`), diimplementasikan sebagai Spring bean per vendor yang di-load lewat dependency injection/Spring Boot auto-configuration -- vendor baru tinggal menambah implementasi tanpa mengubah WCS Core. Untuk interoperabilitas AMR lintas-vendor, standar acuan yang dipakai adalah VDA5050 bila vendor mendukungnya (PRD Section 13 menyebut VDA 5050 "jika diperlukan" pada fase AMR/RCS integration; PRD Section 10 mendefinisikan WCS-RCS sebagai "vendor API", jadi VDA5050 bukan syarat wajib).
+**Equipment Integration -- Adapter Framework multi-vendor.** Karena AMR/RCS berasal dari beberapa merek, Adapter bukan sekadar satu kelas per vendor, melainkan framework dengan kontrak interface baku (register, status, mission command, event; signature lengkap, capability, pemetaan error, dan checklist konformansi ada di `ADAPTER_CONTRACT.md`), diimplementasikan sebagai satu modul TypeScript per vendor di `src/modules/equipment-adapter/<vendor>` yang mengimplementasikan interface adapter dan didaftarkan ke registry adapter saat server start [Revisi 2026-10-19, menggantikan pola Spring bean] -- vendor baru tinggal menambah implementasi tanpa mengubah WCS Core. Untuk interoperabilitas AMR lintas-vendor, standar acuan yang dipakai adalah VDA5050 bila vendor mendukungnya (PRD Section 13 menyebut VDA 5050 "jika diperlukan" pada fase AMR/RCS integration; PRD Section 10 mendefinisikan WCS-RCS sebagai "vendor API", jadi VDA5050 bukan syarat wajib).
 
-**Vendor pilot untuk testing: Pudu (lini industrial) -- model final (T300 vs T600) masih dikonfirmasi.** AMR yang dipakai untuk uji coba Phase 2 adalah Pudu lini industrial, bukan satu-satunya vendor yang akan didukung WCS selamanya -- ini vendor pertama untuk memvalidasi Adapter Framework sebelum dibuka ke merek lain (multi-vendor adalah tujuan akhir, sesuai prinsip Vendor-Neutral Section 3 PRD). T600 secara eksplisit mendukung VDA5050 native; dukungan VDA5050 pada T300 belum terverifikasi di spec resmi manapun yang ditemukan -- kemungkinan integrasinya lewat API proprietary PUDU Scheduler. Dua-duanya tetap konsisten dengan arsitektur: Adapter Framework menyediakan kontrak interface baku (register, status, mission command, event) di level WCS Core, jadi baik lewat VDA5050 standar maupun API proprietary Pudu, implementasinya tetap berupa satu adapter tambahan tanpa mengubah WCS Core -- dan adapter Pudu ini jadi blueprint, bukan batasan, untuk adapter vendor berikutnya. Catatan lain: unit yang dipakai pilot harus dari lini industrial, bukan lini PUDU Open Platform untuk robot service/hospitality (delivery, cleaning) yang komunikasinya wajib lewat Pudu Cloud -- pastikan ini dipastikan sebelum implementasi adapter dimulai.
+**[Revisi 2026-10-19] Vendor pilot: PUDU T600, diintegrasikan lewat PUDU Open Platform Cloud API.** Keputusan tim: model pilot T600, dan jalur integrasinya Open API (command) + Callback Notification (event) di PUDU Cloud, bukan VDA5050. Detail integrasi, autentikasi HMAC, dan pemetaan field ada di `PUDU_INTEGRATION.md`; dampaknya ke prinsip LAN-first dicatat di Section 7.1. Paragraf di bawah dipertahankan sebagai latar belakang keputusan.
+
+**Vendor pilot untuk testing: Pudu (lini industrial) -- model final (T300 vs T600) masih dikonfirmasi.** *(Latar belakang, sudah diputuskan: T600.)* AMR yang dipakai untuk uji coba Phase 2 adalah Pudu lini industrial, bukan satu-satunya vendor yang akan didukung WCS selamanya -- ini vendor pertama untuk memvalidasi Adapter Framework sebelum dibuka ke merek lain (multi-vendor adalah tujuan akhir, sesuai prinsip Vendor-Neutral Section 3 PRD). T600 secara eksplisit mendukung VDA5050 native; dukungan VDA5050 pada T300 belum terverifikasi di spec resmi manapun yang ditemukan -- kemungkinan integrasinya lewat API proprietary PUDU Scheduler. Dua-duanya tetap konsisten dengan arsitektur: Adapter Framework menyediakan kontrak interface baku (register, status, mission command, event) di level WCS Core, jadi baik lewat VDA5050 standar maupun API proprietary Pudu, implementasinya tetap berupa satu adapter tambahan tanpa mengubah WCS Core -- dan adapter Pudu ini jadi blueprint, bukan batasan, untuk adapter vendor berikutnya. Catatan lain: unit yang dipakai pilot harus dari lini industrial, bukan lini PUDU Open Platform untuk robot service/hospitality (delivery, cleaning) yang komunikasinya wajib lewat Pudu Cloud -- pastikan ini dipastikan sebelum implementasi adapter dimulai.
 
 ## 4. Alternatif yang dipertimbangkan
 
@@ -158,7 +160,9 @@ anggap angka ini berlaku selamanya:
 - Keputusan ini perlu direvisit saat project naik kategori ke Intermediate/Complex (lihat PRD Section 5.2) -- indikasinya: jenis equipment > 3, task aktif bersamaan > 20, atau butuh scheduling dinamis. Saat itu, backend kemungkinan perlu dipecah per domain (mis. Task Service, Dispatch Service terpisah) dan Kubernetes dipertimbangkan ulang.
 - MQTT broker tunggal (Mosquitto) jadi single point of failure untuk telemetry -- perlu strategi HA (mis. clustering) sebelum masuk production jika uptime equipment kritikal.
 - Multi-vendor AMR/RCS menambah kompleksitas testing dan sertifikasi tiap adapter baru -- perlu adapter conformance checklist dan staging environment per vendor sebelum go-live.
-- Model robot pilot final (T300 vs T600) dan status dukungan VDA5050-nya belum dikonfirmasi ke vendor -- kalau ternyata T300 tidak mendukung VDA5050 (sejauh ini tidak disebut di spec resmi manapun), adapter pilot dibangun di atas API proprietary PUDU Scheduler, bukan standar terbuka. Risiko kecil terhadap Phase 2, tapi perlu dicatat eksplisit karena adapter vendor berikutnya tetap bisa pakai VDA5050 standar -- Pudu jadi kasus khusus, bukan acuan default untuk semua vendor.
+- **[Revisi 2026-10-19]** Model pilot sudah diputuskan T600, dan adapter pilot dibangun di atas PUDU Open Platform Cloud API (proprietary), bukan VDA5050. Adapter vendor berikutnya tetap bisa pakai VDA5050 standar -- PUDU jadi kasus khusus, bukan acuan default untuk semua vendor.
+- **[Baru, Revisi 2026-10-19] Ketergantungan internet untuk kontrol robot pilot.** PUDU Cloud API berjalan lewat internet (Section 7.1). Kalau internet warehouse putus, WCS tidak bisa mengirim perintah ke robot PUDU dan tidak menerima callback; operasi WCS lain (task dari WMS, dashboard, alarm equipment lain) tetap berjalan. Mitigasi jangka panjang: evaluasi PUDU Private Cloud API.
+- **[Baru, Revisi 2026-10-19] API PUDU tidak menyediakan register robot, list robot, list group, dan on/off robot.** Onboarding robot (sn, model, group) diinput manual oleh admin WCS -- lihat `PUDU_INTEGRATION.md` Section 6.
 
 ## 6. Status & next steps
 
@@ -171,11 +175,13 @@ Status: **Draft, dalam revisi besar (2026-10-05)** -- stack backend berpindah ke
 - [ ] **[Baru]** Konfirmasi dan formalkan FR-13 s/d FR-16 (ERP Integration, Production Line, Packaging, Delivery-to-Customer, Section 1.1) ke PRD -- termasuk role/RBAC baru untuk Interface Operator Produksi/Box/Delivery
 - [x] Draft OpenAPI spec (v0.4.0, 93 endpoint) -- **perlu direvisi ulang** untuk modul ERP Integration, Production Line, Packaging, Delivery (lihat `API_SPECIFICATION.md`)
 - [x] Buat ERD dari data model Section 9 PRD -- **perlu entity baru** untuk scope end-to-end (lihat `ERD.md`)
-- [x] Setup repo + Docker Compose skeleton (Phase 1, Week 3-7) -- **perlu disesuaikan** dari skeleton Maven/Spring Boot ke Next.js/Node
+- [x] Setup repo + Docker Compose skeleton (Phase 1, Week 3-7) -- **[2026-10-19] sudah Next.js 16 + custom server + Prisma 7** (`smartwcs-astra`)
 - [ ] Review dokumen Phase 0 oleh tim engineering: `ARCHITECTURE.md`, `ADAPTER_CONTRACT.md`, `API_CONVENTIONS.md`, `TASK_STATE_MACHINE.md`, `DATA_DICTIONARY.md`
 - [ ] Konfirmasi angka target non-fungsional (`ARCHITECTURE.md` bagian 6) dan kebijakan retry/timeout (`TASK_STATE_MACHINE.md`) dengan Astra/Winteq
 - [ ] ~~Konfirmasi ke tim Astra bahwa Java 21 LTS dan Maven sesuai standar internal~~ -- digantikan item Next.js di atas; `backend/pom.xml` perlu diganti skeleton Node.js (`package.json`)
-- [ ] Konfirmasi model Pudu final (T300 vs T600) dan apakah dukung VDA5050 native atau cuma API proprietary (PUDU Scheduler)
+- [x] ~~Konfirmasi model Pudu final (T300 vs T600)~~ -- **[2026-10-19] T600, lewat PUDU Open Platform Cloud API** (Section 3, 7.1)
+- [ ] **[Baru]** Ajukan `ApiAppKey`/`ApiAppSecret` dan aktivasi callback ke PUDU; uji healthCheck (`PUDU_INTEGRATION.md` Section 3)
+- [ ] **[Baru]** Tanyakan ke PUDU/Winteq ketersediaan PUDU Private Cloud API untuk operasi tanpa internet (Section 7.1)
 - [ ] Audit vendor AMR/RCS lain (kalau ada selain Pudu) dan protokol yang didukung
 
 ## 7. Deployment topology (on-premise, LAN-first)
@@ -186,6 +192,16 @@ Koneksi internet di lokasi warehouse tidak selalu memadai. Keputusan: **WCS Core
 - **Internet hanya dipakai untuk sinkronisasi opsional** ke head office / cloud dashboard (jika ada), menggunakan pola **outbox/queue**: data disimpan di local DB dulu, dikirim saat internet tersedia, dengan retry otomatis saat gagal.
 - Semua komponen inti (PostgreSQL, Mosquitto/MQTT broker, WCS Core via Docker Compose) **self-hosted di server lokal warehouse**, bukan layanan cloud pihak ketiga -- stack yang sudah dipilih (Section 2) sudah cocok untuk pola ini tanpa perubahan.
 - Dashboard operator diakses dari jaringan lokal warehouse, sehingga tetap bisa dipakai operator meski internet terputus.
+
+### 7.1 Pengecualian: integrasi PUDU Cloud API butuh internet [Revisi 2026-10-19]
+
+Robot pilot PUDU T600 dikendalikan lewat **PUDU Open Platform Cloud API**: perintah WCS dikirim ke server PUDU di internet (`css-open-platform.pudutech.com`), dan event robot dikirim balik PUDU ke URL publik WCS (callback). Ini **pengecualian yang disadari** terhadap prinsip LAN-first di atas, khusus untuk kontrol robot PUDU.
+
+- **Yang bergantung pada internet:** perintah ke robot PUDU (call/delivery/recharge/switch map), status dan posisi robot PUDU, error robot PUDU.
+- **Yang tetap berjalan tanpa internet:** penerimaan task dari WMS, master data, dashboard, alarm dan status equipment lain, audit log. Task yang butuh robot PUDU tertahan di status QUEUED/DISPATCHED sampai koneksi pulih; adapter menandai `Integration.status = DISCONNECTED` dan memunculkan alarm.
+- **Callback butuh URL publik.** Development memakai Cloudflare quick tunnel (`cloudflared tunnel --url http://localhost:3000`) yang outbound-only, jadi tidak membuka port jaringan internal dan tetap jalan di belakang CGNAT. Produksi memakai named tunnel dengan domain tetap. Hanya endpoint callback PUDU yang diekspos, dan setiap request diverifikasi dengan header `CallbackCode`.
+- **Rekonsiliasi setelah koneksi pulih:** callback yang hilang selama putus diambil ulang lewat `GetCallList` / `Delivery Task List` / `GetRobotStatusV2`.
+- **Arah jangka panjang:** dokumentasi PUDU menyediakan "PUDU Private Cloud API". Kalau bisa dipasang on-premise, opsi ini mengembalikan kontrol robot ke LAN tanpa mengubah WCS Core, karena perbedaannya hanya di adapter (base URL dan autentikasi). Perlu dikonfirmasi ke PUDU/Winteq sebelum go-live produksi.
 
 ## 8. Forward-compatibility: evolusi menuju Phase 4-6
 
@@ -202,10 +218,10 @@ MVP (Phase 0-3) sengaja dibatasi scope Simple, tapi platform ini ditujukan untuk
 ### 8.2 Keputusan desain sekarang yang mencegah rewrite nanti
 
 - **Task API source-agnostic.** Skema Task (PRD 9.5) dan endpoint ingestion dibuat tidak peduli sumbernya WMS atau WES -- supaya saat Phase 6 WES mulai mengirim execution plan, itu cukup "task source baru", bukan perubahan API.
-- **Internal event-driven di dalam modular monolith.** Task state transition dan equipment event dipublish lewat event emitter internal (Spring ApplicationEventPublisher/@EventListener), bukan dipanggil langsung antar modul. Ini jadi titik ekstensi alami untuk feedback loop WES nanti, dan memudahkan modul ditarik keluar jadi service terpisah (strangler-fig) kalau beban naik ke Complex.
+- **Internal event-driven di dalam modular monolith.** Task state transition dan equipment event dipublish lewat event emitter internal (`EventEmitter` Node.js atau event bus kecil di dalam proses `server.ts`), bukan dipanggil langsung antar modul. Ini jadi titik ekstensi alami untuk feedback loop WES nanti, dan memudahkan modul ditarik keluar jadi service terpisah (strangler-fig) kalau beban naik ke Complex.
 - **Adapter interface protocol-agnostic**, sudah diputuskan di Section 3/ADR Equipment Integration -- tinggal ditambah implementasi per vendor/protokol baru di Phase 4-5 tanpa ubah WCS Core.
 - **Observability dari hari pertama.** Structured logging + metrics dasar (meski masih skala kecil) membuat scaling ke Phase 5-6 (>100 task bersamaan, multi-zone) lebih mudah dipantau tanpa instrumentasi ulang.
-- **Modular monolith dengan bounded context jelas** (Task, Dispatch, Equipment/Adapter, Event, Security sebagai modul Spring Boot/Java terpisah) -- kalau Complex scale butuh microservices, modul-modul ini sudah punya batas yang jelas untuk diekstrak, bukan "big ball of mud" yang harus dibongkar total.
+- **Modular monolith dengan bounded context jelas** (Task, Dispatch, Equipment/Adapter, Event, Security sebagai modul terpisah di `src/modules/`) -- kalau Complex scale butuh microservices, modul-modul ini sudah punya batas yang jelas untuk diekstrak, bukan "big ball of mud" yang harus dibongkar total.
 
 ### 8.3 Yang sengaja TIDAK dikerjakan sekarang
 
@@ -224,3 +240,6 @@ ADR ini mencatat keputusan stack. Detail arsitektur dan kontrak ada di dokumen b
 | `API_CONVENTIONS.md` | Autentikasi JWT dan API key, format error, pagination, idempotensi, event keluar ke WMS |
 | `TASK_STATE_MACHINE.md` | Transisi status, retry, timeout, failureCode, idempotensi `POST /tasks` |
 | `DATA_DICTIONARY.md` | Nilai baku enum dan satuan data |
+| `PUDU_INTEGRATION.md` **[Baru 2026-10-19]** | Integrasi PUDU Open Platform Cloud API: base URL, autentikasi HMAC, alur callback, scope T600, pemetaan status dan field ke tabel |
+
+> **[Catatan 2026-10-19]** `ADAPTER_CONTRACT.md`, `API_CONVENTIONS.md`, `TASK_STATE_MACHINE.md`, dan `DATA_DICTIONARY.md` dirujuk di beberapa dokumen tetapi **belum ada di repo ini**. Sampai dokumen itu ditambahkan, jangan mengasumsikan isinya: kontrak API mengacu ke `openapi-smart-wcs.yaml`, status task ke enum `TaskStatus` di OpenAPI, dan data model ke `ERD.md` + `prisma/schema.prisma`.

@@ -12,6 +12,63 @@ import { initialMockTasks, mockTaskMetrics } from '@/data/mockTasks';
 import { TaskItem, TaskFilterState, TaskMetrics } from '@/types/task';
 import { Plus } from 'lucide-react';
 
+const CSV_HEADERS = [
+  'Task ID',
+  'Type',
+  'Origin',
+  'Destination',
+  'Priority',
+  'Status',
+  'PRD Status',
+  'Resource',
+  'Created Time',
+  'Created Date',
+  'Elapsed',
+  'Material',
+  'SKU',
+  'Quantity',
+  'Container ID',
+];
+
+function downloadDataUri(dataUri: string, filename: string) {
+  const link = document.createElement('a');
+  link.setAttribute('href', dataUri);
+  link.setAttribute('download', filename);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+}
+
+function exportTasksCsv(tasks: TaskItem[]) {
+  const rows = tasks.map((t) => [
+    t.id,
+    t.type,
+    t.origin,
+    t.destination,
+    t.priority,
+    t.status,
+    t.prdStatus,
+    t.resource,
+    t.createdAt,
+    t.createdDate,
+    t.elapsed,
+    t.material || '',
+    t.materialSku || '',
+    t.quantity || '',
+    t.containerId || '',
+  ]);
+  const csvContent =
+    'data:text/csv;charset=utf-8,' +
+    [CSV_HEADERS.join(','), ...rows.map((e) => e.map((val) => `"${val}"`).join(','))].join('\n');
+  downloadDataUri(encodeURI(csvContent), `syntra-tasks-${Date.now()}.csv`);
+}
+
+function exportTasksJson(tasks: TaskItem[]) {
+  const dataStr =
+    'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(tasks, null, 2));
+  downloadDataUri(dataStr, `syntra-tasks-${Date.now()}.json`);
+}
+
 export default function TaskManagementPage() {
   const [tasks, setTasks] = useState<TaskItem[]>(initialMockTasks);
   const [filterState, setFilterState] = useState<TaskFilterState>({
@@ -32,162 +89,6 @@ export default function TaskManagementPage() {
 
   const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
   const [detailTask, setDetailTask] = useState<TaskItem | null>(null);
-
-  // Dynamic filter updates
-  const handleFilterChange = (updates: Partial<TaskFilterState>) => {
-    setFilterState((prev) => ({ ...prev, ...updates }));
-    setCurrentPage(1); // Reset to page 1 on filter
-  };
-
-  const handleClearFilters = () => {
-    setFilterState({
-      search: '',
-      status: 'All',
-      taskType: 'All',
-      priority: 'All',
-      resource: 'All',
-      dateRange: 'Today',
-    });
-    setCurrentPage(1);
-  };
-
-  // Sorting
-  const handleSort = (column: keyof TaskItem) => {
-    if (sortColumn === column) {
-      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
-    } else {
-      setSortColumn(column);
-      setSortDirection('asc');
-    }
-  };
-
-  // Selection
-  const handleToggleSelect = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
-    );
-  };
-
-  const handleToggleSelectAll = () => {
-    if (selectedIds.length === paginatedTasks.length) {
-      setSelectedIds([]);
-    } else {
-      setSelectedIds(paginatedTasks.map((t) => t.id));
-    }
-  };
-
-  // Task Actions
-  const handleCreateTask = (newTask: TaskItem) => {
-    setTasks((prev) => [newTask, ...prev]);
-  };
-
-  const handleCancelTask = (targetTask: TaskItem) => {
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === targetTask.id
-          ? {
-              ...t,
-              status: 'Failed',
-              prdStatus: 'CANCELLED',
-              failureReason: 'Cancelled by operator',
-            }
-          : t
-      )
-    );
-    if (detailTask?.id === targetTask.id) {
-      setDetailTask(null);
-    }
-  };
-
-  const handleRetryTask = (targetTask: TaskItem) => {
-    setTasks((prev) =>
-      prev.map((t) =>
-        t.id === targetTask.id
-          ? {
-              ...t,
-              status: 'Queued',
-              prdStatus: 'QUEUED',
-              failureReason: undefined,
-              elapsed: '00 min',
-            }
-          : t
-      )
-    );
-    if (detailTask?.id === targetTask.id) {
-      setDetailTask((prev) =>
-        prev
-          ? {
-              ...prev,
-              status: 'Queued',
-              prdStatus: 'QUEUED',
-              failureReason: undefined,
-            }
-          : null
-      );
-    }
-  };
-
-  // Export handlers
-  const handleExportCSV = () => {
-    const headers = [
-      'Task ID',
-      'Type',
-      'Origin',
-      'Destination',
-      'Priority',
-      'Status',
-      'PRD Status',
-      'Resource',
-      'Created Time',
-      'Created Date',
-      'Elapsed',
-      'Material',
-      'SKU',
-      'Quantity',
-      'Container ID',
-    ];
-
-    const rows = filteredTasks.map((t) => [
-      t.id,
-      t.type,
-      t.origin,
-      t.destination,
-      t.priority,
-      t.status,
-      t.prdStatus,
-      t.resource,
-      t.createdAt,
-      t.createdDate,
-      t.elapsed,
-      t.material || '',
-      t.materialSku || '',
-      t.quantity || '',
-      t.containerId || '',
-    ]);
-
-    const csvContent =
-      'data:text/csv;charset=utf-8,' +
-      [headers.join(','), ...rows.map((e) => e.map((val) => `"${val}"`).join(','))].join('\n');
-
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement('a');
-    link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `syntra-tasks-${Date.now()}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
-
-  const handleExportJSON = () => {
-    const dataStr =
-      'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(filteredTasks, null, 2));
-    const link = document.createElement('a');
-    link.setAttribute('href', dataStr);
-    link.setAttribute('download', `syntra-tasks-${Date.now()}.json`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-  };
 
   // Filter & Search Logic
   const filteredTasks = useMemo(() => {
@@ -284,13 +185,111 @@ export default function TaskManagementPage() {
       total,
       totalChangePercent: mockTaskMetrics.totalChangePercent,
       queued,
-      queuedPercent: Math.round((queued / total) * 100),
+      queuedPercent: total ? Math.round((queued / total) * 100) : 0,
       running,
-      runningPercent: Math.round((running / total) * 100),
+      runningPercent: total ? Math.round((running / total) * 100) : 0,
       failed,
-      failedPercent: Math.round((failed / total) * 100),
+      failedPercent: total ? Math.round((failed / total) * 100) : 0,
     };
   }, [tasks]);
+
+  // Dynamic filter updates
+  const handleFilterChange = (updates: Partial<TaskFilterState>) => {
+    setFilterState((prev) => ({ ...prev, ...updates }));
+    setCurrentPage(1); // Reset to page 1 on filter
+  };
+
+  const handleClearFilters = () => {
+    setFilterState({
+      search: '',
+      status: 'All',
+      taskType: 'All',
+      priority: 'All',
+      resource: 'All',
+      dateRange: 'Today',
+    });
+    setCurrentPage(1);
+  };
+
+  // Sorting
+  const handleSort = (column: keyof TaskItem) => {
+    if (sortColumn === column) {
+      setSortDirection((prev) => (prev === 'asc' ? 'desc' : 'asc'));
+    } else {
+      setSortColumn(column);
+      setSortDirection('asc');
+    }
+  };
+
+  // Selection
+  const handleToggleSelect = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((item) => item !== id) : [...prev, id]
+    );
+  };
+
+  const handleToggleSelectAll = () => {
+    if (selectedIds.length === paginatedTasks.length) {
+      setSelectedIds([]);
+    } else {
+      setSelectedIds(paginatedTasks.map((t) => t.id));
+    }
+  };
+
+  // Task Actions
+  const handleCreateTask = (newTask: TaskItem) => {
+    setTasks((prev) => [newTask, ...prev]);
+  };
+
+  const handleCancelTask = (targetTask: TaskItem) => {
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === targetTask.id
+          ? {
+              ...t,
+              status: 'Failed',
+              prdStatus: 'CANCELLED',
+              failureReason: 'Cancelled by operator',
+            }
+          : t
+      )
+    );
+    if (detailTask?.id === targetTask.id) {
+      setDetailTask(null);
+    }
+  };
+
+  const handleRetryTask = (targetTask: TaskItem) => {
+    setTasks((prev) =>
+      prev.map((t) =>
+        t.id === targetTask.id
+          ? {
+              ...t,
+              status: 'Queued',
+              prdStatus: 'QUEUED',
+              failureReason: undefined,
+              elapsed: '00 min',
+            }
+          : t
+      )
+    );
+    if (detailTask?.id === targetTask.id) {
+      setDetailTask((prev) =>
+        prev
+          ? {
+              ...prev,
+              status: 'Queued',
+              prdStatus: 'QUEUED',
+              failureReason: undefined,
+            }
+          : null
+      );
+    }
+  };
+
+  // Export handlers (download dibuat di helper modul, di luar render)
+  const handleExportCSV = () => exportTasksCsv(filteredTasks);
+  const handleExportJSON = () => exportTasksJson(filteredTasks);
 
   return (
     <AppShell>
