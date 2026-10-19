@@ -1,6 +1,7 @@
 'use client';
 
 import React from 'react';
+import { usePathname } from 'next/navigation';
 import { SidebarProvider, useSidebar } from './SidebarContext';
 import { Sidebar } from './Sidebar';
 import { Topbar } from './Topbar';
@@ -11,6 +12,7 @@ interface AppShellProps {
 
 function AppShellInner({ children }: AppShellProps) {
   const { isOpenMobile, closeMobile, isCollapsed, isMobile } = useSidebar();
+  const pathname = usePathname();
 
   return (
     <div
@@ -31,8 +33,12 @@ function AppShellInner({ children }: AppShellProps) {
         {/* Top Header */}
         <Topbar />
 
-        {/* Scrollable Page View */}
-        <main className="page-content-wrapper">{children}</main>
+        {/* Scrollable Page View with Smooth Page Transition */}
+        <main className="page-content-wrapper">
+          <div key={pathname} className="page-transition-wrap">
+            {children}
+          </div>
+        </main>
       </div>
     </div>
   );

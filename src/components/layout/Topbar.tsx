@@ -53,7 +53,7 @@ export function Topbar({ onToggleMobileNav }: TopbarProps) {
         <div className="breadcrumb">
           <span className="breadcrumb-root">{rootBreadcrumb}</span>
           <ChevronRight className="breadcrumb-sep" size={13} />
-          <span className="breadcrumb-current">{currentBreadcrumb}</span>
+          <span key={currentBreadcrumb} className="breadcrumb-current">{currentBreadcrumb}</span>
         </div>
       </div>
 

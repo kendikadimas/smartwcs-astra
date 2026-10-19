@@ -99,7 +99,7 @@ export function Sidebar() {
       className={`sidebar ${isMini ? 'collapsed' : ''} ${isOpenMobile ? 'mobile-open' : ''}`}
       aria-label="Main Navigation"
     >
-      {/* Brand Logo Header - Centered Horizontally */}
+      {/* Brand Logo Header - Centered Horizontally with Smooth Cross-fade */}
       <div className="sidebar-logo">
         <Link
           href="/"
@@ -109,23 +109,8 @@ export function Sidebar() {
           }}
           title="SYNTRA Smart WCS Platform"
         >
-          {isMini ? (
-            <div className="logo-symbol-wrapper" title="SYNTRA Smart WCS">
-              <Image
-                src="/images/logowcs.png"
-                alt="SYNTRA"
-                width={130}
-                height={46}
-                priority
-                style={{
-                  height: '38px',
-                  width: 'auto',
-                  objectFit: 'cover',
-                  objectPosition: 'left center',
-                }}
-              />
-            </div>
-          ) : (
+          {/* Full Centered Logo */}
+          <div className="logo-full-wrap">
             <Image
               src="/images/logowcs.png"
               alt="SYNTRA Smart WCS Platform"
@@ -139,7 +124,24 @@ export function Sidebar() {
                 objectFit: 'contain',
               }}
             />
-          )}
+          </div>
+
+          {/* Mini Emblem Symbol */}
+          <div className="logo-symbol-wrapper" title="SYNTRA Smart WCS">
+            <Image
+              src="/images/logowcs.png"
+              alt="SYNTRA"
+              width={130}
+              height={46}
+              priority
+              style={{
+                height: '38px',
+                width: 'auto',
+                objectFit: 'cover',
+                objectPosition: 'left center',
+              }}
+            />
+          </div>
         </Link>
 
         {/* Mobile Close Button */}
@@ -153,12 +155,12 @@ export function Sidebar() {
         </button>
       </div>
 
-      {/* Nav Groups */}
+      {/* Nav Groups with smooth label transitions */}
       <nav className="sidebar-nav">
         {navGroups.map((group) => (
           <div key={group.title} className="nav-group-section">
-            {!isMini && <div className="nav-group-title">{group.title}</div>}
-            {isMini && <div className="nav-group-divider" />}
+            <div className="nav-group-title">{group.title}</div>
+            <div className="nav-group-divider" />
             {group.items.map((item) => {
               const active = isItemActive(item.href);
               const Icon = item.icon;
@@ -173,7 +175,7 @@ export function Sidebar() {
                   }}
                 >
                   <Icon className="nav-icon" />
-                  {!isMini && <span>{item.label}</span>}
+                  <span className="nav-label">{item.label}</span>
                 </Link>
               );
             })}
@@ -191,48 +193,38 @@ export function Sidebar() {
             title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
             aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
           >
-            {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
-            {!isCollapsed && <span>Collapse Sidebar</span>}
+            <span className="collapse-icon">
+              {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+            </span>
+            <span className="collapse-text">Collapse Sidebar</span>
           </button>
         )}
 
         {/* System Status Box */}
-        {isMini ? (
-          <div
-            className="system-status-box collapsed"
-            title="System online · Demo environment v2.4.0"
-          >
+        <div
+          className="system-status-box"
+          title={isMini ? 'System online · Demo environment v2.4.0 · Updated 10:24:15 WIB' : undefined}
+        >
+          <div className="status-dot-row">
             <span className="status-dot" />
+            <span className="status-title">System online</span>
           </div>
-        ) : (
-          <div className="system-status-box">
-            <div className="status-dot-row">
-              <span className="status-dot" />
-              <span>System online</span>
-            </div>
-            <div className="status-meta">Demo environment · v2.4.0</div>
-            <div className="status-meta">Updated 10:24:15 WIB</div>
-          </div>
-        )}
+          <div className="status-meta">Demo environment · v2.4.0</div>
+          <div className="status-meta">Updated 10:24:15 WIB</div>
+        </div>
 
         {/* User Profile */}
-        {isMini ? (
-          <div
-            className="user-profile-row collapsed"
-            title="Budi Santoso (Operations supervisor)"
-          >
-            <div className="user-avatar">BS</div>
+        <div
+          className="user-profile-row"
+          title={isMini ? 'Budi Santoso · Operations supervisor' : undefined}
+        >
+          <div className="user-avatar">BS</div>
+          <div className="user-info">
+            <div className="user-name">Budi Santoso</div>
+            <div className="user-role">Operations supervisor</div>
           </div>
-        ) : (
-          <div className="user-profile-row">
-            <div className="user-avatar">BS</div>
-            <div className="user-info">
-              <div className="user-name">Budi Santoso</div>
-              <div className="user-role">Operations supervisor</div>
-            </div>
-            <ChevronDown size={14} style={{ color: '#94a3b8', flexShrink: 0 }} />
-          </div>
-        )}
+          <ChevronDown className="user-chevron" size={14} style={{ color: '#94a3b8', flexShrink: 0 }} />
+        </div>
       </div>
     </aside>
   );
