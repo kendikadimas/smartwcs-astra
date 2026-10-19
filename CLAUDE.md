@@ -30,7 +30,7 @@ PUDU sebagai pilot.
 | --- | --- | --- | --- |
 | `docs/PRD_Smart_WCS_v0.2_Revisi.docx` | Product requirements lengkap, FR-01–FR-16 | Revisi 0.2 | Sebelum apapun — ini sumber kebenaran scope produk |
 | `docs/ADR.md` | Keputusan stack teknologi (Next.js) + justifikasi + risiko, termasuk Section 7.1 (PUDU Cloud API butuh internet) | Revisi 2026-10-19 | Sebelum setup apapun |
-| `docs/ERD.md` | Data model v3: 44 tabel (inti + ERP usulan + 9 tabel adapter PUDU), constraint, index | **Revisi 2026-10-19 (v3)** | Sebelum menyentuh `prisma/schema.prisma` |
+| `docs/ERD.md` | Data model v3.1: 46 tabel (inti + ERP usulan + 11 tabel adapter PUDU), constraint, index | **Revisi 2026-10-21 (v3.1)** | Sebelum menyentuh `prisma/schema.prisma` |
 | `prisma/schema.prisma` | Implementasi ERD v3 (Prisma 7). **Sumber kebenaran schema** — harus selalu sinkron dengan `ERD.md` | **Baru 2026-10-19** | Sebelum query/migration apa pun |
 | `docs/PUDU_INTEGRATION.md` | Integrasi PUDU Cloud API: base URL, autentikasi HMAC, alur callback, scope T600, pemetaan status & field ke tabel | **Baru 2026-10-19** | Sebelum menulis kode di `src/modules/equipment-adapter/pudu` |
 | `docs/API_SPECIFICATION.md` | Ringkasan modul + endpoint, termasuk 4 modul baru | Revisi 2026-10-05 | Referensi cepat endpoint |
@@ -117,7 +117,7 @@ Box/Packaging, Operator Delivery (baru, role/RBAC-nya belum diformalkan).
 - **Infra:** Next.js 16 + custom server (`server.ts`, Socket.IO di path `/ws`),
   Prisma 7 dengan `@prisma/adapter-pg`, PostgreSQL 18 di `docker-compose.yml`.
   Config Prisma ada di `prisma7.config.ts`.
-- **Database:** `prisma/schema.prisma` sudah berisi ERD v3 (44 model). Migration
+- **Database:** `prisma/schema.prisma` sudah berisi ERD v3.1 (46 model). Migration
   belum dibuat. Migration pertama wajib mengikuti langkah di
   `prisma/sql/pudu_pose_log_partition.sql` (partisi `PuduPoseLog`).
 - **UI:** halaman Overview dan Task Management sudah jadi, **sengaja masih

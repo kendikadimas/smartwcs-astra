@@ -32,19 +32,30 @@ Perbaikan hasil evaluasi tech stack pasca setup `fix/erd-v3-pudu-docs`: satu bug
 
 Dasar: eksplorasi dokumentasi PUDU Open Platform (43 API & callback dipetakan field per field), audit data model terhadap best practice, dan uji skema di PostgreSQL 16 dengan simulasi alur data PUDU (binding, sync peta, delivery task, callback ganda, error, 600 data posisi).
 
-**ERD.md (ditulis ulang, v3)** -- 44 tabel (35 inti + 9 adapter PUDU), dibangkitkan dari model yang sama dengan `prisma/schema.prisma`.
+**ERD.md (ditulis ulang, v3.1)** -- 46 tabel (35 inti + 11 adapter PUDU), dibangkitkan dari model yang sama dengan `prisma/schema.prisma`.
+
+### ERD v3.1 + integrasi PUDU Cloud API (T600, 47 API) + perapian repo
+
+Dasar: eksplorasi dokumentasi PUDU Open Platform (47 API & callback dipetakan field per field, 40 di scope T600), audit data model terhadap best practice, dan uji skema di PostgreSQL 16 dengan simulasi alur data PUDU (binding, sync peta, delivery task, callback ganda, error, 600 data posisi).
+
 - Semua kolom waktu jadi `TIMESTAMPTZ` (UTC).
 - `IntegrationLog` jadi antrean callback: status `PENDING/SUCCESS/FAILED/IGNORED`, kolom baru `traceId`, `messageType`, `robotId`, `callbackCodeValid`, `httpStatus`, `responseCode`, `attempts`, `nextAttemptAt`, `processedAt`; UNIQUE (integrationId, direction, traceId) untuk idempotensi retry PUDU.
 - `Event`: kolom baru `externalErrorId`, `externalLevel`, `integrationLogId`, `payload`, `taskId`. `TaskStatusHistory`: kolom baru `integrationLogId`.
 - UNIQUE baru: `Task (source, externalRef)` (sebelumnya hanya catatan), `Robot.equipmentId`, `User.username`, `Role.name`.
-- 9 tabel PUDU: `PuduRobot`, `PuduRobotState`, `PuduRobotStatusLog`, `PuduPoseLog` (dipartisi bulanan), `PuduMap` (terhubung ke Warehouse/Zone), `PuduRobotMap`, `PuduMapElement` (soft delete), `PuduTask` (1:1 Mission), `PuduTaskStop`.
+- 11 tabel PUDU: `PuduShop`, `PuduRobotGroup`, `PuduRobot`, `PuduRobotState`, `PuduRobotStatusLog`, `PuduPoseLog` (dipartisi bulanan), `PuduMap` (terhubung ke Warehouse/Zone), `PuduRobotMap`, `PuduMapElement` (soft delete), `PuduTask` (1:1 Mission), `PuduTaskStop`.
 - Bagian baru: tabel constraint/index/aturan hapus, dan "Di mana data PUDU disimpan".
 
-**prisma/schema.prisma** -- dari kosong jadi 44 model; lolos validator Prisma (0 warning). **prisma/sql/pudu_pose_log_partition.sql** -- partisi bulanan `PuduPoseLog` (dipasang manual di migration awal).
+**Pembaruan dari sampel response/callback nyata + 4 API baru (`GetStoreList`, `StoreRobotList`, `GetBoundRobotGroups`, `GetRobotsInGroup`)**
+- Tabel baru `PuduShop` dan `PuduRobotGroup`; `PuduRobot` dan `PuduMap` memakai FK `puduShopId` (bukan string `shopId`), `PuduRobot` punya `productCode`, `puduRobotGroupId`.
+- Master data netral vendor: `Robot.name`, `Robot.serialNumber` (UNIQUE, nullable, diisi dari `sn` PUDU), `Equipment.name`. Pemetaan status vendor ke status umum dijelaskan di `PUDU_INTEGRATION.md`.
+- `PuduRobotState`/`PuduRobotStatusLog`: `isCharging`, `remainTime`, `vendorStatusAt`. `PuduMap`: `mapCode`, `width`, `height`, `resolution`, `originX/Y/Z`; UNIQUE jadi (`puduShopId`, `mapName`). `PuduMapElement`: `vendorElementId` (UNIQUE bersama `puduMapId`). `PuduTask`: `isOverTime`, `spentTime`. `PuduTaskStop`: `estimatedTime` (netral satuan), `vendorStopId`, `destType`, `spendTime`, `isTimeout`, `puduMapId`. `PuduRobotMap.isUsed` jadi integer mentah.
+- Satuan `estimated_time`/`spend_time`/`spent_time`/`remain_time` dan arti `is_used`, `is_charging` belum terverifikasi; disimpan mentah dan dicatat di pertanyaan terbuka.
 
-**PUDU_INTEGRATION.md (baru)** -- base URL per region, autentikasi HMAC, alur callback (simpan dulu, balas 200, worker mengurai), alur end-to-end, keputusan API (tidak ada API register/list robot/group dan on/off robot, pose report maks 1000x, traffic control auto-allow, scope T600 tanpa lifting/transport), usulan pemetaan status PUDU ke WCS, katalog 43 API, lampiran pemetaan 177 field ke kolom.
+**prisma/schema.prisma** -- dari kosong jadi 46 model; lolos validator Prisma (0 warning). **prisma/sql/pudu_pose_log_partition.sql** -- partisi bulanan `PuduPoseLog` (dipasang manual di migration awal).
 
-**ADR** -- Section 7.1 baru: pengecualian LAN-first untuk PUDU Cloud API (butuh internet) beserta mitigasinya; model pilot diputuskan T600 lewat Cloud API; risiko baru (ketergantungan internet, tidak ada API register/list robot); referensi Spring yang tersisa di Section 3 dan 8.2 disesuaikan ke Next.js; catatan 4 dokumen turunan yang belum ada di repo.
+**PUDU_INTEGRATION.md (baru)** -- base URL per region, autentikasi HMAC, alur callback (simpan dulu, balas 200, worker mengurai), alur end-to-end, keputusan API (tidak ada API register dan on/off robot; shop, robot, grup ditarik lewat 4 API list berpaginasi, pose report maks 1000x, traffic control auto-allow, scope T600 tanpa lifting/transport), usulan pemetaan status PUDU ke WCS, katalog 47 API, lampiran pemetaan 344 field ke kolom.
+
+**ADR** -- Section 7.1 baru: pengecualian LAN-first untuk PUDU Cloud API (butuh internet) beserta mitigasinya; model pilot diputuskan T600 lewat Cloud API; risiko baru (ketergantungan internet, tidak ada API register robot); referensi Spring yang tersisa di Section 3 dan 8.2 disesuaikan ke Next.js; catatan 4 dokumen turunan yang belum ada di repo.
 
 **FUNCTIONAL_BOUNDARY** -- catatan keputusan sementara di area abu-abu #1 (baterai) dan #3 (traffic control: WCS selalu ALLOW).
 

@@ -162,7 +162,7 @@ anggap angka ini berlaku selamanya:
 - Multi-vendor AMR/RCS menambah kompleksitas testing dan sertifikasi tiap adapter baru -- perlu adapter conformance checklist dan staging environment per vendor sebelum go-live.
 - **[Revisi 2026-10-19]** Model pilot sudah diputuskan T600, dan adapter pilot dibangun di atas PUDU Open Platform Cloud API (proprietary), bukan VDA5050. Adapter vendor berikutnya tetap bisa pakai VDA5050 standar -- PUDU jadi kasus khusus, bukan acuan default untuk semua vendor.
 - **[Baru, Revisi 2026-10-19] Ketergantungan internet untuk kontrol robot pilot.** PUDU Cloud API berjalan lewat internet (Section 7.1). Kalau internet warehouse putus, WCS tidak bisa mengirim perintah ke robot PUDU dan tidak menerima callback; operasi WCS lain (task dari WMS, dashboard, alarm equipment lain) tetap berjalan. Mitigasi jangka panjang: evaluasi PUDU Private Cloud API.
-- **[Baru, Revisi 2026-10-19] API PUDU tidak menyediakan register robot, list robot, list group, dan on/off robot.** Onboarding robot (sn, model, group) diinput manual oleh admin WCS -- lihat `PUDU_INTEGRATION.md` Section 6.
+- **[Baru, Revisi 2026-10-19] API PUDU tidak menyediakan register robot dan on/off robot.** Registrasi fisik robot ke akun tetap manual di portal PUDU, tetapi daftar shop, robot, dan grup bisa ditarik lewat `GetStoreList`, `StoreRobotList`, `GetBoundRobotGroups`, `GetRobotsInGroup` (berpaginasi) -- lihat `PUDU_INTEGRATION.md` Section 6.
 
 ## 6. Status & next steps
 

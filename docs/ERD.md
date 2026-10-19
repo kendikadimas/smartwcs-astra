@@ -2,7 +2,7 @@
 
 > **[Revisi 2026-10-19, v3]** Model ditulis ulang setelah integrasi PUDU Open Platform dipetakan field per field dan diaudit terhadap best practice desain database. Sumber kebenaran implementasi adalah `prisma/schema.prisma` -- dokumen ini dan schema dibangkitkan dari model yang sama dan harus selalu sinkron. Ringkasan perubahan ada di `CHANGELOG.md` entri 2026-10-19.
 
-Total **44 tabel**: 10 Master Data, 9 Transaction Data, 6 ERP & Production Integration Data, 6 Event, Status & Integration Data, 4 Security & Configuration Data, 9 PUDU Adapter Data.
+Total **46 tabel**: 10 Master Data, 9 Transaction Data, 6 ERP & Production Integration Data, 6 Event, Status & Integration Data, 4 Security & Configuration Data, 11 PUDU Adapter Data.
 
 ## Konvensi
 
@@ -38,12 +38,15 @@ Total **44 tabel**: 10 Master Data, 9 Transaction Data, 6 ERP & Production Integ
 | Edge | isActive | BOOLEAN |  |
 | Equipment | equipmentId | UUID | PK |
 | Equipment | locationId | UUID | FK -> Location |
+| Equipment | name | VARCHAR | nama yang terbaca manusia, mis. Conveyor Line 1 atau T600-01; **[v3 baru]** |
 | Equipment | equipmentType | VARCHAR | mis. conveyor, PLC |
 | Equipment | vendor | VARCHAR |  |
 | Equipment | status | VARCHAR | ONLINE/OFFLINE/ERROR/MAINTENANCE (lihat DATA_DICTIONARY.md) |
 | Equipment | capabilities | JSONB | kemampuan untuk dispatching (PRD FR-03): taskTypes, maxPayloadKg, supportsCancel, dst. Lihat ADAPTER_CONTRACT.md bagian 4 |
 | Robot | robotId | UUID | PK |
 | Robot | equipmentId | UUID | FK -> Equipment; (1:1, base record) |
+| Robot | name | VARCHAR | nama yang terbaca manusia, mis. T600-01; boleh disalin dari PuduRobot.name; **[v3 baru]** |
+| Robot | serialNumber | VARCHAR | UNIQUE; nullable; serial number robot, netral vendor. Untuk PUDU diisi dari sn; **[v3 baru]** |
 | Robot | vendor | VARCHAR | mis. Pudu |
 | Robot | model | VARCHAR |  |
 | Robot | protocol | VARCHAR | mis. VDA5050 |
@@ -310,7 +313,11 @@ Entity scope end-to-end (ADR Section 1.1). **Belum ada di PRD Section 9** -- usu
 
 Detail khas vendor PUDU yang tidak boleh masuk tabel inti. Data PUDU yang sudah punya tempat di tabel inti (command/callback mentah, error, riwayat status task, kredensial) **tidak** diduplikasi di sini -- lihat bagian "Di mana data PUDU disimpan". Pemetaan lengkap field API PUDU ke kolom ada di `docs/PUDU_INTEGRATION.md`.
 
-**PuduRobot** -- Profil vendor robot, 1:1 dengan Robot inti. Kunci integrasi = sn.
+**PuduShop** -- Toko/lokasi di akun PUDU (shop). Induk dari robot, peta, dan group. Diisi dari GetStoreList.
+
+**PuduRobotGroup** -- Group robot di PUDU. Diisi dari GetBoundRobotGroups; anggota dari GetRobotsInGroup.
+
+**PuduRobot** -- Profil vendor robot, 1:1 dengan Robot inti. Kunci integrasi = sn. Daftar sn didapat dari StoreRobotList.
 
 **PuduRobotState** -- Snapshot terakhir per robot (1 baris per robot, di-upsert). Untuk dashboard live.
 
@@ -330,18 +337,34 @@ Detail khas vendor PUDU yang tidak boleh masuk tabel inti. Data PUDU yang sudah 
 
 | Entity | Field | Tipe | Key |
 | --- | --- | --- | --- |
+| PuduShop | puduShopId | UUID | PK |
+| PuduShop | shopId | VARCHAR | UNIQUE; shop_id dari PUDU. Disimpan sebagai teks karena docs menulis int tapi contohnya string; Sumber: GetStoreList.shop_id, robotBinding.shop_id, StoreRobotList.shop_id |
+| PuduShop | shopName | VARCHAR | nullable; kosong kalau toko baru dikenal dari callback dan belum disinkronkan; Sumber: GetStoreList.shop_name, StoreRobotList.shop_name |
+| PuduShop | companyId | VARCHAR | nullable; ID agen/perusahaan di PUDU; Sumber: GetStoreList.company_id |
+| PuduShop | companyName | VARCHAR | nullable; Sumber: GetStoreList.company_name |
+| PuduShop | syncedAt | TIMESTAMPTZ | nullable; terakhir disinkronkan dari GetStoreList |
+| PuduShop | createdAt | TIMESTAMPTZ |  |
+| PuduShop | updatedAt | TIMESTAMPTZ |  |
+| PuduRobotGroup | puduRobotGroupId | UUID | PK |
+| PuduRobotGroup | groupId | VARCHAR | UNIQUE; group_id dari PUDU. Dipakai sebagai param GetRobotsInGroup dan GetGroupRobotStatusV2; Sumber: GetBoundRobotGroups.groups[].group_id |
+| PuduRobotGroup | groupName | VARCHAR | nullable; Sumber: GetBoundRobotGroups.groups[].group_name |
+| PuduRobotGroup | puduShopId | UUID | FK -> PuduShop; nullable; Sumber: GetBoundRobotGroups.groups[].shop_id |
+| PuduRobotGroup | syncedAt | TIMESTAMPTZ | nullable |
+| PuduRobotGroup | createdAt | TIMESTAMPTZ |  |
+| PuduRobotGroup | updatedAt | TIMESTAMPTZ |  |
 | PuduRobot | puduRobotId | UUID | PK |
 | PuduRobot | robotId | UUID | FK -> Robot; 1:1 (UNIQUE) |
-| PuduRobot | sn | VARCHAR | UNIQUE; serial number, dipakai hampir semua API; Sumber: Input admin / robotBinding.sn |
-| PuduRobot | mac | VARCHAR | nullable; Sumber: robotEmergencyRecover.mac, notifySwitchMap.mac |
-| PuduRobot | name | VARCHAR | nullable; nama robot di PUDU; Sumber: robotBinding.name |
+| PuduRobot | sn | VARCHAR | UNIQUE; serial number, dipakai hampir semua API. Disalin ke Robot.serialNumber; Sumber: StoreRobotList.sn, robotBinding.sn |
+| PuduRobot | mac | VARCHAR | nullable; Sumber: StoreRobotList.mac, GetRobotsInGroup.mac, robotEmergencyRecover.mac |
+| PuduRobot | name | VARCHAR | nullable; nama/nickname robot di PUDU; Sumber: StoreRobotList.nickname, GetRobotsInGroup.robot_name |
 | PuduRobot | model | VARCHAR | T600; Sumber: Input admin |
-| PuduRobot | shopId | VARCHAR | nullable saat unbound; Sumber: robotBinding.shop_id |
-| PuduRobot | groupId | VARCHAR | nullable; diinput admin (tidak ada API list group); Sumber: Input admin |
+| PuduRobot | productCode | VARCHAR | nullable; kode produk PUDU (contoh PuduBot). Terpisah dari model WCS; Sumber: StoreRobotList.product_code, GetRobotStatusV2.product_code |
+| PuduRobot | puduShopId | UUID | FK -> PuduShop; nullable (robot belum di-bind); Sumber: robotBinding.shop_id, StoreRobotList.shop_id |
+| PuduRobot | puduRobotGroupId | UUID | FK -> PuduRobotGroup; nullable; Sumber: GetRobotsInGroup |
 | PuduRobot | bindingStatus | VARCHAR | BOUND / UNBOUND; Sumber: robotBinding / robotUnBinding |
 | PuduRobot | boundAt | TIMESTAMPTZ | nullable; Sumber: robotBinding.timestamp |
 | PuduRobot | unboundAt | TIMESTAMPTZ | nullable; Sumber: robotUnBinding.timestamp |
-| PuduRobot | activatedAt | TIMESTAMPTZ | nullable; Sumber: robotActivate.timestamp |
+| PuduRobot | activatedAt | TIMESTAMPTZ | nullable; aktivasi pertama; Sumber: robotActivate.timestamp, StoreRobotList.first_active_time |
 | PuduRobot | createdAt | TIMESTAMPTZ |  |
 | PuduRobot | updatedAt | TIMESTAMPTZ |  |
 | PuduRobotState | puduRobotId | UUID | PK; FK -> PuduRobot |
@@ -349,7 +372,9 @@ Detail khas vendor PUDU yang tidak boleh masuk tabel inti. Data PUDU yang sudah 
 | PuduRobotState | runState | VARCHAR | nullable; OFFLINE / DISABLE / BUSY / IDLE; Sumber: notifyRobotStatus, GetRobotStatusV2 |
 | PuduRobotState | moveState | VARCHAR | nullable; IDLE / MOVING / STUCK / APPROACHING / ARRIVE / PAUSE / AVOID; Sumber: notifyRobotMoveState |
 | PuduRobotState | chargeStage | VARCHAR | nullable; Sumber: notifyRobotPower, notifyRobotStatus |
-| PuduRobotState | chargeType | VARCHAR | nullable; Sumber: GetRobotStatusV2.charge_type |
+| PuduRobotState | chargeType | VARCHAR | nullable; Sumber: GetRobotStatusV2.charge_type, notifyRobotStatus.charge_type |
+| PuduRobotState | isCharging | INT | nullable; nilai mentah PUDU (contoh -1). Arti nilai belum diverifikasi; Sumber: GetRobotStatusV2.is_charging, notifyRobotStatus.is_charging |
+| PuduRobotState | remainTime | INT | nullable; nilai mentah PUDU. Arti dan satuan belum diverifikasi; Sumber: GetRobotStatusV2.remain_time, notifyRobotStatus.remain_time |
 | PuduRobotState | battery | INT | nullable; 0-100; Sumber: notifyRobotPower.power, GetRobotStatusV2.battery |
 | PuduRobotState | currentPuduMapId | UUID | FK -> PuduMap; nullable; peta aktif; Sumber: AvailableMaps.is_used, GetRealtimeMapPosition.name |
 | PuduRobotState | x | DECIMAL(14,4) | nullable; Sumber: notifyRobotPose.x |
@@ -362,6 +387,7 @@ Detail khas vendor PUDU yang tidak boleh masuk tabel inti. Data PUDU yang sudah 
 | PuduRobotState | poseReportStartedAt | TIMESTAMPTZ | nullable; WCS kirim ulang sebelum interval x times habis |
 | PuduRobotState | emergencyRecoveredAt | TIMESTAMPTZ | nullable; Sumber: robotEmergencyRecover.timestamp |
 | PuduRobotState | lastPoseAt | TIMESTAMPTZ | nullable; notify_timestamp pose terakhir, untuk deteksi robot berhenti lapor; Sumber: notifyRobotPose.notify_timestamp |
+| PuduRobotState | vendorStatusAt | TIMESTAMPTZ | nullable; waktu status menurut PUDU (epoch detik, dikonversi ke UTC); Sumber: GetRobotStatusV2.timestamp, notifyRobotStatus.timestamp |
 | PuduRobotState | updatedAt | TIMESTAMPTZ |  |
 | PuduRobotStatusLog | statusLogId | BIGINT | PK; autoincrement |
 | PuduRobotStatusLog | puduRobotId | UUID | FK -> PuduRobot |
@@ -372,7 +398,9 @@ Detail khas vendor PUDU yang tidak boleh masuk tabel inti. Data PUDU yang sudah 
 | PuduRobotStatusLog | moveState | VARCHAR | nullable |
 | PuduRobotStatusLog | chargeStage | VARCHAR | nullable |
 | PuduRobotStatusLog | battery | INT | nullable |
-| PuduRobotStatusLog | recordedAt | TIMESTAMPTZ | waktu dari PUDU (notify_timestamp) atau waktu polling; Sumber: notify_timestamp |
+| PuduRobotStatusLog | isCharging | INT | nullable; nilai mentah PUDU |
+| PuduRobotStatusLog | remainTime | INT | nullable; nilai mentah PUDU |
+| PuduRobotStatusLog | recordedAt | TIMESTAMPTZ | waktu dari PUDU: notify_timestamp (milidetik) untuk callback, timestamp (detik) untuk GetRobotStatusV2, atau waktu polling; Sumber: notify_timestamp |
 | PuduPoseLog | poseLogId | BIGINT | PK (gabungan); autoincrement; PK gabungan (poseLogId, recordedAt) karena tabel dipartisi |
 | PuduPoseLog | puduRobotId | UUID | FK -> PuduRobot |
 | PuduPoseLog | puduMapId | UUID | FK -> PuduMap; nullable |
@@ -386,10 +414,17 @@ Detail khas vendor PUDU yang tidak boleh masuk tabel inti. Data PUDU yang sudah 
 | PuduMap | puduMapId | UUID | PK |
 | PuduMap | warehouseId | UUID | FK -> Warehouse; nullable sampai admin memetakan; Sumber: Input admin |
 | PuduMap | zoneId | UUID | FK -> Zone; nullable; area/lantai yang dicakup peta ini; Sumber: Input admin |
-| PuduMap | shopId | VARCHAR | UNIQUE bersama mapName; Sumber: StoreMapList, mapElementChange.shop_id |
-| PuduMap | mapName | VARCHAR | perlu escape karakter khusus (#); Sumber: StoreMapList, GetMapDetailV2.map_name |
+| PuduMap | puduShopId | UUID | FK -> PuduShop; UNIQUE bersama mapName; Sumber: StoreMapList (param shop_id), mapElementChange.shop_id |
+| PuduMap | mapName | VARCHAR | format PUDU lantai#id#nama (contoh 2#4#2F_gudang); perlu escape karakter khusus (#); Sumber: StoreMapList.list[].map_name, GetMapDetailV2.map_name, AvailableMaps.list[].name |
+| PuduMap | mapCode | VARCHAR | nullable; kode peta; Sumber: GetMapDetailV2.map_code |
 | PuduMap | floor | VARCHAR | nullable; Sumber: AvailableMaps.floor, CurrentMap.floor |
 | PuduMap | imageUrl | VARCHAR | nullable; background peta di dashboard; Sumber: GetMapDetailV2.url |
+| PuduMap | width | DECIMAL(14,4) | nullable; ukuran peta, satuan belum diverifikasi; Sumber: GetMapDetailV2.width |
+| PuduMap | height | DECIMAL(14,4) | nullable; ukuran peta, satuan belum diverifikasi; Sumber: GetMapDetailV2.height |
+| PuduMap | resolution | DECIMAL(14,4) | nullable; skala gambar peta (contoh 0.05). Dibutuhkan untuk menggambar posisi robot di atas peta; Sumber: GetMapDetailV2.resolution |
+| PuduMap | originX | DECIMAL(14,4) | nullable; titik asal koordinat peta; Sumber: GetMapDetailV2.origin_list[0] |
+| PuduMap | originY | DECIMAL(14,4) | nullable; Sumber: GetMapDetailV2.origin_list[1] |
+| PuduMap | originZ | DECIMAL(14,4) | nullable; Sumber: GetMapDetailV2.origin_list[2] |
 | PuduMap | zones | JSONB | nullable; zone_list[] termasuk area traffic control (area_id); Sumber: GetMapDetailV2.zone_list |
 | PuduMap | isActive | BOOLEAN | default true; false kalau peta tidak lagi muncul di StoreMapList |
 | PuduMap | lastChangedAt | TIMESTAMPTZ | nullable; memicu sync ulang elemen; Sumber: mapElementChange.timestamp |
@@ -398,17 +433,18 @@ Detail khas vendor PUDU yang tidak boleh masuk tabel inti. Data PUDU yang sudah 
 | PuduMap | updatedAt | TIMESTAMPTZ |  |
 | PuduRobotMap | puduRobotId | UUID | PK (gabungan); FK -> PuduRobot |
 | PuduRobotMap | puduMapId | UUID | PK (gabungan); FK -> PuduMap; Sumber: AvailableMaps.list[].name |
-| PuduRobotMap | isUsed | BOOLEAN | peta sedang aktif di robot; Sumber: AvailableMaps.list[].is_used |
+| PuduRobotMap | isUsed | INT | nilai mentah PUDU (contoh 1 dan 2); arti belum diverifikasi, jangan dipakai sebagai boolean; Sumber: AvailableMaps.list[].is_used |
 | PuduRobotMap | syncedAt | TIMESTAMPTZ |  |
 | PuduMapElement | puduMapElementId | UUID | PK |
 | PuduMapElement | puduMapId | UUID | FK -> PuduMap |
-| PuduMapElement | name | VARCHAR | UNIQUE bersama puduMapId + elementType; Sumber: GetCurrentMapPoints.name, element_list[] |
-| PuduMapElement | elementType | VARCHAR | POINT / TRACK / CIRCLE / SOURCE; Sumber: CurrentMap.elements[], element_list[] |
-| PuduMapElement | pointType | VARCHAR | nullable; tipe titik PUDU; Sumber: GetCurrentMapPoints.type |
-| PuduMapElement | x | DECIMAL(14,4) | nullable; Sumber: GetCurrentMapPoints.x |
-| PuduMapElement | y | DECIMAL(14,4) | nullable; Sumber: GetCurrentMapPoints.y |
-| PuduMapElement | z | DECIMAL(14,4) | nullable; Sumber: GetCurrentMapPoints.z |
-| PuduMapElement | geometry | JSONB | nullable; bentuk track/circle; Sumber: element_list[] |
+| PuduMapElement | vendorElementId | VARCHAR | id elemen dari PUDU; UNIQUE bersama puduMapId. Kunci upsert saat sync ulang peta; Sumber: CurrentMap.elements[].id, GetMapDetailV2.element_list[].id |
+| PuduMapElement | name | VARCHAR | task menyebut titik lewat nama, jadi diberi index (puduMapId, name); Sumber: CurrentMap.elements[].name, GetMapDetailV2.element_list[].name, GetCurrentMapPoints.list[].name |
+| PuduMapElement | elementType | VARCHAR | type dari PUDU (source, charging_pile, area, elevator, ...); teks bebas; Sumber: CurrentMap.elements[].type, GetMapDetailV2.element_list[].type |
+| PuduMapElement | pointType | VARCHAR | nullable; mode dari PUDU (contoh return_point); Sumber: CurrentMap.elements[].mode, GetMapDetailV2.element_list[].mode, GetCurrentMapPoints.list[].type |
+| PuduMapElement | x | DECIMAL(14,4) | nullable; untuk titik: vector_list[0] / vector[0]; Sumber: GetCurrentMapPoints.list[].x |
+| PuduMapElement | y | DECIMAL(14,4) | nullable; Sumber: GetCurrentMapPoints.list[].y |
+| PuduMapElement | z | DECIMAL(14,4) | nullable; Sumber: GetCurrentMapPoints.list[].z |
+| PuduMapElement | geometry | JSONB | nullable; vector_list (polygon area), clean_path_list, group, width, max_speed; Sumber: GetMapDetailV2.element_list[], CurrentMap.elements[] |
 | PuduMapElement | nodeId | UUID | FK -> Node; nullable; diisi admin saat memetakan titik; Sumber: Input admin |
 | PuduMapElement | isActive | BOOLEAN | default true; false kalau elemen hilang saat sync (tidak dihapus agar FK tetap utuh) |
 | PuduMapElement | deletedAt | TIMESTAMPTZ | nullable; kapan elemen hilang dari peta PUDU |
@@ -432,12 +468,14 @@ Detail khas vendor PUDU yang tidak boleh masuk tabel inti. Data PUDU yang sudah 
 | PuduTask | deliveryMode | VARCHAR | nullable; Sumber: Delivery Task List.delivery_mode |
 | PuduTask | completeType | VARCHAR | nullable; Sumber: notifyDeliveryTask.complete_type |
 | PuduTask | remark | VARCHAR | nullable; Sumber: remark |
+| PuduTask | isOverTime | BOOLEAN | nullable; Sumber: notifyDeliveryTask.is_over_time |
+| PuduTask | spentTime | INT | nullable; nilai mentah PUDU (contoh 100). Satuan belum diverifikasi; Sumber: notifyDeliveryTask.spent_time |
 | PuduTask | robotResponseCode | VARCHAR | nullable; Sumber: notifyCustomCall.robot_response_code |
 | PuduTask | robotResponseMessage | VARCHAR | nullable; Sumber: notifyCustomCall.robot_response_message |
 | PuduTask | requestPayload | JSONB | nullable; body yang dikirim WCS (do_not_queue, robot_group_ids, execute_task, dll) |
 | PuduTask | vendorCreatedAt | TIMESTAMPTZ | nullable; waktu task dibuat menurut PUDU; Sumber: GetCallList.create_time |
 | PuduTask | startedAt | TIMESTAMPTZ | nullable |
-| PuduTask | finishedAt | TIMESTAMPTZ | nullable |
+| PuduTask | finishedAt | TIMESTAMPTZ | nullable; Sumber: GetCallList.finish_time |
 | PuduTask | lastNotifiedAt | TIMESTAMPTZ | nullable; Sumber: notify_timestamp |
 | PuduTask | createdAt | TIMESTAMPTZ | waktu insert di WCS |
 | PuduTask | updatedAt | TIMESTAMPTZ |  |
@@ -447,8 +485,13 @@ Detail khas vendor PUDU yang tidak boleh masuk tabel inti. Data PUDU yang sudah 
 | PuduTaskStop | seq | INT | urutan stop |
 | PuduTaskStop | pointName | VARCHAR | salinan nama titik, tetap utuh walau peta berubah; Sumber: destinations[] |
 | PuduTaskStop | puduMapElementId | UUID | FK -> PuduMapElement; nullable; ON DELETE RESTRICT agar elemen peta hanya bisa di-soft delete |
+| PuduTaskStop | puduMapId | UUID | FK -> PuduMap; nullable; peta tujuan destinasi ini; Sumber: destinations[].map_info.map_name |
+| PuduTaskStop | vendorStopId | VARCHAR | nullable; id destinasi dari PUDU (dikembalikan saat sinkronisasi status); Sumber: destinations[].id |
+| PuduTaskStop | destType | VARCHAR | nullable; REMOTE / MANUAL; Sumber: destinations[].type |
 | PuduTaskStop | status | VARCHAR | nullable; status per destinasi; Sumber: destinations[].status |
-| PuduTaskStop | estimatedTimeSec | INT | nullable; Sumber: destinations[].estimated_time |
+| PuduTaskStop | estimatedTime | INT | nullable; nilai mentah PUDU (contoh 60000). Satuan belum diverifikasi; Sumber: destinations[].estimated_time |
+| PuduTaskStop | spendTime | INT | nullable; nilai mentah PUDU (contoh 80000). Satuan belum diverifikasi; Sumber: destinations[].spend_time |
+| PuduTaskStop | isTimeout | BOOLEAN | nullable; Sumber: destinations[].timeout |
 | PuduTaskStop | completeType | VARCHAR | nullable; Sumber: destinations[].complete_type |
 | PuduTaskStop | arrivedAt | TIMESTAMPTZ | nullable; dihitung WCS dari perubahan status |
 | PuduTaskStop | finishedAt | TIMESTAMPTZ | nullable |
@@ -462,6 +505,7 @@ Selain PK dan FK di atas. Semuanya tertulis eksplisit di `prisma/schema.prisma` 
 | Tabel | Jenis | Kolom / aturan | Alasan |
 | --- | --- | --- | --- |
 | Robot | UNIQUE | equipmentId | Robot 1:1 dengan Equipment |
+| Robot | UNIQUE | serialNumber |  |
 | Task | UNIQUE | source, externalRef | Idempotensi POST /tasks dari WMS/ERP |
 | Task | INDEX | status, priority | |
 | TaskStatusHistory | INDEX | taskId, changedAt | |
@@ -478,15 +522,21 @@ Selain PK dan FK di atas. Semuanya tertulis eksplisit di `prisma/schema.prisma` 
 | IntegrationLog | INDEX | robotId, occurredAt | |
 | User | UNIQUE | username | Login |
 | Role | UNIQUE | name | 5+3 nilai tetap |
+| PuduShop | UNIQUE | shopId | Kunci upsert GetStoreList |
+| PuduRobotGroup | UNIQUE | groupId | Kunci upsert GetBoundRobotGroups |
+| PuduRobotGroup | INDEX | puduShopId | |
 | PuduRobot | UNIQUE | sn | Kunci upsert callback robotBinding |
 | PuduRobot | UNIQUE | robotId | Relasi 1:1 dengan Robot |
+| PuduRobot | INDEX | puduShopId | |
+| PuduRobot | INDEX | puduRobotGroupId | |
 | PuduRobotStatusLog | INDEX | puduRobotId, recordedAt | |
 | PuduPoseLog | PK gabungan | poseLogId, recordedAt | Tabel dipartisi per bulan -- PK wajib menyertakan kolom partisi |
 | PuduPoseLog | INDEX | puduRobotId, recordedAt | |
-| PuduMap | UNIQUE | shopId, mapName | Kunci upsert sync peta |
+| PuduMap | UNIQUE | puduShopId, mapName | Kunci upsert sync peta |
 | PuduRobotMap | PK gabungan | puduRobotId, puduMapId | Satu baris per robot per peta |
-| PuduMapElement | UNIQUE | puduMapId, elementType, name | Kunci upsert sync elemen peta |
+| PuduMapElement | UNIQUE | puduMapId, vendorElementId | Kunci upsert sync elemen peta (id elemen dari PUDU) |
 | PuduMapElement | INDEX | nodeId | |
+| PuduMapElement | INDEX | puduMapId, name | |
 | PuduTask | UNIQUE | vendorTaskId | Kunci upsert callback task |
 | PuduTask | UNIQUE | missionId | Relasi 1:1 dengan Mission |
 | PuduTask | INDEX | puduRobotId, status | |
