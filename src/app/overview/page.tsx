@@ -123,7 +123,7 @@ PLC: Connected
         <RobotFleetTable fleet={mockRobotFleet} />
 
         {/* Right: Equipment Health + Integration Adapters Stack */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', height: '100%' }}>
           <EquipmentHealth categories={mockEquipmentHealth} />
           <IntegrationAdapters adapters={mockIntegrationAdapters} />
         </div>

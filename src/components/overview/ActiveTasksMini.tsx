@@ -191,8 +191,8 @@ export function ActiveTasksMini({ tasks }: ActiveTasksMiniProps) {
                       style={{
                         display: 'inline-flex',
                         alignItems: 'center',
-                        gap: '4px',
-                        padding: '2px 7px',
+                        justifyContent: 'center',
+                        padding: '2.5px 8px',
                         borderRadius: '12px',
                         fontSize: '10.5px',
                         fontWeight: 600,
@@ -202,14 +202,6 @@ export function ActiveTasksMini({ tasks }: ActiveTasksMiniProps) {
                         whiteSpace: 'nowrap',
                       }}
                     >
-                      <span
-                        style={{
-                          width: '5px',
-                          height: '5px',
-                          borderRadius: '50%',
-                          backgroundColor: statDot,
-                        }}
-                      />
                       {t.status}
                     </span>
                   </td>

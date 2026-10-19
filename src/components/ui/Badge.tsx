@@ -31,7 +31,6 @@ export function StatusBadge({ status, className = '' }: StatusBadgeProps) {
 
   return (
     <span className={`badge ${variantClass} ${className}`}>
-      <span className="badge-dot" />
       <span>{status}</span>
     </span>
   );

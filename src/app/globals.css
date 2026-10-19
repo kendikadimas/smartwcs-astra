@@ -1245,8 +1245,8 @@ body {
 .badge {
   display: inline-flex;
   align-items: center;
-  gap: 5px;
-  padding: 2.5px 8px;
+  justify-content: center;
+  padding: 2.5px 9px;
   border-radius: 999px;
   font-size: 11px;
   font-weight: 600;
@@ -1254,10 +1254,7 @@ body {
 }
 
 .badge-dot {
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  flex-shrink: 0;
+  display: none;
 }
 
 /* Status variants */

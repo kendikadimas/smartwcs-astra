@@ -54,7 +54,7 @@ export function EquipmentHealth({ categories }: EquipmentHealthProps) {
   ];
 
   return (
-    <div className="panel" style={{ display: 'flex', flexDirection: 'column' }}>
+    <div className="panel" style={{ display: 'flex', flexDirection: 'column', flex: 1.25, height: '100%' }}>
       {/* Header */}
       <div
         className="panel-header"
@@ -62,7 +62,7 @@ export function EquipmentHealth({ categories }: EquipmentHealthProps) {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
-          padding: '10px 16px',
+          padding: '11px 16px',
           borderBottom: '1px solid #f1f5f9',
         }}
       >
@@ -79,10 +79,11 @@ export function EquipmentHealth({ categories }: EquipmentHealthProps) {
       <div
         className="panel-body"
         style={{
-          padding: '10px 16px 12px 16px',
+          padding: '12px 16px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '9px',
+          justifyContent: 'space-between',
+          flex: 1,
         }}
       >
         {items.map((item) => {
