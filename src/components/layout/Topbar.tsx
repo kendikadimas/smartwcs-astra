@@ -28,7 +28,10 @@ export function Topbar({ onToggleMobileNav }: TopbarProps) {
   } else {
     // Other pages
     const raw = pathname.replace('/', '').replace(/-/g, ' ');
-    currentBreadcrumb = raw.charAt(0).toUpperCase() + raw.slice(1);
+    currentBreadcrumb = raw
+      .split(' ')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
   }
 
   const handleToggle = () => {
