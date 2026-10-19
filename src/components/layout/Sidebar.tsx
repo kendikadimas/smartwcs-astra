@@ -126,19 +126,18 @@ export function Sidebar() {
             />
           </div>
 
-          {/* Mini Emblem Symbol */}
-          <div className="logo-symbol-wrapper" title="SYNTRA Smart WCS">
+          {/* Mini Emblem Symbol (Without Text) */}
+          <div className="logo-symbol-wrapper" title="SYNTRA Smart WCS Platform">
             <Image
-              src="/images/logowcs.png"
-              alt="SYNTRA"
-              width={130}
-              height={46}
+              src="/images/wcslogo.png"
+              alt="SYNTRA WCS"
+              width={42}
+              height={42}
               priority
               style={{
-                height: '38px',
-                width: 'auto',
-                objectFit: 'cover',
-                objectPosition: 'left center',
+                width: '36px',
+                height: '36px',
+                objectFit: 'contain',
               }}
             />
           </div>

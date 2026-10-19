@@ -16,7 +16,13 @@ export const metadata: Metadata = {
   title: 'SYNTRA Smart WCS Platform',
   description: 'Enterprise Smart Warehouse Control System — Astra Otoparts (Divisi Winteq)',
   icons: {
-    icon: '/images/logowcs.png',
+    icon: [
+      { url: '/images/wcslogo.png', type: 'image/png' },
+    ],
+    apple: [
+      { url: '/images/wcslogo.png', type: 'image/png' },
+    ],
+    shortcut: ['/images/wcslogo.png'],
   },
 };
 
