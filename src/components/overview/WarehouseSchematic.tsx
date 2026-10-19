@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
+import Link from 'next/link';
 import {
   Layers,
   ChevronDown,
@@ -105,14 +106,25 @@ export function WarehouseSchematic() {
             )}
           </div>
 
-          <button
+          <Link
+            href="/warehouse-map"
             className="icon-button"
-            style={{ width: '28px', height: '28px', border: '1px solid #e2e8f0', borderRadius: '6px', color: '#64748b' }}
-            title="Toggle fullscreen view"
-            aria-label="Toggle fullscreen view"
+            style={{
+              width: '28px',
+              height: '28px',
+              border: '1px solid #e2e8f0',
+              borderRadius: '6px',
+              color: '#64748b',
+              textDecoration: 'none',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+            }}
+            title="Open Interactive 2.5D Digital Twin Map"
+            aria-label="Open Interactive 2.5D Digital Twin Map"
           >
             <Maximize2 size={13} />
-          </button>
+          </Link>
         </div>
       </div>
 
