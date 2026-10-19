@@ -1,54 +1,109 @@
+'use client';
+
 import React from 'react';
+import { Share2, Database, Bot, Cpu } from 'lucide-react';
 import { IntegrationAdapter } from '@/types/overview';
 
 interface IntegrationAdaptersProps {
-  adapters: IntegrationAdapter[];
+  adapters?: IntegrationAdapter[];
 }
 
 export function IntegrationAdapters({ adapters }: IntegrationAdaptersProps) {
+  const items = [
+    {
+      name: 'WMS',
+      role: 'Inventory / orders',
+      icon: Database,
+    },
+    {
+      name: 'RCS',
+      role: 'Robot execution',
+      icon: Bot,
+    },
+    {
+      name: 'PLC',
+      role: 'Equipment control',
+      icon: Cpu,
+    },
+  ];
+
   return (
-    <div className="panel" style={{ height: '100%' }}>
+    <div className="panel" style={{ display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
-      <div className="panel-header">
-        <span className="panel-title">Integration adapters</span>
-        <span className="panel-subtitle">3 connected</span>
+      <div
+        className="panel-header"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '10px 16px',
+          borderBottom: '1px solid #f1f5f9',
+        }}
+      >
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Share2 size={17} style={{ color: '#2563eb' }} />
+          <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
+            Integration adapters
+          </span>
+        </div>
+        <span style={{ fontSize: '11px', color: '#64748b' }}>3 connected</span>
       </div>
 
       {/* Body List */}
       <div
         className="panel-body"
         style={{
-          padding: '12px 16px',
+          padding: '10px 16px 12px 16px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '12px',
+          gap: '9px',
         }}
       >
-        {adapters.map((adapter) => (
-          <div
-            key={adapter.name}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              fontSize: '12.5px',
-              gap: '8px',
-            }}
-          >
-            <span
+        {items.map((item) => {
+          const Icon = item.icon;
+          return (
+            <div
+              key={item.name}
               style={{
-                width: '6px',
-                height: '6px',
-                borderRadius: '50%',
-                backgroundColor: '#16a34a',
-                flexShrink: 0,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                fontSize: '11.5px',
               }}
-            />
-            <span style={{ fontWeight: 600, color: '#0f172a', width: '42px' }}>
-              {adapter.name}
-            </span>
-            <span style={{ color: '#64748b', fontSize: '12px' }}>{adapter.role}</span>
-          </div>
-        ))}
+            >
+              {/* Left: Icon + Name + Role */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <Icon size={14} style={{ color: '#16a34a', flexShrink: 0 }} />
+                <span style={{ fontWeight: 700, color: '#0f172a', width: '38px' }}>
+                  {item.name}
+                </span>
+                <span style={{ color: '#64748b', fontSize: '11px' }}>{item.role}</span>
+              </div>
+
+              {/* Right: Connected Status */}
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '5px',
+                  color: '#15803d',
+                  fontWeight: 600,
+                  fontSize: '11px',
+                }}
+              >
+                <span
+                  style={{
+                    width: '6px',
+                    height: '6px',
+                    borderRadius: '50%',
+                    backgroundColor: '#16a34a',
+                  }}
+                />
+                Connected
+              </div>
+            </div>
+          );
+        })}
       </div>
     </div>
   );
