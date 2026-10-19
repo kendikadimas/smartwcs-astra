@@ -1,73 +1,79 @@
-export interface MapPoint {
-  x: number;
-  y: number;
-  z?: number;
-}
+export type RobotState = 'Moving' | 'Running' | 'Idle' | 'Charging' | 'Offline';
+export type RobotType = 'AMR' | 'FORKLIFT' | 'TUGGER';
 
-export interface IsometricZone {
+export interface WarehouseRobot {
   id: string;
   name: string;
-  code: 'RMW' | 'ASSEMBLY' | 'FGW' | 'STAGING' | 'CHARGING';
-  gx: number; // grid X
-  gy: number; // grid Y
-  gw: number; // grid width in tiles
-  gh: number; // grid height in tiles
+  model: string;
+  type: RobotType;
+  status: RobotState;
+  battery: number;
+  speed: number; // m/s
+  temperature: number; // °C
+  link: 'Online' | 'Lost';
+  currentTask: string;
+  taskType: string;
+  load: string;
+  currentLocation: string;
+  nextWaypoint: string;
+  eta: string;
+  gx: number;
+  gy: number;
+  heading: number;
+  path: { x: number; y: number }[];
   color: string;
-  borderColor: string;
-  label: string;
 }
 
-export interface IsometricRack {
+export interface WarehouseZone {
   id: string;
-  zone: string;
+  code: string;
+  name: string;
+  subtitle: string;
   gx: number;
   gy: number;
   gw: number;
   gh: number;
-  height: number; // visual height in pixels
+  color: string;
+  borderColor: string;
+  badgeBg: string;
+  badgeColor: string;
+}
+
+export interface WarehouseRack {
+  id: string;
+  zoneId: string;
+  gx: number;
+  gy: number;
+  gw: number;
+  gh: number;
+  height: number;
   tiers: number;
   occupancy: number; // 0 to 100%
   color: string;
 }
 
-export interface IsometricRobot {
-  id: string;
-  name: string;
-  model: string;
-  status: 'Moving' | 'Idle' | 'Charging' | 'Offline';
-  battery: number;
-  speed: number; // m/s
-  temperature: number; // °C
-  currentTask?: string;
-  source?: string;
-  destination?: string;
-  payload?: {
-    id: string;
-    name: string;
-    weightKg: number;
-  };
-  gx: number;
-  gy: number;
-  headingAngle: number; // degrees 0-360
-  pathWaypoints: MapPoint[];
-  currentWaypointIdx: number;
-  linkStatus: 'Online' | 'Lost';
-  color: string;
-}
-
-export interface IsometricChargingBay {
-  id: string;
-  gx: number;
-  gy: number;
-  status: 'available' | 'occupied' | 'fault';
-  occupiedBy?: string;
-}
-
-export interface MapLayerState {
+export interface MapLayerFilters {
+  zones: boolean;
   racks: boolean;
-  routes: boolean;
   robots: boolean;
-  chargingBays: boolean;
+  routes: boolean;
+  equipment: boolean;
   safetyZones: boolean;
-  labels: boolean;
+}
+
+export interface RecentEvent {
+  id: string;
+  time: string;
+  dotColor: string;
+  text: string;
+  highlightText?: string;
+}
+
+export interface MapKpiSummary {
+  robotsOnline: { current: number; total: number; percentage: number };
+  activeTasks: { total: number; running: number; queued: number };
+  charging: { count: number; resources: string };
+  idle: { count: number; note: string };
+  offlineFault: { count: number; resources: string };
+  conveyors: { current: number; total: number; statusText: string };
 }
