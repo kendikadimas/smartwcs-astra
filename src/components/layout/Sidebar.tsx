@@ -18,7 +18,11 @@ import {
   Users,
   FileClock,
   ChevronDown,
+  ChevronLeft,
+  ChevronRight,
+  X,
 } from 'lucide-react';
+import { useSidebar } from './SidebarContext';
 
 interface NavItemDef {
   label: string;
@@ -73,6 +77,13 @@ const navGroups: NavGroupDef[] = [
 
 export function Sidebar() {
   const pathname = usePathname();
+  const {
+    isOpenMobile,
+    closeMobile,
+    isCollapsed,
+    toggleCollapsed,
+    isMobile,
+  } = useSidebar();
 
   const isItemActive = (href: string) => {
     if (href === '/') {
@@ -81,27 +92,73 @@ export function Sidebar() {
     return pathname.startsWith(href);
   };
 
+  const isMini = isCollapsed && !isMobile;
+
   return (
-    <aside className="sidebar">
-      {/* Brand Logo */}
+    <aside
+      className={`sidebar ${isMini ? 'collapsed' : ''} ${isOpenMobile ? 'mobile-open' : ''}`}
+      aria-label="Main Navigation"
+    >
+      {/* Brand Logo Header - Centered Horizontally */}
       <div className="sidebar-logo">
-        <Link href="/" style={{ display: 'flex', alignItems: 'center' }}>
-          <Image
-            src="/images/logowcs.png"
-            alt="SYNTRA Smart WCS Platform"
-            width={170}
-            height={42}
-            priority
-            style={{ width: 'auto', height: '34px', objectFit: 'contain' }}
-          />
+        <Link
+          href="/"
+          className="sidebar-logo-link"
+          onClick={() => {
+            if (isMobile) closeMobile();
+          }}
+          title="SYNTRA Smart WCS Platform"
+        >
+          {isMini ? (
+            <div className="logo-symbol-wrapper" title="SYNTRA Smart WCS">
+              <Image
+                src="/images/logowcs.png"
+                alt="SYNTRA"
+                width={130}
+                height={46}
+                priority
+                style={{
+                  height: '38px',
+                  width: 'auto',
+                  objectFit: 'cover',
+                  objectPosition: 'left center',
+                }}
+              />
+            </div>
+          ) : (
+            <Image
+              src="/images/logowcs.png"
+              alt="SYNTRA Smart WCS Platform"
+              width={220}
+              height={56}
+              priority
+              style={{
+                width: 'auto',
+                height: '46px',
+                maxWidth: '190px',
+                objectFit: 'contain',
+              }}
+            />
+          )}
         </Link>
+
+        {/* Mobile Close Button */}
+        <button
+          className="sidebar-close-mobile-btn"
+          onClick={closeMobile}
+          aria-label="Close sidebar"
+          title="Close sidebar"
+        >
+          <X size={18} />
+        </button>
       </div>
 
       {/* Nav Groups */}
       <nav className="sidebar-nav">
         {navGroups.map((group) => (
-          <div key={group.title} style={{ display: 'flex', flexDirection: 'column', gap: '3px' }}>
-            <div className="nav-group-title">{group.title}</div>
+          <div key={group.title} className="nav-group-section">
+            {!isMini && <div className="nav-group-title">{group.title}</div>}
+            {isMini && <div className="nav-group-divider" />}
             {group.items.map((item) => {
               const active = isItemActive(item.href);
               const Icon = item.icon;
@@ -110,9 +167,13 @@ export function Sidebar() {
                   key={item.label}
                   href={item.href}
                   className={`nav-item ${active ? 'active' : ''}`}
+                  title={isMini ? item.label : undefined}
+                  onClick={() => {
+                    if (isMobile) closeMobile();
+                  }}
                 >
                   <Icon className="nav-icon" />
-                  <span>{item.label}</span>
+                  {!isMini && <span>{item.label}</span>}
                 </Link>
               );
             })}
@@ -122,25 +183,56 @@ export function Sidebar() {
 
       {/* Footer Status & User */}
       <div className="sidebar-footer">
+        {/* Desktop Collapse / Expand Toggle Button */}
+        {!isMobile && (
+          <button
+            className="sidebar-collapse-btn"
+            onClick={toggleCollapsed}
+            title={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+            aria-label={isCollapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          >
+            {isCollapsed ? <ChevronRight size={16} /> : <ChevronLeft size={16} />}
+            {!isCollapsed && <span>Collapse Sidebar</span>}
+          </button>
+        )}
+
         {/* System Status Box */}
-        <div className="system-status-box">
-          <div className="status-dot-row">
+        {isMini ? (
+          <div
+            className="system-status-box collapsed"
+            title="System online · Demo environment v2.4.0"
+          >
             <span className="status-dot" />
-            <span>System online</span>
           </div>
-          <div className="status-meta">Demo environment · v2.4.0</div>
-          <div className="status-meta">Updated 10:24:15 WIB</div>
-        </div>
+        ) : (
+          <div className="system-status-box">
+            <div className="status-dot-row">
+              <span className="status-dot" />
+              <span>System online</span>
+            </div>
+            <div className="status-meta">Demo environment · v2.4.0</div>
+            <div className="status-meta">Updated 10:24:15 WIB</div>
+          </div>
+        )}
 
         {/* User Profile */}
-        <div className="user-profile-row">
-          <div className="user-avatar">BS</div>
-          <div className="user-info">
-            <div className="user-name">Budi Santoso</div>
-            <div className="user-role">Operations supervisor</div>
+        {isMini ? (
+          <div
+            className="user-profile-row collapsed"
+            title="Budi Santoso (Operations supervisor)"
+          >
+            <div className="user-avatar">BS</div>
           </div>
-          <ChevronDown size={14} style={{ color: '#94a3b8', flexShrink: 0 }} />
-        </div>
+        ) : (
+          <div className="user-profile-row">
+            <div className="user-avatar">BS</div>
+            <div className="user-info">
+              <div className="user-name">Budi Santoso</div>
+              <div className="user-role">Operations supervisor</div>
+            </div>
+            <ChevronDown size={14} style={{ color: '#94a3b8', flexShrink: 0 }} />
+          </div>
+        )}
       </div>
     </aside>
   );

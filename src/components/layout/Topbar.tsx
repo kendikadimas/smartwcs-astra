@@ -3,6 +3,7 @@
 import React from 'react';
 import { usePathname } from 'next/navigation';
 import { Search, Bell, ChevronRight, Menu } from 'lucide-react';
+import { useSidebar } from './SidebarContext';
 
 interface TopbarProps {
   onToggleMobileNav?: () => void;
@@ -10,6 +11,7 @@ interface TopbarProps {
 
 export function Topbar({ onToggleMobileNav }: TopbarProps) {
   const pathname = usePathname();
+  const { toggleSidebar, isCollapsed, isMobile } = useSidebar();
   const isOverview = pathname === '/' || pathname === '/overview';
   const isTasks = pathname.startsWith('/tasks');
 
@@ -29,19 +31,25 @@ export function Topbar({ onToggleMobileNav }: TopbarProps) {
     currentBreadcrumb = raw.charAt(0).toUpperCase() + raw.slice(1);
   }
 
+  const handleToggle = () => {
+    if (onToggleMobileNav) {
+      onToggleMobileNav();
+    } else {
+      toggleSidebar();
+    }
+  };
+
   return (
     <header className="topbar">
       <div className="topbar-left">
-        {onToggleMobileNav && (
-          <button
-            className="icon-button"
-            onClick={onToggleMobileNav}
-            style={{ marginRight: '6px', display: 'none' }}
-            aria-label="Toggle Navigation"
-          >
-            <Menu size={16} />
-          </button>
-        )}
+        <button
+          className="icon-button sidebar-toggle-btn"
+          onClick={handleToggle}
+          aria-label={isMobile ? 'Toggle menu' : (isCollapsed ? 'Expand sidebar' : 'Collapse sidebar')}
+          title={isMobile ? 'Toggle menu' : (isCollapsed ? 'Expand sidebar' : 'Collapse sidebar')}
+        >
+          <Menu size={18} />
+        </button>
         <div className="breadcrumb">
           <span className="breadcrumb-root">{rootBreadcrumb}</span>
           <ChevronRight className="breadcrumb-sep" size={13} />
@@ -52,11 +60,12 @@ export function Topbar({ onToggleMobileNav }: TopbarProps) {
       <div className="topbar-right">
         {isOverview ? (
           // Operations Overview Header Style (as per Screenshot 1)
-          <div style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
-            <span style={{ fontSize: '12px', color: '#64748b' }}>
+          <div className="topbar-overview-meta" style={{ display: 'flex', alignItems: 'center', gap: '14px' }}>
+            <span className="topbar-shift-badge" style={{ fontSize: '12px', color: '#64748b' }}>
               15 Oct 2026 · Shift A · WIB
             </span>
             <span
+              className="topbar-snapshot-badge"
               style={{
                 fontSize: '12.5px',
                 fontWeight: 700,
