@@ -56,8 +56,12 @@ diasumsikan jawabannya saat implementasi.
 
 > Versi di bawah dicek ulang 6 Oktober 2026 (npm registry + endoflife.date).
 > Jangan anggap berlaku selamanya — cek ulang kalau sudah lama sejak tanggal
-> ini, terutama Node.js (Node 26 jadi Active LTS 28 Okt 2026) dan Auth.js
-> (masih beta, bisa saja sudah GA).
+> ini, terutama Node.js (Node 24 masuk maintenance 20 Okt 2026, tetap
+> didukung; Node 26 jadi Active LTS 28 Okt 2026 — migrasi dijadwalkan
+> ulang, bukan darurat, lihat ADR.md Section 9.5).
+>
+> **[Revisi 2026-10-19]** Auth.js v5 diganti **Better Auth** — lihat
+> ADR.md Section 9.1 (diputuskan, belum diimplementasikan).
 
 - Backend + Frontend: **Next.js 16 (App Router, LTS), Node.js 24 LTS, TypeScript**
   — satu codebase, dijalankan lewat **custom Node server** (`server.ts`),
@@ -67,14 +71,18 @@ diasumsikan jawabannya saat implementasi.
 - Database: **PostgreSQL 18** + **Prisma ORM 7.x** (Rust-free client, ORM + migration) — jangan pakai PostgreSQL 19 (masih beta) atau Prisma 8 (masih RC) untuk production dulu
 - Real-time: **Socket.IO 4.8.x / `ws`** di atas custom Node server (status
   task/equipment/alarm event-driven, bukan polling terus-menerus)
-- Equipment/IoT: **mqtt.js 5.x** (MQTT), **node-opcua 2.179.x** (OPC UA untuk
-  PLC — masih Proposed, perlu PoC, lihat ADR.md Section 5)
+- Equipment/IoT: **mqtt.js 5.x** (MQTT), **node-opcua 2.187.x** (OPC UA untuk
+  PLC — masih Proposed, perlu PoC, lihat ADR.md Section 5). Belum dipakai:
+  ditunda sampai tahap PLC (ADR.md Section 9.3) — pilot PUDU lewat HTTPS
 - API: REST + OpenAPI 3.0 (**zod-to-openapi** / **next-swagger-doc**, Zod 4.x)
-- Auth: **Auth.js v5** (`next-auth@beta`, App Router-native — **masih
-  berstatus beta**, bukan `next-auth@4` yang didesain untuk Pages Router)
-  atau middleware JWT custom (`jose`) kalau butuh sesuatu yang stabil secara
-  formal, RBAC sesuai `docs/RBAC.md`
+- Auth: **Better Auth** (diputuskan, belum diimplementasikan — lihat
+  ADR.md Section 9.1), self-hosted, adapter Prisma, plugin admin untuk
+  RBAC sesuai `docs/RBAC.md`
 - Data-fetching client: **TanStack Query v5**
+- Test: **Vitest** — unit test untuk kode server (`src/lib/*`, modul
+  domain), bukan test UI/E2E
+- Log: **pino** (`pino-pretty` di development) lewat `src/lib/logger.ts`
+- Validasi env: **Zod** lewat `src/lib/env.ts`
 - Deployment: Docker Compose, **on-premise/LAN-first** — operasi inti (task
   execution, dispatching, monitoring, dashboard) tidak boleh bergantung pada
   internet (lihat ADR.md Section 7). **Pengecualian yang disadari:** kontrol
@@ -166,6 +174,14 @@ Box/Packaging, Operator Delivery (baru, role/RBAC-nya belum diformalkan).
 11. **Kredensial** (`PUDU_API_APP_SECRET`, `PUDU_CALLBACK_CODE`, `AUTH_SECRET`)
     hanya dari environment (`.env`, lihat `.env.example`) — jangan di-commit
     dan jangan dikirim ke client/browser.
+12. **Konfigurasi lewat `src/lib/env.ts`.** Dilarang mengakses `process.env`
+    langsung di kode aplikasi (`NODE_ENV` di config Next.js/Prisma yang
+    memang butuh akses langsung dikecualikan). Variabel baru ditambah ke
+    skema Zod di `env.ts`, bukan dibaca ad-hoc.
+13. **Log lewat `src/lib/logger.ts`.** Dilarang `console.log` di kode
+    server — pakai `logger` dari `src/lib/logger.ts` supaya level dan
+    redaksi field rahasia (authorization, signature, apiAppSecret,
+    password, token) konsisten.
 
 ## Catatan konteks developer
 

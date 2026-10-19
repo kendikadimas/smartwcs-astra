@@ -229,7 +229,102 @@ MVP (Phase 0-3) sengaja dibatasi scope Simple, tapi platform ini ditujukan untuk
 - Logic scheduling/batching WES -- cukup disiapkan *extension point*-nya, implementasinya nanti di Phase 6.
 - Kubernetes -- Docker Compose cukup untuk skala Simple/Intermediate; dipertimbangkan ulang kalau multi-zone (Phase 5) butuh orkestrasi container lebih kompleks.
 
-## 9. Dokumen turunan
+## 9. Revisi 2026-10-19 — Stack hardening
+
+### 9.1 Auth: Better Auth menggantikan Auth.js v5
+
+**Konteks.** Section 2/3 sebelumnya memilih Auth.js v5 (`next-auth@beta`). Sejak
+September 2025, Auth.js dipegang tim Better Auth dan hanya menerima patch
+keamanan — tidak ada pengembangan fitur baru, dan versi v5 tidak pernah
+keluar dari status beta.
+
+**Keputusan.** Auth untuk FR-11 memakai **Better Auth** (self-hosted),
+dengan adapter Prisma dan plugin admin untuk RBAC sesuai `RBAC.md`.
+
+**Konsekuensi.**
+- Butuh adapter Prisma Better Auth ke schema (`prisma/schema.prisma`) —
+  tabel user/session/role mengikuti kontrak Better Auth, perlu disinkronkan
+  dengan `ERD.md`.
+- Plugin admin Better Auth dipakai untuk role-based access control, selaras
+  dengan matriks role di `RBAC.md`.
+- Self-hosted cocok dengan prinsip LAN-first (ADR Section 7) — tidak
+  menambah ketergantungan ke layanan auth pihak ketiga di luar PUDU Cloud
+  API yang sudah jadi pengecualian (Section 7.1).
+
+**Status:** diputuskan, belum diimplementasikan. `next-auth` sudah dihapus
+dari `package.json`; `better-auth` belum diinstal — itu tahap berikutnya
+(FR-11), bukan bagian dari stack hardening ini.
+
+### 9.2 Worker terpisah dan antrean berbasis PostgreSQL
+
+**Konteks.** Adapter PUDU butuh proses latar belakang: pengurai antrean
+callback (`IntegrationLog`), pembuat partisi bulanan `PuduPoseLog`
+(lihat `prisma/sql/pudu_pose_log_partition.sql`), pengirim ulang
+`NotifyRobotReportPosition`, dan retensi log. Proses ini tidak cocok
+dijalankan di dalam request-response custom server (`server.ts`).
+
+**Keputusan.**
+- `worker.ts` dibuat sebagai proses terpisah dari `server.ts`, dari image
+  Docker yang sama, memakai modul domain yang sama di `src/modules/*`.
+- Penjadwalan (cron dan retry) memakai **pg-boss** (job queue di atas
+  PostgreSQL) — bukan Redis atau BullMQ, supaya tidak menambah komponen
+  infra baru di luar PostgreSQL yang sudah ada.
+- Antrean callback PUDU tetap lewat tabel `IntegrationLog`, diproses
+  dengan `FOR UPDATE SKIP LOCKED` supaya aman dipoll oleh lebih dari satu
+  worker tanpa double-processing.
+- Jembatan real-time dari worker ke dashboard memakai `LISTEN/NOTIFY`
+  PostgreSQL atau `@socket.io/postgres-adapter` — mekanisme persisnya
+  diputuskan saat `worker.ts` dibuat, bukan sekarang.
+
+**Konsekuensi.** Tidak ada komponen infra baru (tetap PostgreSQL +
+Docker Compose, sesuai ADR Section 2 "Containerization"). `worker.ts`
+dan `server.ts` deploy dari image yang sama tapi proses/command berbeda
+di Docker Compose — compose service worker baru ditambahkan saat
+`worker.ts` dibuat, bukan di stack hardening ini.
+
+**Status:** diputuskan, belum diimplementasikan. `pg-boss` dan
+`@socket.io/postgres-adapter` belum diinstal.
+
+### 9.3 MQTT dan OPC UA ditunda sampai tahap PLC
+
+MQTT (`mqtt.js`) dan OPC UA (`node-opcua`) tidak dipakai untuk pilot PUDU —
+integrasi PUDU T600 lewat PUDU Open Platform Cloud API (HTTPS), bukan
+MQTT/OPC UA (lihat Section 7.1). Keduanya tetap di stack (Section 2) untuk
+FR-07 (PLC integration), tapi ditunda sampai tahap PLC betulan mulai
+dikerjakan — tidak diinstal di stack hardening ini.
+
+### 9.4 Keputusan Terbuka
+
+Satu item berikut **belum diputuskan** — ditulis apa adanya, tanpa memilih
+salah satu, sampai ada keputusan eksplisit:
+
+**Sumber kebenaran kontrak API.** `CLAUDE.md` menyebut
+`docs/openapi-smart-wcs.yaml` sebagai sumber kebenaran API, tetapi
+`zod-to-openapi` (sudah ada di stack, Section 2) menghasilkan spec OpenAPI
+dari skema Zod di kode — artinya kode yang jadi sumber, YAML yang jadi
+output. Dua pendekatan ini bertentangan arah alirannya:
+
+- **Opsi (a): YAML sebagai sumber.** `openapi-smart-wcs.yaml` tetap jadi
+  sumber kebenaran kontrak; tipe TypeScript untuk request/response
+  dihasilkan dari YAML memakai `openapi-typescript`. Implementasi route
+  handler harus manual disinkronkan ke YAML.
+- **Opsi (b): Zod sebagai sumber.** Skema Zod di kode (`src/modules/*`)
+  jadi sumber kebenaran; `openapi-smart-wcs.yaml` dihasilkan dari skema Zod
+  lewat `zod-to-openapi` setiap kali skema berubah. YAML jadi artefak
+  turunan, bukan yang diedit manual.
+
+Pilihan ini memengaruhi alur kerja setiap endpoint baru (FR-13–FR-16
+termasuk), jadi perlu diputuskan sebelum modul-modul itu mulai
+diimplementasikan.
+
+### 9.5 Catatan Node.js LTS
+
+Node 24 masuk fase maintenance pada **2026-10-20** tetapi tetap didukung
+(tidak EOL) — bukan kondisi darurat. Migrasi ke Node 26 (Active LTS sejak
+2026-10-28, lihat Section 2/3) **dijadwalkan ulang** sesuai kesiapan tim,
+bukan migrasi mendesak.
+
+## 10. Dokumen turunan
 
 ADR ini mencatat keputusan stack. Detail arsitektur dan kontrak ada di dokumen berikut:
 
