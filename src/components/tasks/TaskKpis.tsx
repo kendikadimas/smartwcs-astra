@@ -21,7 +21,6 @@ export function TaskKpis({ metrics }: TaskKpisProps) {
       title: 'Total Tasks',
       value: metrics.total,
       subtext: `+${metrics.totalChangePercent}% vs. previous day`,
-      tag: '//today',
       theme: 'theme-blue',
       icon: ClipboardCheck,
       href: '/tasks',
@@ -30,7 +29,6 @@ export function TaskKpis({ metrics }: TaskKpisProps) {
       title: 'Queued',
       value: metrics.queued,
       subtext: `${metrics.queuedPercent}% of total tasks`,
-      tag: '//today',
       theme: 'theme-orange',
       icon: Clock,
       href: '/tasks?status=Queued',
@@ -39,7 +37,6 @@ export function TaskKpis({ metrics }: TaskKpisProps) {
       title: 'Running',
       value: metrics.running,
       subtext: `${metrics.runningPercent}% of total tasks`,
-      tag: '//today',
       theme: 'theme-green',
       icon: PlayCircle,
       href: '/tasks?status=Running',
@@ -48,7 +45,6 @@ export function TaskKpis({ metrics }: TaskKpisProps) {
       title: 'Failed',
       value: metrics.failed,
       subtext: `${metrics.failedPercent}% of total tasks`,
-      tag: '//today',
       theme: 'theme-rose',
       icon: AlertTriangle,
       href: '/alarms',
@@ -83,7 +79,6 @@ export function TaskKpis({ metrics }: TaskKpisProps) {
 
             {/* Card Body */}
             <div className="gradient-card-body">
-              <div className="gradient-card-tag">{card.tag}</div>
               <div className="gradient-card-title">{card.title}</div>
               <div className="gradient-card-value">{card.value}</div>
               <div className="gradient-card-subtext">{card.subtext}</div>

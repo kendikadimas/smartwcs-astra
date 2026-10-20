@@ -31,7 +31,6 @@ export function MasterDataKpis({
       title: 'Robots Fleet',
       value: kpis.robots.total,
       subtext: `${kpis.robots.active} active · ${kpis.robots.offline} offline · ${kpis.robots.fault} fault`,
-      tag: '//fleet-amr',
       theme: 'theme-blue',
       icon: Bot,
     },
@@ -40,7 +39,6 @@ export function MasterDataKpis({
       title: 'Equipment Assets',
       value: kpis.equipment.total,
       subtext: `${kpis.equipment.online} online · ${kpis.equipment.offline} offline`,
-      tag: '//hardware-plc',
       theme: 'theme-teal',
       icon: Box,
     },
@@ -49,7 +47,6 @@ export function MasterDataKpis({
       title: 'Locations & Nodes',
       value: kpis.locations.total,
       subtext: `${kpis.locations.active} active · ${kpis.locations.inactive} inactive`,
-      tag: '//topology',
       theme: 'theme-orange',
       icon: MapPin,
     },
@@ -58,7 +55,6 @@ export function MasterDataKpis({
       title: 'Materials / SKUs',
       value: kpis.materials.total.toLocaleString(),
       subtext: `${kpis.materials.available.toLocaleString()} available · ${kpis.materials.inUse} in use`,
-      tag: '//inventory',
       theme: 'theme-green',
       icon: Package,
     },
@@ -67,7 +63,6 @@ export function MasterDataKpis({
       title: 'Task Types SOP',
       value: kpis.taskTypes.total,
       subtext: `${kpis.taskTypes.activeCount} SOPs · all active`,
-      tag: '//dispatch-sop',
       theme: 'theme-purple',
       icon: FileText,
     },
@@ -76,7 +71,6 @@ export function MasterDataKpis({
       title: 'Facility Zones',
       value: categoryCounts?.zones ?? 4,
       subtext: `${categoryCounts?.zones ?? 4} active zones · staging & docks`,
-      tag: '//facility-zones',
       theme: 'theme-rose',
       icon: Layers,
     },
@@ -146,7 +140,6 @@ export function MasterDataKpis({
 
             {/* Card Body */}
             <div className="gradient-card-body">
-              <div className="gradient-card-tag">{card.tag}</div>
               <div className="gradient-card-title">{card.title}</div>
               <div className="gradient-card-value">{card.value}</div>
               <div className="gradient-card-subtext">{card.subtext}</div>

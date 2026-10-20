@@ -23,7 +23,6 @@ export function KpiCards({ metrics }: KpiCardsProps) {
       title: 'Active Tasks',
       value: metrics.activeTasks,
       subtext: `${metrics.runningTasks} running · ${metrics.queuedTasks} queued`,
-      tag: '//today',
       theme: 'theme-blue',
       icon: Tag,
       href: '/tasks?status=Running',
@@ -32,7 +31,6 @@ export function KpiCards({ metrics }: KpiCardsProps) {
       title: 'Completed Today',
       value: metrics.completedToday,
       subtext: metrics.sinceTime,
-      tag: '//today',
       theme: 'theme-orange',
       icon: CheckCircle2,
       href: '/tasks?status=Completed',
@@ -41,7 +39,6 @@ export function KpiCards({ metrics }: KpiCardsProps) {
       title: 'In Progress',
       value: metrics.inProgress,
       subtext: metrics.inProgressBreakdown,
-      tag: '//today',
       theme: 'theme-green',
       icon: TrendingUp,
       href: '/dispatch',
@@ -50,7 +47,6 @@ export function KpiCards({ metrics }: KpiCardsProps) {
       title: 'Waiting Queue',
       value: metrics.waiting,
       subtext: metrics.waitingReason,
-      tag: '//today',
       theme: 'theme-purple',
       icon: Clock,
       href: '/tasks?status=Queued',
@@ -59,7 +55,6 @@ export function KpiCards({ metrics }: KpiCardsProps) {
       title: 'Delayed Tasks',
       value: metrics.delayed,
       subtext: metrics.delayedNote,
-      tag: '//today',
       theme: 'theme-rose',
       icon: AlertTriangle,
       href: '/alarms',
@@ -68,7 +63,6 @@ export function KpiCards({ metrics }: KpiCardsProps) {
       title: 'Fleet Availability',
       value: `${metrics.fleetAvailability}%`,
       subtext: metrics.fleetRatio,
-      tag: '//today',
       theme: 'theme-teal',
       icon: Gauge,
       href: '/equipment',
@@ -103,7 +97,6 @@ export function KpiCards({ metrics }: KpiCardsProps) {
 
             {/* Card Body */}
             <div className="gradient-card-body">
-              <div className="gradient-card-tag">{card.tag}</div>
               <div className="gradient-card-title">{card.title}</div>
               <div className="gradient-card-value">{card.value}</div>
               <div className="gradient-card-subtext">{card.subtext}</div>
