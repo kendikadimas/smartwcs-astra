@@ -793,7 +793,6 @@ body {
 
 .page-transition-wrap {
   animation: pageFadeInSlide 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-  will-change: opacity, transform;
   width: 100%;
   min-height: 100%;
   display: flex;

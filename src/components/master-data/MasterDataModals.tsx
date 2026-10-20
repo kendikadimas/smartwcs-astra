@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import Link from 'next/link';
 import { MasterCategoryKey, MasterDataFilterState } from '@/types/masterData';
 import {
@@ -31,6 +32,18 @@ import {
 } from 'lucide-react';
 
 // ===========================================================================
+// PORTAL HELPER: Mounts outside layout containers directly to document.body
+// ===========================================================================
+function ClientPortal({ children }: { children: React.ReactNode }) {
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+  if (!mounted || typeof document === 'undefined') return null;
+  return createPortal(children, document.body);
+}
+
+// ===========================================================================
 // 1. ADD / EDIT ITEM MODAL
 // ===========================================================================
 interface AddEditModalProps {
@@ -50,6 +63,20 @@ export function AddEditModal({
 }: AddEditModalProps) {
   const [formData, setFormData] = useState<any>({});
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   useEffect(() => {
     if (editItem) {
@@ -160,32 +187,42 @@ export function AddEditModal({
       : 'Item';
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.45)',
-        backdropFilter: 'blur(3px)',
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '16px',
-      }}
-    >
+    <ClientPortal>
       <div
         style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '12px',
-          width: '100%',
-          maxWidth: '520px',
-          boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
-          overflow: 'hidden',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(3px)',
+          zIndex: 99999,
           display: 'flex',
-          flexDirection: 'column',
-          maxHeight: '90vh',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px',
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
         }}
       >
+        <div
+          style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '520px',
+            boxShadow: '0 20px 45px -10px rgba(15, 23, 42, 0.35)',
+            overflow: 'hidden',
+            display: 'flex',
+            flexDirection: 'column',
+            maxHeight: '90vh',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
         {/* Header */}
         <div
           style={{
@@ -423,7 +460,8 @@ export function AddEditModal({
         </form>
       </div>
     </div>
-  );
+  </ClientPortal>
+);
 }
 
 // ===========================================================================
@@ -437,6 +475,20 @@ interface DetailDrawerProps {
 }
 
 export function DetailDrawer({ item, onClose, activeCategory, onEditItem }: DetailDrawerProps) {
+  useEffect(() => {
+    if (!item) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [item, onClose]);
+
   if (!item) return null;
 
   const isRobot = activeCategory === 'robots' || item.battery !== undefined;
@@ -808,22 +860,28 @@ export function DetailDrawer({ item, onClose, activeCategory, onEditItem }: Deta
   };
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.55)',
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '16px',
-        backdropFilter: 'blur(4px)',
-      }}
-      onClick={(e) => {
-        if (e.target === e.currentTarget) onClose();
-      }}
-    >
+    <ClientPortal>
+      <div
+        style={{
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          zIndex: 99999,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px',
+          backdropFilter: 'blur(4px)',
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
       <div
         style={{
           width: '92vw',
@@ -1396,7 +1454,8 @@ export function DetailDrawer({ item, onClose, activeCategory, onEditItem }: Deta
         </div>
       </div>
     </div>
-  );
+  </ClientPortal>
+);
 }
 
 // ===========================================================================
@@ -1409,35 +1468,59 @@ interface DeleteConfirmModalProps {
 }
 
 export function DeleteConfirmModal({ item, onClose, onConfirm }: DeleteConfirmModalProps) {
+  useEffect(() => {
+    if (!item) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [item, onClose]);
+
   if (!item) return null;
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.45)',
-        backdropFilter: 'blur(3px)',
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '16px',
-      }}
-    >
+    <ClientPortal>
       <div
         style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '12px',
-          width: '100%',
-          maxWidth: '400px',
-          padding: '20px',
-          boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(3px)',
+          zIndex: 99999,
           display: 'flex',
-          flexDirection: 'column',
-          gap: '14px',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px',
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
         }}
       >
+        <div
+          style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '400px',
+            padding: '20px',
+            boxShadow: '0 20px 45px -10px rgba(15, 23, 42, 0.35)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '14px',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div
             style={{
@@ -1506,7 +1589,8 @@ export function DeleteConfirmModal({ item, onClose, onConfirm }: DeleteConfirmMo
         </div>
       </div>
     </div>
-  );
+  </ClientPortal>
+);
 }
 
 // ===========================================================================
@@ -1523,6 +1607,20 @@ export function ImportModal({ isOpen, onClose, activeCategory, onImportSuccess }
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [isProcessing, setIsProcessing] = useState(false);
   const [importSummary, setImportSummary] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
@@ -1554,32 +1652,42 @@ export function ImportModal({ isOpen, onClose, activeCategory, onImportSuccess }
   };
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.45)',
-        backdropFilter: 'blur(3px)',
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '16px',
-      }}
-    >
+    <ClientPortal>
       <div
         style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '12px',
-          width: '100%',
-          maxWidth: '480px',
-          padding: '20px',
-          boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(3px)',
+          zIndex: 99999,
           display: 'flex',
-          flexDirection: 'column',
-          gap: '14px',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px',
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
         }}
       >
+        <div
+          style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '480px',
+            padding: '20px',
+            boxShadow: '0 20px 45px -10px rgba(15, 23, 42, 0.35)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '14px',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a', margin: 0 }}>
@@ -1682,7 +1790,8 @@ export function ImportModal({ isOpen, onClose, activeCategory, onImportSuccess }
         </div>
       </div>
     </div>
-  );
+  </ClientPortal>
+);
 }
 
 // ===========================================================================
@@ -1696,34 +1805,59 @@ interface MoreFiltersProps {
 }
 
 export function MoreFiltersModal({ isOpen, onClose, filterState, onFilterChange }: MoreFiltersProps) {
+  useEffect(() => {
+    if (!isOpen) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [isOpen, onClose]);
+
   if (!isOpen) return null;
 
   return (
-    <div
-      style={{
-        position: 'fixed',
-        inset: 0,
-        backgroundColor: 'rgba(15, 23, 42, 0.35)',
-        zIndex: 9999,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        padding: '16px',
-      }}
-    >
+    <ClientPortal>
       <div
         style={{
-          backgroundColor: '#ffffff',
-          borderRadius: '12px',
-          width: '100%',
-          maxWidth: '420px',
-          padding: '20px',
-          boxShadow: '0 10px 25px rgba(0,0,0,0.15)',
+          position: 'fixed',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          width: '100vw',
+          height: '100vh',
+          backgroundColor: 'rgba(15, 23, 42, 0.65)',
+          backdropFilter: 'blur(3px)',
+          zIndex: 99999,
           display: 'flex',
-          flexDirection: 'column',
-          gap: '14px',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px',
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
         }}
       >
+        <div
+          style={{
+            backgroundColor: '#ffffff',
+            borderRadius: '12px',
+            width: '100%',
+            maxWidth: '420px',
+            padding: '20px',
+            boxShadow: '0 20px 45px -10px rgba(15, 23, 42, 0.35)',
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '14px',
+          }}
+          onClick={(e) => e.stopPropagation()}
+        >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a', margin: 0 }}>
             Advanced Filter Parameters
@@ -1804,5 +1938,6 @@ export function MoreFiltersModal({ isOpen, onClose, filterState, onFilterChange 
         </div>
       </div>
     </div>
-  );
+  </ClientPortal>
+);
 }
