@@ -8,369 +8,161 @@ import {
   MapPin,
   Package,
   FileText,
-  Users,
+  Layers,
+  ChevronRight,
 } from 'lucide-react';
 
 interface MasterDataKpisProps {
   kpis: MasterDataKpisType;
   activeCategory: MasterCategoryKey;
   onSelectCategory: (cat: MasterCategoryKey) => void;
+  categoryCounts?: Record<MasterCategoryKey, number>;
 }
 
 export function MasterDataKpis({
   kpis,
   activeCategory,
   onSelectCategory,
+  categoryCounts,
 }: MasterDataKpisProps) {
+  const cards = [
+    {
+      key: 'robots' as MasterCategoryKey,
+      title: 'Robots Fleet',
+      value: kpis.robots.total,
+      subtext: `${kpis.robots.active} active · ${kpis.robots.offline} offline · ${kpis.robots.fault} fault`,
+      tag: '//fleet-amr',
+      theme: 'theme-blue',
+      icon: Bot,
+    },
+    {
+      key: 'equipment' as MasterCategoryKey,
+      title: 'Equipment Assets',
+      value: kpis.equipment.total,
+      subtext: `${kpis.equipment.online} online · ${kpis.equipment.offline} offline`,
+      tag: '//hardware-plc',
+      theme: 'theme-teal',
+      icon: Box,
+    },
+    {
+      key: 'locations' as MasterCategoryKey,
+      title: 'Locations & Nodes',
+      value: kpis.locations.total,
+      subtext: `${kpis.locations.active} active · ${kpis.locations.inactive} inactive`,
+      tag: '//topology',
+      theme: 'theme-orange',
+      icon: MapPin,
+    },
+    {
+      key: 'materials' as MasterCategoryKey,
+      title: 'Materials / SKUs',
+      value: kpis.materials.total.toLocaleString(),
+      subtext: `${kpis.materials.available.toLocaleString()} available · ${kpis.materials.inUse} in use`,
+      tag: '//inventory',
+      theme: 'theme-green',
+      icon: Package,
+    },
+    {
+      key: 'task-types' as MasterCategoryKey,
+      title: 'Task Types SOP',
+      value: kpis.taskTypes.total,
+      subtext: `${kpis.taskTypes.activeCount} SOPs · all active`,
+      tag: '//dispatch-sop',
+      theme: 'theme-purple',
+      icon: FileText,
+    },
+    {
+      key: 'zones' as MasterCategoryKey,
+      title: 'Facility Zones',
+      value: categoryCounts?.zones ?? 4,
+      subtext: `${categoryCounts?.zones ?? 4} active zones · staging & docks`,
+      tag: '//facility-zones',
+      theme: 'theme-rose',
+      icon: Layers,
+    },
+  ];
+
   return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(6, 1fr)',
-        gap: '12px',
-        width: '100%',
-      }}
-    >
-      {/* 1. Robots */}
-      <div
-        onClick={() => onSelectCategory('robots')}
-        className="panel"
-        style={{
-          padding: '12px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-          cursor: 'pointer',
-          transition: 'all 0.15s ease',
-        }}
-      >
-        <div
-          style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '8px',
-            backgroundColor: '#eff6ff',
-            color: '#2563eb',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            border: '1px solid #bfdbfe',
-          }}
-        >
-          <Bot size={18} />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>Robots</div>
-          <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', lineHeight: 1.15 }}>
-            {kpis.robots.total}
-          </div>
+    <div className="kpi-grid-6">
+      {cards.map((card) => {
+        const Icon = card.icon;
+        const isActive = activeCategory === card.key;
+
+        return (
           <div
+            key={card.key}
+            onClick={() => onSelectCategory(card.key)}
+            className={`gradient-card ${card.theme}`}
             style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '10px',
-              color: '#64748b',
-              marginTop: '4px',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
+              cursor: 'pointer',
+              ...(isActive
+                ? {
+                    boxShadow: '0 0 0 2.5px #ffffff, 0 14px 28px -4px rgba(0, 0, 0, 0.35)',
+                    transform: 'translateY(-2px)',
+                  }
+                : {}),
             }}
           >
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-              <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#10b981' }} />
-              <span style={{ color: '#047857', fontWeight: 600 }}>{kpis.robots.active} Active</span>
-            </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-              <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#ef4444' }} />
-              <span style={{ color: '#b91c1c' }}>{kpis.robots.offline} Offline</span>
-            </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-              <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#f97316' }} />
-              <span style={{ color: '#c2410c' }}>{kpis.robots.fault} Fault</span>
-            </span>
-          </div>
-        </div>
-      </div>
+            {/* Background Decorative Concentric Circles */}
+            <div className="card-decor-circles" aria-hidden="true">
+              <svg viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="130" cy="130" r="115" fill="white" fillOpacity="0.08" />
+                <circle cx="130" cy="130" r="80" fill="white" fillOpacity="0.12" />
+                <circle cx="130" cy="130" r="48" fill="white" fillOpacity="0.16" />
+              </svg>
+            </div>
 
-      {/* 2. Equipment */}
-      <div
-        onClick={() => onSelectCategory('equipment')}
-        className="panel"
-        style={{
-          padding: '12px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-          cursor: 'pointer',
-          transition: 'all 0.15s ease',
-        }}
-      >
-        <div
-          style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '8px',
-            backgroundColor: '#f0f9ff',
-            color: '#0284c7',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            border: '1px solid #bae6fd',
-          }}
-        >
-          <Box size={18} />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>Equipment</div>
-          <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', lineHeight: 1.15 }}>
-            {kpis.equipment.total}
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '10px',
-              color: '#64748b',
-              marginTop: '4px',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-              <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#10b981' }} />
-              <span style={{ color: '#047857', fontWeight: 600 }}>{kpis.equipment.online} Online</span>
-            </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-              <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#ef4444' }} />
-              <span style={{ color: '#b91c1c' }}>{kpis.equipment.offline} Offline</span>
-            </span>
-          </div>
-        </div>
-      </div>
+            {/* Top Bar: Icon on Left + Active/Select indicator on Right */}
+            <div className="gradient-card-header">
+              <div className="gradient-card-icon-wrap">
+                <Icon size={17} />
+              </div>
 
-      {/* 3. Locations */}
-      <div
-        onClick={() => onSelectCategory('locations')}
-        className="panel"
-        style={{
-          padding: '12px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-          cursor: 'pointer',
-          transition: 'all 0.15s ease',
-        }}
-      >
-        <div
-          style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '8px',
-            backgroundColor: '#fef2f2',
-            color: '#ef4444',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            border: '1px solid #fecaca',
-          }}
-        >
-          <MapPin size={18} />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>Locations</div>
-          <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', lineHeight: 1.15 }}>
-            {kpis.locations.total}
-          </div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '10px',
-              color: '#64748b',
-              marginTop: '4px',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-              <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#10b981' }} />
-              <span style={{ color: '#047857', fontWeight: 600 }}>{kpis.locations.active} Active</span>
-            </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-              <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#64748b' }} />
-              <span style={{ color: '#475569' }}>{kpis.locations.inactive} Inactive</span>
-            </span>
-          </div>
-        </div>
-      </div>
+              {isActive ? (
+                <div
+                  style={{
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: '4px',
+                    fontSize: '10.5px',
+                    fontWeight: 600,
+                    color: '#ffffff',
+                    backgroundColor: 'rgba(255, 255, 255, 0.24)',
+                    padding: '2px 8px',
+                    borderRadius: '10px',
+                    border: '1px solid rgba(255, 255, 255, 0.45)',
+                    backdropFilter: 'blur(4px)',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '5px',
+                      height: '5px',
+                      borderRadius: '50%',
+                      backgroundColor: '#ffffff',
+                      boxShadow: '0 0 6px #ffffff',
+                    }}
+                  />
+                  <span>Active View</span>
+                </div>
+              ) : (
+                <div className="gradient-card-view-btn">
+                  <span>Select</span>
+                  <ChevronRight size={12} />
+                </div>
+              )}
+            </div>
 
-      {/* 4. Materials / Pallets */}
-      <div
-        onClick={() => onSelectCategory('materials')}
-        className="panel"
-        style={{
-          padding: '12px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-          cursor: 'pointer',
-          transition: 'all 0.15s ease',
-        }}
-      >
-        <div
-          style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '8px',
-            backgroundColor: '#ecfdf5',
-            color: '#10b981',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            border: '1px solid #a7f3d0',
-          }}
-        >
-          <Package size={18} />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>Materials / Pallets</div>
-          <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', lineHeight: 1.15 }}>
-            {kpis.materials.total.toLocaleString()}
+            {/* Card Body */}
+            <div className="gradient-card-body">
+              <div className="gradient-card-tag">{card.tag}</div>
+              <div className="gradient-card-title">{card.title}</div>
+              <div className="gradient-card-value">{card.value}</div>
+              <div className="gradient-card-subtext">{card.subtext}</div>
+            </div>
           </div>
-          <div
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '6px',
-              fontSize: '10px',
-              color: '#64748b',
-              marginTop: '4px',
-              whiteSpace: 'nowrap',
-              overflow: 'hidden',
-              textOverflow: 'ellipsis',
-            }}
-          >
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-              <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#10b981' }} />
-              <span style={{ color: '#047857', fontWeight: 600 }}>{kpis.materials.available.toLocaleString()} Available</span>
-            </span>
-            <span style={{ display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
-              <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: '#f59e0b' }} />
-              <span style={{ color: '#b45309' }}>{kpis.materials.inUse} In use</span>
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* 5. Task Types */}
-      <div
-        onClick={() => onSelectCategory('task-types')}
-        className="panel"
-        style={{
-          padding: '12px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-          cursor: 'pointer',
-          transition: 'all 0.15s ease',
-        }}
-      >
-        <div
-          style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '8px',
-            backgroundColor: '#eff6ff',
-            color: '#2563eb',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            border: '1px solid #bfdbfe',
-          }}
-        >
-          <FileText size={18} />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>Task Types</div>
-          <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', lineHeight: 1.15 }}>
-            {kpis.taskTypes.total}
-          </div>
-          <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '4px' }}>
-            All active
-          </div>
-        </div>
-      </div>
-
-      {/* 6. User Roles */}
-      <div
-        className="panel"
-        style={{
-          padding: '12px 14px',
-          display: 'flex',
-          alignItems: 'center',
-          gap: '12px',
-          backgroundColor: '#ffffff',
-          borderRadius: '10px',
-          border: '1px solid #e2e8f0',
-          boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-        }}
-      >
-        <div
-          style={{
-            width: '38px',
-            height: '38px',
-            borderRadius: '8px',
-            backgroundColor: '#f0fdf4',
-            color: '#16a34a',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            flexShrink: 0,
-            border: '1px solid #bbf7d0',
-          }}
-        >
-          <Users size={18} />
-        </div>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontSize: '11px', color: '#64748b', fontWeight: 500 }}>User Roles</div>
-          <div style={{ fontSize: '18px', fontWeight: 800, color: '#0f172a', lineHeight: 1.15 }}>
-            {kpis.userRoles.total}
-          </div>
-          <div style={{ fontSize: '10.5px', color: '#64748b', marginTop: '4px' }}>
-            All configured
-          </div>
-        </div>
-      </div>
+        );
+      })}
     </div>
   );
 }

@@ -51,12 +51,12 @@ export function MasterDataFilterBar({
     <div
       style={{
         position: 'relative',
-        border: '1px solid #e2e8f0',
-        borderRadius: '7px',
+        border: '1px solid #cbd5e1',
+        borderRadius: '6px',
         backgroundColor: '#ffffff',
-        padding: '3px 26px 3px 10px',
+        padding: '2px 24px 2px 10px',
         minWidth: minWidth,
-        height: '38px',
+        height: '34px',
         display: 'flex',
         flexDirection: 'column',
         justifyContent: 'center',
@@ -64,15 +64,15 @@ export function MasterDataFilterBar({
         boxShadow: '0 1px 2px rgba(0,0,0,0.02)',
       }}
     >
-      <span style={{ fontSize: '10px', color: '#64748b', fontWeight: 500, lineHeight: 1.15 }}>
+      <span style={{ fontSize: '9.5px', color: '#64748b', fontWeight: 500, lineHeight: 1.1 }}>
         {label}
       </span>
       <span
         style={{
-          fontSize: '12px',
+          fontSize: '11.5px',
           color: '#0f172a',
           fontWeight: 600,
-          lineHeight: 1.25,
+          lineHeight: 1.2,
           whiteSpace: 'nowrap',
           overflow: 'hidden',
           textOverflow: 'ellipsis',
@@ -82,7 +82,7 @@ export function MasterDataFilterBar({
         {value}
       </span>
       <ChevronDown
-        size={13}
+        size={12}
         style={{
           position: 'absolute',
           right: '8px',
@@ -123,13 +123,13 @@ export function MasterDataFilterBar({
         justifyContent: 'space-between',
         gap: '12px',
         flexWrap: 'wrap',
-        padding: '12px 16px',
+        padding: '10px 18px',
         backgroundColor: '#ffffff',
         borderBottom: '1px solid #f1f5f9',
       }}
     >
       {/* Left: Search & Filter Dropdowns */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap', flex: 1 }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap', flex: 1 }}>
         {/* Search Input */}
         <div
           style={{
@@ -142,7 +142,7 @@ export function MasterDataFilterBar({
             size={14}
             style={{
               position: 'absolute',
-              left: '11px',
+              left: '10px',
               top: '50%',
               transform: 'translateY(-50%)',
               color: '#94a3b8',
@@ -156,11 +156,11 @@ export function MasterDataFilterBar({
             placeholder={searchPlaceholder}
             style={{
               width: '100%',
-              height: '38px',
+              height: '34px',
               padding: '0 12px 0 32px',
-              fontSize: '12px',
-              borderRadius: '7px',
-              border: '1px solid #e2e8f0',
+              fontSize: '12.5px',
+              borderRadius: '6px',
+              border: '1px solid #cbd5e1',
               backgroundColor: '#ffffff',
               color: '#0f172a',
               outline: 'none',
@@ -196,14 +196,14 @@ export function MasterDataFilterBar({
         <button
           onClick={onToggleMoreFilters}
           style={{
-            height: '38px',
+            height: '34px',
             display: 'inline-flex',
             alignItems: 'center',
             gap: '6px',
             padding: '0 12px',
             backgroundColor: isMoreFiltersOpen ? '#eff6ff' : '#ffffff',
-            border: isMoreFiltersOpen ? '1px solid #2563eb' : '1px solid #e2e8f0',
-            borderRadius: '7px',
+            border: isMoreFiltersOpen ? '1px solid #2563eb' : '1px solid #cbd5e1',
+            borderRadius: '6px',
             fontSize: '12px',
             fontWeight: 500,
             color: isMoreFiltersOpen ? '#2563eb' : '#334155',

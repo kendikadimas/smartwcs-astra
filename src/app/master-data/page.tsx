@@ -40,9 +40,13 @@ import {
   Trash2,
   ChevronLeft,
   ChevronRight,
+  ChevronDown,
 } from 'lucide-react';
 
 export default function MasterDataPage() {
+  // Warehouse Selection State (Consistent with Operation Overview)
+  const [selectedWarehouse, setSelectedWarehouse] = useState('Main Warehouse · Bekasi');
+
   // Active Category State (Default: 'robots' matching screenshot)
   const [activeCategory, setActiveCategory] = useState<MasterCategoryKey>('robots');
 
@@ -511,17 +515,89 @@ export default function MasterDataPage() {
 
   return (
     <AppShell>
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', width: '100%' }}>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '16px', width: '100%' }}>
         {/* =========================================================
-            1. PAGE HEADER
+            1. PAGE HEADER (Consistent with Operation Overview & Tasks)
         ========================================================= */}
-        <div>
-          <h1 style={{ fontSize: '20px', fontWeight: 800, color: '#0f172a', margin: 0, lineHeight: 1.2 }}>
-            Master Data
-          </h1>
-          <p style={{ fontSize: '12.5px', color: '#64748b', margin: '3px 0 0 0' }}>
-            Manage core warehouse data including robots, equipment, locations, materials, and system configurations.
-          </p>
+        <div className="page-header-row">
+          <div>
+            <h1 className="page-title">Master Data</h1>
+            <p className="page-subtitle">
+              Warehouse resources, robot fleet registries, equipment assets, and topology configuration.
+            </p>
+          </div>
+
+          <div className="page-actions">
+            {/* Warehouse Selector */}
+            <div style={{ position: 'relative' }}>
+              <select
+                value={selectedWarehouse}
+                onChange={(e) => setSelectedWarehouse(e.target.value)}
+                className="select-input"
+                style={{
+                  appearance: 'none',
+                  paddingRight: '28px',
+                  fontWeight: 500,
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #cbd5e1',
+                  borderRadius: '6px',
+                  height: '34px',
+                  paddingLeft: '10px',
+                  fontSize: '12px',
+                  color: '#1e293b',
+                  cursor: 'pointer',
+                }}
+              >
+                <option value="Main Warehouse · Bekasi">Main Warehouse · Bekasi</option>
+                <option value="Karawang Plant · Staging">Karawang Plant · Staging</option>
+                <option value="Sunter Logistics Hub">Sunter Logistics Hub</option>
+              </select>
+              <ChevronDown
+                size={14}
+                style={{
+                  position: 'absolute',
+                  right: '9px',
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  pointerEvents: 'none',
+                  color: '#64748b',
+                }}
+              />
+            </div>
+
+            {/* Import Button */}
+            <button
+              onClick={() => setIsImportOpen(true)}
+              className="btn-secondary"
+              style={{ height: '34px' }}
+            >
+              <Upload size={14} />
+              Import CSV
+            </button>
+
+            {/* Export Button */}
+            <button
+              onClick={handleExportCSV}
+              className="btn-secondary"
+              style={{ height: '34px' }}
+            >
+              <Download size={14} />
+              Export data
+            </button>
+
+            {/* Add Item Primary Button */}
+            <button
+              onClick={() => {
+                setEditItem(null);
+                setIsAddEditOpen(true);
+              }}
+              className="btn-primary"
+              style={{ height: '34px' }}
+            >
+              <Plus size={15} />
+              {categoryHeaderInfo.btnText}
+            </button>
+          </div>
         </div>
 
         {/* Feedback Toast */}
@@ -545,12 +621,13 @@ export default function MasterDataPage() {
         )}
 
         {/* =========================================================
-            2. SIX COMPACT SUMMARY CARDS (Matches Screenshot 100%)
+            2. SIX GRADIENT KPI CARDS (Matching Overview & Tasks)
         ========================================================= */}
         <MasterDataKpis
           kpis={dynamicKpis}
           activeCategory={activeCategory}
           onSelectCategory={handleSelectCategory}
+          categoryCounts={categoryCounts}
         />
 
         {/* =========================================================
@@ -565,22 +642,11 @@ export default function MasterDataPage() {
         {/* =========================================================
             4. MAIN DATA MANAGEMENT PANEL
         ========================================================= */}
-        <div
-          className="panel"
-          style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '10px',
-            border: '1px solid #e2e8f0',
-            boxShadow: '0 1px 3px rgba(0,0,0,0.03)',
-            display: 'flex',
-            flexDirection: 'column',
-            overflow: 'hidden',
-          }}
-        >
+        <div className="panel" style={{ backgroundColor: '#ffffff' }}>
           {/* Panel Header */}
           <div
             style={{
-              padding: '14px 16px',
+              padding: '14px 18px 10px 18px',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'space-between',
@@ -590,81 +656,39 @@ export default function MasterDataPage() {
             }}
           >
             <div>
-              <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a', margin: 0 }}>
-                {categoryHeaderInfo.title}
-              </h2>
-              <p style={{ fontSize: '11.5px', color: '#64748b', margin: '2px 0 0 0' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a', margin: 0 }}>
+                  {categoryHeaderInfo.title}
+                </h2>
+                <span
+                  style={{
+                    fontSize: '11px',
+                    fontWeight: 600,
+                    padding: '2px 8px',
+                    borderRadius: '12px',
+                    backgroundColor: '#eff6ff',
+                    color: '#2563eb',
+                    border: '1px solid #bfdbfe',
+                  }}
+                >
+                  {totalItems} items
+                </span>
+              </div>
+              <p style={{ fontSize: '12px', color: '#64748b', margin: '3px 0 0 0' }}>
                 {categoryHeaderInfo.desc}
               </p>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-              {/* Import Button */}
-              <button
-                onClick={() => setIsImportOpen(true)}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 12px',
-                  backgroundColor: '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '6px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  color: '#334155',
-                  cursor: 'pointer',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-                }}
-              >
-                <Upload size={13} style={{ color: '#64748b' }} />
-                Import
-              </button>
-
-              {/* Export Button */}
-              <button
-                onClick={handleExportCSV}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 12px',
-                  backgroundColor: '#ffffff',
-                  border: '1px solid #cbd5e1',
-                  borderRadius: '6px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  color: '#334155',
-                  cursor: 'pointer',
-                  boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
-                }}
-              >
-                <Download size={13} style={{ color: '#64748b' }} />
-                Export
-              </button>
-
-              {/* Add Item Primary Button */}
               <button
                 onClick={() => {
                   setEditItem(null);
                   setIsAddEditOpen(true);
                 }}
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  padding: '6px 14px',
-                  backgroundColor: '#2563eb',
-                  border: 'none',
-                  borderRadius: '6px',
-                  fontSize: '12px',
-                  fontWeight: 600,
-                  color: '#ffffff',
-                  cursor: 'pointer',
-                  boxShadow: '0 1px 3px rgba(37,99,235,0.25)',
-                }}
+                className="btn-primary"
+                style={{ padding: '6px 12px', fontSize: '12px' }}
               >
-                <Plus size={14} />
+                <Plus size={13} />
                 {categoryHeaderInfo.btnText}
               </button>
             </div>
@@ -892,6 +916,14 @@ export default function MasterDataPage() {
               </button>
             </div>
           </div>
+        </div>
+
+        {/* Footer Operational Boundary Disclaimer (Consistent with Operation Overview) */}
+        <div className="footer-disclaimer">
+          <span>
+            WCS Master Data Registry · Entities synchronized across WMS inventory, RCS robot execution, and PLC automation.
+          </span>
+          <span className="demo-snapshot-tag">DEMO SNAPSHOT · 16 Jun 2025, 10:24:15 WIB</span>
         </div>
 
         {/* =========================================================
