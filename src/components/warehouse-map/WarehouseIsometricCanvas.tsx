@@ -1724,8 +1724,8 @@ export function WarehouseIsometricCanvas({
                     display: 'inline-flex',
                     alignItems: 'center',
                     justifyContent: 'center',
-                    padding: '1.5px 7px',
-                    borderRadius: '10px',
+                    padding: '2px 8px',
+                    borderRadius: '6px',
                     fontSize: '10px',
                     fontWeight: 700,
                     backgroundColor:
@@ -1744,6 +1744,14 @@ export function WarehouseIsometricCanvas({
                         : selectedRobot.status === 'Idle'
                         ? '#16a34a'
                         : '#dc2626',
+                    border:
+                      selectedRobot.status === 'Running'
+                        ? '1px solid #bfdbfe'
+                        : selectedRobot.status === 'Charging'
+                        ? '1px solid #fde68a'
+                        : selectedRobot.status === 'Idle'
+                        ? '1px solid #bbf7d0'
+                        : '1px solid #fecaca',
                   }}
                 >
                   {selectedRobot.status}

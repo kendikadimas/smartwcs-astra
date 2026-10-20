@@ -161,17 +161,33 @@ export function ActiveRobotsCards({
               onClick={() => onSelectRobot(robot.id)}
               style={{
                 border: isSelected ? '1.5px solid #2563eb' : '1px solid #e2e8f0',
-                backgroundColor: isSelected ? '#ffffff' : '#fafbfc',
+                backgroundColor: isSelected ? '#ffffff' : '#f8fafc',
                 boxShadow: isSelected
                   ? '0 4px 12px rgba(37, 99, 235, 0.12)'
-                  : '0 1px 3px rgba(0,0,0,0.02)',
+                  : '0 1px 2px rgba(0,0,0,0.02)',
                 borderRadius: '10px',
-                padding: '10px 10px',
+                padding: '10px 12px',
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
+                gap: '10px',
                 cursor: 'pointer',
-                transition: 'all 0.15s ease',
+                transition: 'all 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
+              }}
+              onMouseEnter={(e) => {
+                if (!isSelected) {
+                  e.currentTarget.style.backgroundColor = '#ffffff';
+                  e.currentTarget.style.borderColor = '#cbd5e1';
+                  e.currentTarget.style.boxShadow = '0 3px 8px rgba(0,0,0,0.05)';
+                  e.currentTarget.style.transform = 'translateY(-1px)';
+                }
+              }}
+              onMouseLeave={(e) => {
+                if (!isSelected) {
+                  e.currentTarget.style.backgroundColor = '#f8fafc';
+                  e.currentTarget.style.borderColor = '#e2e8f0';
+                  e.currentTarget.style.boxShadow = '0 1px 2px rgba(0,0,0,0.02)';
+                  e.currentTarget.style.transform = 'none';
+                }
               }}
             >
               {/* Left Vector Robot */}
@@ -179,7 +195,7 @@ export function ActiveRobotsCards({
 
               {/* Right Info */}
               <div style={{ flex: 1, minWidth: 0 }}>
-                <div style={{ fontSize: '11.5px', fontWeight: 700, color: '#0f172a' }}>
+                <div style={{ fontSize: '12px', fontWeight: 700, color: '#0f172a' }}>
                   {robot.id}
                 </div>
 
@@ -187,8 +203,8 @@ export function ActiveRobotsCards({
                   <span
                     style={{
                       display: 'inline-block',
-                      padding: '1.5px 6px',
-                      borderRadius: '10px',
+                      padding: '1.5px 7px',
+                      borderRadius: '6px',
                       fontSize: '9.5px',
                       fontWeight: 700,
                       backgroundColor: badgeBg,

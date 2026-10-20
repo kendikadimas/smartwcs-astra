@@ -42,10 +42,10 @@ export function RecentEventsPanel({ events }: RecentEventsPanelProps) {
       <div
         className="panel-body"
         style={{
-          padding: '12px 16px',
+          padding: '12px 14px',
           display: 'flex',
           flexDirection: 'column',
-          gap: '10px',
+          gap: '8px',
         }}
       >
         {events.map((ev) => (
@@ -54,28 +54,29 @@ export function RecentEventsPanel({ events }: RecentEventsPanelProps) {
             style={{
               display: 'flex',
               alignItems: 'center',
-              gap: '8px',
+              gap: '10px',
               fontSize: '11.5px',
+              padding: '6px 10px',
+              borderRadius: '6px',
+              backgroundColor: '#f8fafc',
+              borderLeft: `3px solid ${ev.dotColor}`,
+              borderTop: '1px solid #f1f5f9',
+              borderRight: '1px solid #f1f5f9',
+              borderBottom: '1px solid #f1f5f9',
+              transition: 'background-color 0.15s ease',
             }}
           >
-            {/* Color Dot */}
-            <span
-              style={{
-                width: '6px',
-                height: '6px',
-                borderRadius: '50%',
-                backgroundColor: ev.dotColor,
-                flexShrink: 0,
-              }}
-            />
-
-            {/* Timestamp */}
+            {/* Timestamp Badge */}
             <span
               style={{
                 fontFamily: 'monospace',
                 fontSize: '10.5px',
+                fontWeight: 600,
                 color: '#64748b',
-                width: '54px',
+                backgroundColor: '#ffffff',
+                padding: '1px 6px',
+                borderRadius: '4px',
+                border: '1px solid #e2e8f0',
                 flexShrink: 0,
               }}
             >
@@ -85,7 +86,7 @@ export function RecentEventsPanel({ events }: RecentEventsPanelProps) {
             {/* Event Text */}
             <span
               style={{
-                color: '#334155',
+                color: '#1e293b',
                 fontWeight: 500,
                 whiteSpace: 'nowrap',
                 overflow: 'hidden',
