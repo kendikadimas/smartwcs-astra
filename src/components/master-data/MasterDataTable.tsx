@@ -491,23 +491,25 @@ export function MasterDataTable({
                   {activeCategory === 'robots' && (
                     <>
                       <td style={{ padding: '9px 14px' }}>
-                        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+                        <div
+                          onClick={() => onViewDetails(item)}
+                          style={{
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            cursor: 'pointer',
+                          }}
+                        >
                           {renderRobotAvatar(item)}
-                          <button
-                            onClick={() => onViewDetails(item)}
+                          <span
                             style={{
-                              background: 'none',
-                              border: 'none',
                               fontWeight: 700,
                               color: '#0f172a',
                               fontSize: '12.5px',
-                              cursor: 'pointer',
-                              padding: 0,
-                              textAlign: 'left',
                             }}
                           >
                             {item.id}
-                          </button>
+                          </span>
                         </div>
                       </td>
                       <td style={{ padding: '9px 14px', color: '#64748b' }}>{item.name}</td>

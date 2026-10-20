@@ -944,6 +944,11 @@ export default function MasterDataPage() {
           item={detailItem}
           onClose={() => setDetailItem(null)}
           activeCategory={activeCategory}
+          onEditItem={(item) => {
+            setDetailItem(null);
+            setEditItem(item);
+            setIsAddEditOpen(true);
+          }}
         />
 
         <DeleteConfirmModal
