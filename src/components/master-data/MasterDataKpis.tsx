@@ -123,26 +123,17 @@ export function MasterDataKpis({
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '4px',
+                    justifyContent: 'center',
                     fontSize: '10.5px',
                     fontWeight: 600,
                     color: '#ffffff',
                     backgroundColor: 'rgba(255, 255, 255, 0.24)',
-                    padding: '2px 8px',
+                    padding: '2.5px 9px',
                     borderRadius: '10px',
                     border: '1px solid rgba(255, 255, 255, 0.45)',
                     backdropFilter: 'blur(4px)',
                   }}
                 >
-                  <span
-                    style={{
-                      width: '5px',
-                      height: '5px',
-                      borderRadius: '50%',
-                      backgroundColor: '#ffffff',
-                      boxShadow: '0 0 6px #ffffff',
-                    }}
-                  />
                   <span>Active View</span>
                 </div>
               ) : (

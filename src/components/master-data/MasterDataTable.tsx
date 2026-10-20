@@ -109,34 +109,28 @@ export function MasterDataTable({
     let bg = '#eff6ff';
     let text = '#2563eb';
     let border = '#bfdbfe';
-    let dot = '#2563eb';
 
     const s = status.toLowerCase();
     if (s === 'running') {
       bg = '#eff6ff';
       text = '#2563eb';
       border = '#bfdbfe';
-      dot = '#2563eb';
     } else if (s === 'idle' || s === 'active' || s === 'online' || s === 'available') {
       bg = '#f0fdf4';
       text = '#15803d';
       border = '#bbf7d0';
-      dot = '#16a34a';
     } else if (s === 'charging' || s === 'occupied' || s === 'low stock') {
       bg = '#fffbeb';
       text = '#b45309';
       border = '#fde68a';
-      dot = '#f59e0b';
     } else if (s === 'offline' || s === 'inactive' || s === 'stopped') {
       bg = '#f1f5f9';
       text = '#475569';
       border = '#cbd5e1';
-      dot = '#64748b';
     } else if (s === 'fault' || s === 'error' || s === 'blocked') {
       bg = '#fef2f2';
       text = '#b91c1c';
       border = '#fecaca';
-      dot = '#ef4444';
     }
 
     return (
@@ -144,17 +138,17 @@ export function MasterDataTable({
         style={{
           display: 'inline-flex',
           alignItems: 'center',
-          gap: '5px',
-          padding: '2.5px 8px',
+          justifyContent: 'center',
+          padding: '2.5px 9px',
           borderRadius: '12px',
           fontSize: '11px',
           fontWeight: 600,
           backgroundColor: bg,
           color: text,
           border: `1px solid ${border}`,
+          whiteSpace: 'nowrap',
         }}
       >
-        <span style={{ width: '5px', height: '5px', borderRadius: '50%', backgroundColor: dot }} />
         <span>{status}</span>
       </span>
     );

@@ -1723,8 +1723,8 @@ export function WarehouseIsometricCanvas({
                   style={{
                     display: 'inline-flex',
                     alignItems: 'center',
-                    gap: '4px',
-                    padding: '1.5px 6px',
+                    justifyContent: 'center',
+                    padding: '1.5px 7px',
                     borderRadius: '10px',
                     fontSize: '10px',
                     fontWeight: 700,
@@ -1746,21 +1746,6 @@ export function WarehouseIsometricCanvas({
                         : '#dc2626',
                   }}
                 >
-                  <span
-                    style={{
-                      width: '5px',
-                      height: '5px',
-                      borderRadius: '50%',
-                      backgroundColor:
-                        selectedRobot.status === 'Running'
-                          ? '#2563eb'
-                          : selectedRobot.status === 'Charging'
-                          ? '#f59e0b'
-                          : selectedRobot.status === 'Idle'
-                          ? '#16a34a'
-                          : '#dc2626',
-                    }}
-                  />
                   {selectedRobot.status}
                 </span>
               </div>

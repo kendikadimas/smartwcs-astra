@@ -86,20 +86,11 @@ export function IntegrationAdapters({ adapters }: IntegrationAdaptersProps) {
                 style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '5px',
                   color: '#15803d',
                   fontWeight: 600,
                   fontSize: '11px',
                 }}
               >
-                <span
-                  style={{
-                    width: '6px',
-                    height: '6px',
-                    borderRadius: '50%',
-                    backgroundColor: '#16a34a',
-                  }}
-                />
                 Connected
               </div>
             </div>
