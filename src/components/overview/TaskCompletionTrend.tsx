@@ -1,7 +1,6 @@
 'use client';
 
 import React, { useState } from 'react';
-import { TrendingUp } from 'lucide-react';
 import { HourlyCompletionItem } from '@/types/overview';
 
 interface TaskCompletionTrendProps {
@@ -34,8 +33,7 @@ export function TaskCompletionTrend({ data }: TaskCompletionTrendProps) {
           padding: '12px 18px 8px 18px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <TrendingUp size={18} style={{ color: '#2563eb' }} />
+        <div>
           <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
             Task completion trend
           </span>

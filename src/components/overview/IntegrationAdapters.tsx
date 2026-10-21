@@ -1,7 +1,7 @@
 'use client';
 
 import React from 'react';
-import { Share2, Database, Bot, Cpu } from 'lucide-react';
+import { Database, Bot, Cpu } from 'lucide-react';
 import { IntegrationAdapter } from '@/types/overview';
 
 interface IntegrationAdaptersProps {
@@ -40,9 +40,8 @@ export function IntegrationAdapters({ adapters }: IntegrationAdaptersProps) {
           borderBottom: '1px solid #f1f5f9',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <Share2 size={17} style={{ color: '#2563eb' }} />
-          <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
+        <div>
+          <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
             Integration adapters
           </span>
         </div>

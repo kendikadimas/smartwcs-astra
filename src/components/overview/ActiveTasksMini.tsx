@@ -3,7 +3,6 @@
 import React from 'react';
 import Link from 'next/link';
 import {
-  CalendarCheck,
   Truck,
   PackageCheck,
   Package,
@@ -82,8 +81,7 @@ export function ActiveTasksMini({ tasks }: ActiveTasksMiniProps) {
           borderBottom: '1px solid #f1f5f9',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <CalendarCheck size={18} style={{ color: '#2563eb' }} />
+        <div>
           <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
             Active Tasks
           </span>

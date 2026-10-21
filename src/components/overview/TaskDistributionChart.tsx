@@ -1,7 +1,6 @@
 'use client';
 
 import React from 'react';
-import { BarChart3 } from 'lucide-react';
 import { TaskDistributionItem } from '@/types/overview';
 
 interface TaskDistributionProps {
@@ -38,8 +37,7 @@ export function TaskDistributionChart({ distribution }: TaskDistributionProps) {
           borderBottom: '1px solid #f1f5f9',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <BarChart3 size={18} style={{ color: '#2563eb' }} />
+        <div>
           <span style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
             Task distribution
           </span>

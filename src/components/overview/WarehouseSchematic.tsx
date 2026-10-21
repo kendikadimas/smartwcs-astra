@@ -3,7 +3,6 @@
 import React, { useState } from 'react';
 import Link from 'next/link';
 import {
-  Layers,
   ChevronDown,
   Maximize2,
   Box,
@@ -30,15 +29,12 @@ export function WarehouseSchematic() {
           borderBottom: '1px solid #f1f5f9',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Layers size={18} style={{ color: '#2563eb', flexShrink: 0 }} />
-          <div>
-            <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
-              Warehouse schematic
-            </div>
-            <div style={{ fontSize: '11px', color: '#64748b' }}>
-              Main Warehouse · Ground floor
-            </div>
+        <div>
+          <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
+            Warehouse schematic
+          </div>
+          <div style={{ fontSize: '11px', color: '#64748b' }}>
+            Main Warehouse · Ground floor
           </div>
         </div>
 

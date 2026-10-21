@@ -112,10 +112,10 @@ export function Sidebar() {
           {/* Full Centered Logo */}
           <div className="logo-full-wrap">
             <Image
-              src="/images/logowcs.png"
+              src="/images/logofixwcs.png"
               alt="SYNTRA Smart WCS Platform"
               width={220}
-              height={56}
+              height={67}
               priority
               style={{
                 width: 'auto',
@@ -198,19 +198,6 @@ export function Sidebar() {
             <span className="collapse-text">Collapse Sidebar</span>
           </button>
         )}
-
-        {/* System Status Box */}
-        <div
-          className="system-status-box"
-          title={isMini ? 'System online · Demo environment v2.4.0 · Updated 10:24:15 WIB' : undefined}
-        >
-          <div className="status-dot-row">
-            <span className="status-dot" />
-            <span className="status-title">System online</span>
-          </div>
-          <div className="status-meta">Demo environment · v2.4.0</div>
-          <div className="status-meta">Updated 10:24:15 WIB</div>
-        </div>
 
         {/* User Profile */}
         <div
