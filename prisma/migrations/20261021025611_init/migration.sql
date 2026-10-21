@@ -52,6 +52,7 @@ CREATE TABLE "Edge" (
 CREATE TABLE "Equipment" (
     "equipmentId" UUID NOT NULL,
     "locationId" UUID NOT NULL,
+    "name" TEXT NOT NULL,
     "equipmentType" TEXT NOT NULL,
     "vendor" TEXT NOT NULL,
     "status" TEXT NOT NULL,
@@ -64,6 +65,8 @@ CREATE TABLE "Equipment" (
 CREATE TABLE "Robot" (
     "robotId" UUID NOT NULL,
     "equipmentId" UUID NOT NULL,
+    "name" TEXT NOT NULL,
+    "serialNumber" TEXT,
     "vendor" TEXT NOT NULL,
     "model" TEXT NOT NULL,
     "protocol" TEXT NOT NULL,
@@ -472,6 +475,33 @@ CREATE TABLE "Integration" (
 );
 
 -- CreateTable
+CREATE TABLE "PuduShop" (
+    "puduShopId" UUID NOT NULL,
+    "shopId" TEXT NOT NULL,
+    "shopName" TEXT,
+    "companyId" TEXT,
+    "companyName" TEXT,
+    "syncedAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
+
+    CONSTRAINT "PuduShop_pkey" PRIMARY KEY ("puduShopId")
+);
+
+-- CreateTable
+CREATE TABLE "PuduRobotGroup" (
+    "puduRobotGroupId" UUID NOT NULL,
+    "groupId" TEXT NOT NULL,
+    "groupName" TEXT,
+    "puduShopId" UUID,
+    "syncedAt" TIMESTAMPTZ(3),
+    "createdAt" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMPTZ(3) NOT NULL,
+
+    CONSTRAINT "PuduRobotGroup_pkey" PRIMARY KEY ("puduRobotGroupId")
+);
+
+-- CreateTable
 CREATE TABLE "PuduRobot" (
     "puduRobotId" UUID NOT NULL,
     "robotId" UUID NOT NULL,
@@ -479,8 +509,9 @@ CREATE TABLE "PuduRobot" (
     "mac" TEXT,
     "name" TEXT,
     "model" TEXT NOT NULL,
-    "shopId" TEXT,
-    "groupId" TEXT,
+    "productCode" TEXT,
+    "puduShopId" UUID,
+    "puduRobotGroupId" UUID,
     "bindingStatus" TEXT NOT NULL,
     "boundAt" TIMESTAMPTZ(3),
     "unboundAt" TIMESTAMPTZ(3),
@@ -499,6 +530,8 @@ CREATE TABLE "PuduRobotState" (
     "moveState" TEXT,
     "chargeStage" TEXT,
     "chargeType" TEXT,
+    "isCharging" INTEGER,
+    "remainTime" INTEGER,
     "battery" INTEGER,
     "currentPuduMapId" UUID,
     "x" DECIMAL(14,4),
@@ -511,6 +544,7 @@ CREATE TABLE "PuduRobotState" (
     "poseReportStartedAt" TIMESTAMPTZ(3),
     "emergencyRecoveredAt" TIMESTAMPTZ(3),
     "lastPoseAt" TIMESTAMPTZ(3),
+    "vendorStatusAt" TIMESTAMPTZ(3),
     "updatedAt" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "PuduRobotState_pkey" PRIMARY KEY ("puduRobotId")
@@ -527,6 +561,8 @@ CREATE TABLE "PuduRobotStatusLog" (
     "moveState" TEXT,
     "chargeStage" TEXT,
     "battery" INTEGER,
+    "isCharging" INTEGER,
+    "remainTime" INTEGER,
     "recordedAt" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "PuduRobotStatusLog_pkey" PRIMARY KEY ("statusLogId")
@@ -537,10 +573,17 @@ CREATE TABLE "PuduMap" (
     "puduMapId" UUID NOT NULL,
     "warehouseId" UUID,
     "zoneId" UUID,
-    "shopId" TEXT NOT NULL,
+    "puduShopId" UUID NOT NULL,
     "mapName" TEXT NOT NULL,
+    "mapCode" TEXT,
     "floor" TEXT,
     "imageUrl" TEXT,
+    "width" DECIMAL(14,4),
+    "height" DECIMAL(14,4),
+    "resolution" DECIMAL(14,4),
+    "originX" DECIMAL(14,4),
+    "originY" DECIMAL(14,4),
+    "originZ" DECIMAL(14,4),
     "zones" JSONB,
     "isActive" BOOLEAN NOT NULL DEFAULT true,
     "lastChangedAt" TIMESTAMPTZ(3),
@@ -555,7 +598,7 @@ CREATE TABLE "PuduMap" (
 CREATE TABLE "PuduRobotMap" (
     "puduRobotId" UUID NOT NULL,
     "puduMapId" UUID NOT NULL,
-    "isUsed" BOOLEAN NOT NULL,
+    "isUsed" INTEGER NOT NULL,
     "syncedAt" TIMESTAMPTZ(3) NOT NULL,
 
     CONSTRAINT "PuduRobotMap_pkey" PRIMARY KEY ("puduRobotId","puduMapId")
@@ -565,6 +608,7 @@ CREATE TABLE "PuduRobotMap" (
 CREATE TABLE "PuduMapElement" (
     "puduMapElementId" UUID NOT NULL,
     "puduMapId" UUID NOT NULL,
+    "vendorElementId" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "elementType" TEXT NOT NULL,
     "pointType" TEXT,
@@ -601,6 +645,8 @@ CREATE TABLE "PuduTask" (
     "deliveryMode" TEXT,
     "completeType" TEXT,
     "remark" TEXT,
+    "isOverTime" BOOLEAN,
+    "spentTime" INTEGER,
     "robotResponseCode" TEXT,
     "robotResponseMessage" TEXT,
     "requestPayload" JSONB,
@@ -622,8 +668,13 @@ CREATE TABLE "PuduTaskStop" (
     "seq" INTEGER NOT NULL,
     "pointName" TEXT NOT NULL,
     "puduMapElementId" UUID,
+    "puduMapId" UUID,
+    "vendorStopId" TEXT,
+    "destType" TEXT,
     "status" TEXT,
-    "estimatedTimeSec" INTEGER,
+    "estimatedTime" INTEGER,
+    "spendTime" INTEGER,
+    "isTimeout" BOOLEAN,
     "completeType" TEXT,
     "arrivedAt" TIMESTAMPTZ(3),
     "finishedAt" TIMESTAMPTZ(3),
@@ -635,6 +686,9 @@ CREATE TABLE "PuduTaskStop" (
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Robot_equipmentId_key" ON "Robot"("equipmentId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Robot_serialNumber_key" ON "Robot"("serialNumber");
 
 -- CreateIndex
 CREATE INDEX "Task_status_priority_idx" ON "Task"("status", "priority");
@@ -685,22 +739,40 @@ CREATE UNIQUE INDEX "User_username_key" ON "User"("username");
 CREATE UNIQUE INDEX "Role_name_key" ON "Role"("name");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "PuduShop_shopId_key" ON "PuduShop"("shopId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PuduRobotGroup_groupId_key" ON "PuduRobotGroup"("groupId");
+
+-- CreateIndex
+CREATE INDEX "PuduRobotGroup_puduShopId_idx" ON "PuduRobotGroup"("puduShopId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "PuduRobot_robotId_key" ON "PuduRobot"("robotId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "PuduRobot_sn_key" ON "PuduRobot"("sn");
 
 -- CreateIndex
+CREATE INDEX "PuduRobot_puduShopId_idx" ON "PuduRobot"("puduShopId");
+
+-- CreateIndex
+CREATE INDEX "PuduRobot_puduRobotGroupId_idx" ON "PuduRobot"("puduRobotGroupId");
+
+-- CreateIndex
 CREATE INDEX "PuduRobotStatusLog_puduRobotId_recordedAt_idx" ON "PuduRobotStatusLog"("puduRobotId", "recordedAt");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "PuduMap_shopId_mapName_key" ON "PuduMap"("shopId", "mapName");
+CREATE UNIQUE INDEX "PuduMap_puduShopId_mapName_key" ON "PuduMap"("puduShopId", "mapName");
 
 -- CreateIndex
 CREATE INDEX "PuduMapElement_nodeId_idx" ON "PuduMapElement"("nodeId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "PuduMapElement_puduMapId_elementType_name_key" ON "PuduMapElement"("puduMapId", "elementType", "name");
+CREATE INDEX "PuduMapElement_puduMapId_name_idx" ON "PuduMapElement"("puduMapId", "name");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PuduMapElement_puduMapId_vendorElementId_key" ON "PuduMapElement"("puduMapId", "vendorElementId");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "PuduTask_missionId_key" ON "PuduTask"("missionId");
@@ -907,7 +979,16 @@ ALTER TABLE "User" ADD CONSTRAINT "User_roleId_fkey" FOREIGN KEY ("roleId") REFE
 ALTER TABLE "AuditLog" ADD CONSTRAINT "AuditLog_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("userId") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "PuduRobotGroup" ADD CONSTRAINT "PuduRobotGroup_puduShopId_fkey" FOREIGN KEY ("puduShopId") REFERENCES "PuduShop"("puduShopId") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "PuduRobot" ADD CONSTRAINT "PuduRobot_robotId_fkey" FOREIGN KEY ("robotId") REFERENCES "Robot"("robotId") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PuduRobot" ADD CONSTRAINT "PuduRobot_puduShopId_fkey" FOREIGN KEY ("puduShopId") REFERENCES "PuduShop"("puduShopId") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PuduRobot" ADD CONSTRAINT "PuduRobot_puduRobotGroupId_fkey" FOREIGN KEY ("puduRobotGroupId") REFERENCES "PuduRobotGroup"("puduRobotGroupId") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "PuduRobotState" ADD CONSTRAINT "PuduRobotState_puduRobotId_fkey" FOREIGN KEY ("puduRobotId") REFERENCES "PuduRobot"("puduRobotId") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -929,6 +1010,9 @@ ALTER TABLE "PuduMap" ADD CONSTRAINT "PuduMap_warehouseId_fkey" FOREIGN KEY ("wa
 
 -- AddForeignKey
 ALTER TABLE "PuduMap" ADD CONSTRAINT "PuduMap_zoneId_fkey" FOREIGN KEY ("zoneId") REFERENCES "Zone"("zoneId") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PuduMap" ADD CONSTRAINT "PuduMap_puduShopId_fkey" FOREIGN KEY ("puduShopId") REFERENCES "PuduShop"("puduShopId") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "PuduRobotMap" ADD CONSTRAINT "PuduRobotMap_puduRobotId_fkey" FOREIGN KEY ("puduRobotId") REFERENCES "PuduRobot"("puduRobotId") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -960,24 +1044,10 @@ ALTER TABLE "PuduTaskStop" ADD CONSTRAINT "PuduTaskStop_puduTaskId_fkey" FOREIGN
 -- AddForeignKey
 ALTER TABLE "PuduTaskStop" ADD CONSTRAINT "PuduTaskStop_puduMapElementId_fkey" FOREIGN KEY ("puduMapElementId") REFERENCES "PuduMapElement"("puduMapElementId") ON DELETE RESTRICT ON UPDATE CASCADE;
 
--- PuduPoseLog sebagai tabel terpartisi per bulan (PostgreSQL)
---
--- Prisma tidak bisa mendeklarasikan partisi, jadi blok ini dipasang manual di migration
--- pertama. Prisma Client tetap membaca/menulis tabelnya seperti biasa.
---
--- Cara pakai (sekali, saat migration awal):
---   1. npx prisma migrate dev --create-only --name init
---   2. Buka prisma/migrations/<timestamp>_init/migration.sql, hapus:
---        - CREATE TABLE "PuduPoseLog" (...)
---        - CREATE INDEX "PuduPoseLog_puduRobotId_recordedAt_idx" ...
---        - ALTER TABLE "PuduPoseLog" ADD CONSTRAINT ... (2 foreign key)
---      lalu tempel seluruh isi file ini di bagian paling akhir migration.sql
---      (setelah tabel PuduRobot dan PuduMap dibuat).
---   3. npx prisma migrate dev
---
--- Wajib ada job terjadwal yang membuat partisi bulan berikutnya sebelum bulan berjalan
--- habis. Tanpa partisi, INSERT pose untuk bulan itu DITOLAK database
--- ("no partition of relation PuduPoseLog found for row").
+-- AddForeignKey
+ALTER TABLE "PuduTaskStop" ADD CONSTRAINT "PuduTaskStop_puduMapId_fkey" FOREIGN KEY ("puduMapId") REFERENCES "PuduMap"("puduMapId") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- Partisi PuduPoseLog (lihat prisma/sql/pudu_pose_log_partition.sql)
 
 CREATE TABLE "PuduPoseLog" (
     "poseLogId"    BIGSERIAL      NOT NULL,

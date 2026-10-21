@@ -17,11 +17,6 @@
 -- habis. Tanpa partisi, INSERT pose untuk bulan itu DITOLAK database
 -- ("no partition of relation PuduPoseLog found for row").
 
-CREATE TABLE "PuduPoseLog" (beserta index
---      dan FK-nya) dengan isi file ini.
---   3. npx prisma migrate dev
--- Prisma tetap bisa membaca/menulis tabel ini seperti biasa; partisi hanya urusan PostgreSQL.
-
 CREATE TABLE "PuduPoseLog" (
     "poseLogId"    BIGSERIAL      NOT NULL,
     "puduRobotId"  UUID           NOT NULL,
