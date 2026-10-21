@@ -93,3 +93,36 @@ export async function createMissionFixture(
     },
   });
 }
+
+export async function createEventFixture(
+  prisma: PrismaClient,
+  opts: {
+    eventType?: string;
+    sourceType?: string;
+    sourceId?: string;
+    severity?: string;
+    taskId?: string;
+    occurredAt?: Date;
+  } = {},
+) {
+  return prisma.event.create({
+    data: {
+      eventType: opts.eventType ?? "TEST_EVENT",
+      sourceType: opts.sourceType ?? "ROBOT",
+      sourceId: opts.sourceId ?? "00000000-0000-0000-0000-000000000b01",
+      severity: opts.severity ?? "WARNING",
+      message: "Event test",
+      taskId: opts.taskId,
+      occurredAt: opts.occurredAt ?? new Date(),
+    },
+  });
+}
+
+export async function createAlarmFixture(
+  prisma: PrismaClient,
+  opts: { eventId: string; status?: string },
+) {
+  return prisma.alarm.create({
+    data: { eventId: opts.eventId, status: opts.status ?? "ACTIVE" },
+  });
+}
