@@ -99,9 +99,23 @@ Dua kasus, **tidak ada perubahan skema**:
   mencari baris `Integration` yang `name`-nya cocok (case-insensitive)
   dengan kunci adapter.
 
-Kunci adapter PUDU adalah `"pudu"`, cocok dengan `Integration.name = "PUDU"`
-(diisi `prisma/seed.ts`) dan `Robot.vendor` apa pun yang mengandung "pudu"
-tanpa peduli huruf besar/kecil (mis. `"Pudu"`, `"PUDU"`).
+Kunci adapter PUDU adalah `"pudu"`. Pencocokannya **nama sama persis**
+(bukan substring), cuma tidak peduli huruf besar/kecil: `Integration.name`
+harus persis `"PUDU"` (diisi `prisma/seed.ts`) dan `Robot.vendor` harus
+persis `"Pudu"`/`"PUDU"`/dst. (apa pun kapitalisasinya) — `Robot.vendor =
+"PUDU T600"` **tidak akan cocok**, karena `registry.ts` memakai
+`Map.get(key.toLowerCase())` (pencarian kunci tepat), bukan
+`.includes("pudu")`.
+
+**Implikasi:** karena `Integration.name` dipakai langsung sebagai kunci
+pemilihan adapter, field ini **tidak boleh dibiarkan diubah bebas** lewat
+UI/API Integrations (mis. `PATCH /integrations/{id}`) -- mengubahnya jadi
+nilai yang tidak cocok dengan kunci adapter mana pun (termasuk cuma salah
+ketik huruf) akan membuat `findIntegrationForAdapterKey` tidak menemukan
+integrasi itu lagi, dan route callback-nya mulai membalas 503
+`PUDU_NOT_CONFIGURED`. Belum ada validasi untuk ini di endpoint mana pun
+(endpoint Integration CRUD sendiri belum diimplementasikan) -- dicatat di
+sini supaya tidak terlewat saat dibuat nanti.
 
 ## 6. Pendaftaran adapter (`adapters.ts`)
 
