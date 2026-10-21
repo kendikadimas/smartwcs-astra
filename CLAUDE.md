@@ -33,6 +33,7 @@ PUDU sebagai pilot.
 | `docs/ERD.md` | Data model v3.1: 46 tabel (inti + ERP usulan + 11 tabel adapter PUDU), constraint, index | **Revisi 2026-10-21 (v3.1)** | Sebelum menyentuh `prisma/schema.prisma` |
 | `prisma/schema.prisma` | Implementasi ERD v3 (Prisma 7). **Sumber kebenaran schema** — harus selalu sinkron dengan `ERD.md` | **Baru 2026-10-19** | Sebelum query/migration apa pun |
 | `docs/PUDU_INTEGRATION.md` | Integrasi PUDU Cloud API: base URL, autentikasi HMAC, alur callback, scope T600, pemetaan status & field ke tabel | **Baru 2026-10-19** | Sebelum menulis kode di `src/modules/equipment-adapter/pudu` |
+| `docs/ADAPTER_CONTRACT.md` | Kontrak netral vendor (`EquipmentAdapter`): operasi, tipe hasil netral, cara registri memilih adapter, langkah menambah vendor baru | **Baru 2026-10-21** | Sebelum menyentuh `src/modules/equipment-adapter/*` (kontrak/registri) atau menambah adapter vendor baru |
 | `docs/API_SPECIFICATION.md` | Ringkasan modul + endpoint, termasuk 4 modul baru | Revisi 2026-10-05 | Referensi cepat endpoint |
 | `docs/ARCHITECTURE.md` | Gambaran arsitektur sistem | Revisi 2026-10-05 | Sebelum setup struktur project |
 | `docs/CHANGELOG.md` | Riwayat perubahan dokumen | Revisi 2026-10-19 | Kalau butuh histori keputusan |
@@ -125,8 +126,12 @@ Box/Packaging, Operator Delivery (baru, role/RBAC-nya belum diformalkan).
   `PlaceholderPage`. Tahap ini memang UI statis — jangan sambungkan UI ke
   database atau PUDU kecuali diminta.
 - **Modul domain** (`src/modules/*`): baru berisi README, belum ada kode.
-- **Belum ada:** API route (`src/app/api/`), auth, adapter PUDU, worker callback.
-- **Dokumen yang dirujuk tapi belum ada di repo:** `ADAPTER_CONTRACT.md`,
+- **Backend (branch `feat/backend-pudu-tanpa-api-key` + `refactor/adapter-contract`):**
+  callback PUDU, worker, klien HMAC, API Task + CRUD master data, dan
+  kontrak adapter netral (`src/modules/equipment-adapter/{contract,types,registry}.ts`,
+  lihat `docs/ADAPTER_CONTRACT.md`) sudah ada. Auth, `pg-boss`, dan dispatch
+  nyata dari UI/API ke robot belum (Fase 6, perlu persetujuan terpisah).
+- **Dokumen yang dirujuk tapi belum ada di repo:**
   `API_CONVENTIONS.md`, `TASK_STATE_MACHINE.md`, `DATA_DICTIONARY.md`. Jangan
   mengasumsikan isinya (lihat catatan di ADR.md Section 9).
 
