@@ -307,15 +307,39 @@ body {
 }
 
 .nav-item.active {
-  background-color: #eff6ff;
-  color: var(--primary);
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 50%, #1d4ed8 100%);
+  color: #ffffff;
   font-weight: 600;
-  border-color: #bfdbfe;
-  border-left: 3px solid var(--primary);
+  border: 1px solid rgba(255, 255, 255, 0.22);
+  box-shadow: 0 4px 14px -3px rgba(37, 99, 235, 0.42);
+  position: relative;
+  overflow: hidden;
 }
 
-.nav-item.active .nav-icon {
-  color: var(--primary);
+.nav-item.active::after {
+  content: '';
+  position: absolute;
+  right: -14px;
+  bottom: -14px;
+  width: 75px;
+  height: 75px;
+  pointer-events: none;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' fill='none'%3E%3Ccircle cx='85' cy='85' r='70' fill='white' fill-opacity='0.08'/%3E%3Ccircle cx='85' cy='85' r='48' fill='white' fill-opacity='0.12'/%3E%3Ccircle cx='85' cy='85' r='28' fill='white' fill-opacity='0.16'/%3E%3C/svg%3E");
+  background-size: contain;
+  background-repeat: no-repeat;
+  z-index: 1;
+}
+
+.nav-item.active .nav-icon,
+.nav-item.active .nav-label {
+  position: relative;
+  z-index: 2;
+  color: #ffffff;
+}
+
+.nav-item.active:hover {
+  background: linear-gradient(135deg, #0284c7 0%, #1d4ed8 50%, #1e40af 100%);
+  color: #ffffff;
 }
 
 .nav-icon {
