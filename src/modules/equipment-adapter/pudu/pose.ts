@@ -1,5 +1,5 @@
 import { z } from "zod";
-import type { PrismaClient } from "../../../generated/prisma/client";
+import type { Prisma } from "../../../generated/prisma/client";
 
 // Lampiran PUDU_INTEGRATION.md #19 notifyRobotPose. Tolerant: field tak
 // dikenal diabaikan (passthrough), field opsional tidak menggagalkan parse.
@@ -27,7 +27,7 @@ export type NotifyRobotPoseData = z.infer<typeof notifyRobotPoseSchema>;
  * jadi robotnya seharusnya sudah ada; auto-provisioning di hot path callback
  * dianggap terlalu berat untuk kasus yang seharusnya tidak terjadi.
  */
-export async function handleNotifyRobotPose(prisma: PrismaClient, data: NotifyRobotPoseData) {
+export async function handleNotifyRobotPose(prisma: Prisma.TransactionClient, data: NotifyRobotPoseData) {
   const puduRobot = await prisma.puduRobot.findUnique({ where: { sn: data.sn } });
   if (!puduRobot) {
     return { stored: false as const };
@@ -37,38 +37,40 @@ export async function handleNotifyRobotPose(prisma: PrismaClient, data: NotifyRo
     ? new Date(Number(data.notify_timestamp))
     : new Date();
 
-  await prisma.$transaction([
-    prisma.puduRobotState.upsert({
-      where: { puduRobotId: puduRobot.puduRobotId },
-      create: {
-        puduRobotId: puduRobot.puduRobotId,
-        x: data.x,
-        y: data.y,
-        yaw: data.yaw,
-        nearestPoint: data.nearest_point,
-        lastPoseAt: recordedAt,
-      },
-      update: {
-        x: data.x,
-        y: data.y,
-        yaw: data.yaw,
-        nearestPoint: data.nearest_point,
-        lastPoseAt: recordedAt,
-      },
-    }),
-    prisma.puduPoseLog.create({
-      data: {
-        puduRobotId: puduRobot.puduRobotId,
-        x: data.x,
-        y: data.y,
-        z: data.z,
-        yaw: data.yaw,
-        nearestPoint: data.nearest_point,
-        source: "CALLBACK",
-        recordedAt,
-      },
-    }),
-  ]);
+  // Sequential, bukan $transaction: fungsi ini bisa dipanggil dari dalam
+  // transaksi worker yang sudah terbuka (nested transaction tidak didukung
+  // baik). Atomicitas bukan kritis untuk pose report frekuensi tinggi --
+  // paling buruk satu dari dua tulisan ini gagal sendiri-sendiri.
+  await prisma.puduRobotState.upsert({
+    where: { puduRobotId: puduRobot.puduRobotId },
+    create: {
+      puduRobotId: puduRobot.puduRobotId,
+      x: data.x,
+      y: data.y,
+      yaw: data.yaw,
+      nearestPoint: data.nearest_point,
+      lastPoseAt: recordedAt,
+    },
+    update: {
+      x: data.x,
+      y: data.y,
+      yaw: data.yaw,
+      nearestPoint: data.nearest_point,
+      lastPoseAt: recordedAt,
+    },
+  });
+  await prisma.puduPoseLog.create({
+    data: {
+      puduRobotId: puduRobot.puduRobotId,
+      x: data.x,
+      y: data.y,
+      z: data.z,
+      yaw: data.yaw,
+      nearestPoint: data.nearest_point,
+      source: "CALLBACK",
+      recordedAt,
+    },
+  });
 
   return { stored: true as const };
 }

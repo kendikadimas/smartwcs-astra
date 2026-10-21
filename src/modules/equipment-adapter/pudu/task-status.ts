@@ -1,4 +1,4 @@
-import type { PrismaClient } from "../../../generated/prisma/client";
+import type { Prisma } from "../../../generated/prisma/client";
 import { mapPuduStatus, type StatusMapResult } from "./status-map";
 
 /**
@@ -10,7 +10,7 @@ import { mapPuduStatus, type StatusMapResult } from "./status-map";
  * oleh pemanggil.
  */
 export async function applyPuduTaskStatus(
-  tx: PrismaClient,
+  tx: Prisma.TransactionClient,
   params: {
     rawStatus: string;
     robotId: string; // Robot.robotId (inti) -- target Event kalau status tak dikenal

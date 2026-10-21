@@ -22,6 +22,11 @@ const envSchema = z.object({
   PUDU_API_APP_SECRET: z.string().optional(),
   PUDU_CALLBACK_CODE: z.string().optional(),
   PUDU_CALLBACK_URL: z.string().optional(),
+
+  // Worker pengurai callback (ADR Section 9.2). Batas percobaan sebelum
+  // baris IntegrationLog berstatus FAILED berhenti di-retry otomatis.
+  PUDU_WORKER_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
+  PUDU_WORKER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
 });
 
 function parseEnv() {
