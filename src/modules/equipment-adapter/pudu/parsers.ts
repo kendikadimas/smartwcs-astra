@@ -7,7 +7,7 @@ import { recordEvent } from "../../event/record-event";
 
 export interface CallbackContext {
   tx: Prisma.TransactionClient;
-  integrationLogId: string;
+  integrationLogId: string | null;
   occurredAt: Date; // waktu IntegrationLog diterima (fallback kalau payload tidak punya timestamp)
   data: unknown;
 }

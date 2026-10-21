@@ -54,7 +54,7 @@ export interface AdapterCapabilities {
  */
 export type InboundMessage =
   | { kind: "raw"; headers: Record<string, string | null>; rawBody: string; receivedAt: Date }
-  | { kind: "queued"; messageType: string; data: unknown; integrationLogId: string; occurredAt: Date };
+  | { kind: "queued"; messageType: string; data: unknown; integrationLogId: string | null; occurredAt: Date };
 
 export type InboundResult =
   /** Adapter belum terkonfigurasi (mis. secret kosong) -- dipetakan ke 503. */
