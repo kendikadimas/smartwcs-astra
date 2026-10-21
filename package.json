@@ -6,6 +6,8 @@
     "dev": "tsx watch server.ts",
     "build": "next build",
     "start": "cross-env NODE_ENV=production tsx server.ts",
+    "worker": "tsx watch worker.ts",
+    "worker:start": "cross-env NODE_ENV=production tsx worker.ts",
     "lint": "eslint",
     "test": "vitest run",
     "test:watch": "vitest"
