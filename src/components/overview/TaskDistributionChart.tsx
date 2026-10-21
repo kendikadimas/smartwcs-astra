@@ -25,7 +25,7 @@ export function TaskDistributionChart({ distribution }: TaskDistributionProps) {
   let cumulativePercent = 0;
 
   return (
-    <div className="panel" style={{ display: 'flex', flexDirection: 'column' }}>
+    <div className="panel" style={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       {/* Header */}
       <div
         className="panel-header"
@@ -45,39 +45,39 @@ export function TaskDistributionChart({ distribution }: TaskDistributionProps) {
         <span style={{ fontSize: '11px', color: '#64748b' }}>{totalTasks} active</span>
       </div>
 
-      {/* Body: Donut on Left, Legend on Right */}
+      {/* Body: Donut enlarged towards left, Legend kept centered */}
       <div
         className="panel-body"
         style={{
-          padding: '16px 18px',
+          padding: '16px 20px 16px 10px',
           display: 'flex',
           alignItems: 'center',
-          justifyContent: 'space-between',
-          gap: '16px',
+          justifyContent: 'center',
+          gap: '12px',
           flex: 1,
         }}
       >
-        {/* Donut Chart with Center Number */}
+        {/* Donut Chart with Center Number - enlarged towards the left */}
         <div
           style={{
             position: 'relative',
-            width: '120px',
-            height: '120px',
+            width: '118px',
+            height: '118px',
             flexShrink: 0,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
           }}
         >
-          <svg width="120" height="120" viewBox="0 0 120 120" style={{ transform: 'rotate(-90deg)' }}>
+          <svg width="118" height="118" viewBox="0 0 118 118" style={{ transform: 'rotate(-90deg)' }}>
             {/* Background ring */}
             <circle
-              cx="60"
-              cy="60"
+              cx="59"
+              cy="59"
               r={r}
               fill="transparent"
               stroke="#f1f5f9"
-              strokeWidth="14"
+              strokeWidth="13"
             />
             {items.map((slice) => {
               const dashLength = (slice.percentage / 100) * c;
@@ -87,12 +87,12 @@ export function TaskDistributionChart({ distribution }: TaskDistributionProps) {
               return (
                 <circle
                   key={slice.type}
-                  cx="60"
-                  cy="60"
+                  cx="59"
+                  cy="59"
                   r={r}
                   fill="transparent"
                   stroke={slice.color}
-                  strokeWidth="14"
+                  strokeWidth="13"
                   strokeDasharray={`${dashLength} ${c - dashLength}`}
                   strokeDashoffset={dashOffset}
                   strokeLinecap="round"
@@ -102,10 +102,11 @@ export function TaskDistributionChart({ distribution }: TaskDistributionProps) {
             })}
           </svg>
 
-          {/* Center Text */}
+          {/* Center Text - exactly centered */}
           <div
             style={{
               position: 'absolute',
+              inset: 0,
               display: 'flex',
               flexDirection: 'column',
               alignItems: 'center',
@@ -113,7 +114,7 @@ export function TaskDistributionChart({ distribution }: TaskDistributionProps) {
               pointerEvents: 'none',
             }}
           >
-            <span style={{ fontSize: '22px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>
+            <span style={{ fontSize: '21px', fontWeight: 800, color: '#0f172a', lineHeight: 1 }}>
               {totalTasks}
             </span>
             <span style={{ fontSize: '10.5px', color: '#64748b', marginTop: '2px' }}>
@@ -122,14 +123,15 @@ export function TaskDistributionChart({ distribution }: TaskDistributionProps) {
           </div>
         </div>
 
-        {/* Legend Table on Right */}
+        {/* Legend Table */}
         <div
           style={{
-            flex: 1,
+            width: '126px',
             display: 'flex',
             flexDirection: 'column',
             gap: '8px',
             justifyContent: 'center',
+            flexShrink: 0,
           }}
         >
           {items.map((item) => (
@@ -149,15 +151,16 @@ export function TaskDistributionChart({ distribution }: TaskDistributionProps) {
                     height: '7px',
                     borderRadius: '50%',
                     backgroundColor: item.color,
+                    flexShrink: 0,
                   }}
                 />
                 <span style={{ color: '#334155', fontWeight: 500 }}>{item.type}</span>
               </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-                <span style={{ fontWeight: 700, color: '#0f172a', width: '12px', textAlign: 'right' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <span style={{ fontWeight: 700, color: '#0f172a', width: '10px', textAlign: 'right' }}>
                   {item.count}
                 </span>
-                <span style={{ color: '#64748b', fontSize: '11px', width: '28px', textAlign: 'right' }}>
+                <span style={{ color: '#64748b', fontSize: '11px', width: '26px', textAlign: 'right' }}>
                   {item.percentage}%
                 </span>
               </div>

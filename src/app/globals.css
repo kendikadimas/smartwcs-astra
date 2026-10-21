@@ -1421,7 +1421,7 @@ input[type="checkbox"] {
 
 .overview-grid-row3 {
   display: grid;
-  grid-template-columns: 5.1fr 2.4fr 3.1fr;
+  grid-template-columns: 4.6fr 2.8fr 3fr;
   gap: 14px;
 }
 
