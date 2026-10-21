@@ -1,23 +1,34 @@
 import { env } from "./src/lib/env";
 import { logger } from "./src/lib/logger";
 import { db } from "./src/lib/db";
-import { getPuduIntegration } from "./src/modules/equipment-adapter/pudu/integration";
-import { processPendingLogs } from "./src/modules/equipment-adapter/pudu/worker-core";
+import "./src/modules/equipment-adapter/adapters";
+import { getAdapter, findIntegrationForAdapterKey } from "./src/modules/equipment-adapter/registry";
+import { processPendingLogs } from "./src/modules/equipment-adapter/worker-core";
 
 // Proses terpisah dari server.ts (ADR Section 9.2): mengurai antrean
-// callback PUDU (IntegrationLog PENDING/FAILED) secara berkala. Dari image
-// Docker yang sama dengan server.ts, command berbeda di docker-compose.
+// callback vendor (IntegrationLog PENDING/FAILED) secara berkala. Netral
+// vendor -- adapter mana yang dipanggil ditentukan lewat registri, bukan
+// impor langsung ke folder vendor tertentu.
 let shuttingDown = false;
 
+const ADAPTER_KEY = "pudu";
+
 async function tick() {
-  const integration = await getPuduIntegration(db);
+  const adapter = getAdapter(ADAPTER_KEY);
+  if (!adapter) {
+    logger.warn({ adapterKey: ADAPTER_KEY }, "worker: adapter belum terdaftar, skip tick");
+    return;
+  }
+
+  const integration = await findIntegrationForAdapterKey(db, adapter.key);
   if (!integration) {
-    logger.warn("worker: baris Integration PUDU belum ada, skip tick (jalankan prisma/seed.ts)");
+    logger.warn({ adapterKey: ADAPTER_KEY }, "worker: baris Integration belum ada, skip tick (jalankan prisma/seed.ts)");
     return;
   }
 
   const result = await processPendingLogs(db, {
     integrationId: integration.integrationId,
+    adapter,
     maxAttempts: env.PUDU_WORKER_MAX_ATTEMPTS,
   });
   if (result.processed > 0) {
@@ -44,5 +55,5 @@ function shutdown(signal: string) {
 process.on("SIGINT", () => shutdown("SIGINT"));
 process.on("SIGTERM", () => shutdown("SIGTERM"));
 
-logger.info("Smart WCS worker PUDU dimulai");
+logger.info("Smart WCS worker dimulai");
 loop();

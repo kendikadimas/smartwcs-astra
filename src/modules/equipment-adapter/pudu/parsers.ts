@@ -3,6 +3,7 @@ import type { Prisma } from "../../../generated/prisma/client";
 import { resolveOrCreatePuduRobot } from "./unknown-robot";
 import { applyPuduTaskStatus } from "./task-status";
 import { handleNotifyRobotPose, notifyRobotPoseSchema } from "./pose";
+import { recordEvent } from "../../event/record-event";
 
 export interface CallbackContext {
   tx: Prisma.TransactionClient;
@@ -66,32 +67,6 @@ async function upsertStateAndLogIfChanged(
   }
 }
 
-async function createEventIfNotDuplicate(
-  tx: Prisma.TransactionClient,
-  data: {
-    eventType: string;
-    sourceType: string;
-    sourceId: string;
-    severity: string;
-    message: string;
-    errorCode?: string;
-    externalErrorId?: string;
-    externalLevel?: string;
-    integrationLogId: string | null;
-    payload?: Prisma.InputJsonValue;
-    taskId?: string | null;
-    occurredAt: Date;
-  },
-) {
-  // Dedup error realtime vs tertunda (robotErrorNotice vs robotErrorWarning
-  // untuk error yang sama) lewat externalErrorId, sesuai PUDU_INTEGRATION.md
-  // bagian 6.
-  if (data.externalErrorId) {
-    const existing = await tx.event.findFirst({ where: { externalErrorId: data.externalErrorId } });
-    if (existing) return existing;
-  }
-  return tx.event.create({ data });
-}
 
 // ---------------------------------------------------------------------------
 // 1-3. robotBinding / robotUnBinding / robotActivate (#38-40)
@@ -371,7 +346,7 @@ async function handleRobotErrorWarning(ctx: CallbackContext) {
     .passthrough()
     .parse(ctx.data);
   const puduRobot = await resolveOrCreatePuduRobot(ctx.tx, parsed.sn);
-  await createEventIfNotDuplicate(ctx.tx, {
+  await recordEvent(ctx.tx, {
     eventType: "ROBOT_ERROR_WARNING",
     sourceType: "ROBOT",
     sourceId: puduRobot.robotId,
@@ -426,7 +401,7 @@ async function handleRobotErrorNotice(ctx: CallbackContext) {
     taskId = puduTask?.mission?.taskId ?? null;
   }
 
-  await createEventIfNotDuplicate(ctx.tx, {
+  await recordEvent(ctx.tx, {
     eventType: "ROBOT_ERROR_NOTICE",
     sourceType: "ROBOT",
     sourceId: puduRobot.robotId,

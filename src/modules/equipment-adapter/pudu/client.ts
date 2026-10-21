@@ -172,6 +172,15 @@ export class PuduClient {
     );
   }
 
+  /** Katalog API #2, CancelCallTask -- dibutuhkan kontrak adapter cancel(). */
+  cancelCallTask(payload: { task_id: string; sn: string; is_auto_back?: boolean }) {
+    return this.request<{ trace_id?: string; message?: string }>(
+      "POST",
+      "/open-platform-service/v1/custom_call/cancel",
+      { body: payload },
+    );
+  }
+
   deliveryTask(payload: {
     sn: string;
     delivery_sort?: string;

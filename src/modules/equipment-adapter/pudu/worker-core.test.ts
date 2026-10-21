@@ -2,7 +2,8 @@ import { afterAll, beforeEach, describe, expect, it } from "vitest";
 import { createTestDb, hasTestDatabase, truncateAll } from "@/test/db";
 import type { Prisma } from "@/generated/prisma/client";
 import { seedPuduIntegration } from "./integration";
-import { processPendingLogs, computeBackoffMs } from "./worker-core";
+import { puduAdapter } from "./index";
+import { processPendingLogs, computeBackoffMs } from "../worker-core";
 
 const testDb = hasTestDatabase() ? createTestDb() : null;
 
@@ -35,7 +36,7 @@ describe.skipIf(!hasTestDatabase())("worker PUDU: processPendingLogs", () => {
   }
 
   async function run(batchSize = 1) {
-    return processPendingLogs(testDb!, { integrationId, maxAttempts: 5, batchSize });
+    return processPendingLogs(testDb!, { integrationId, adapter: puduAdapter, maxAttempts: 5, batchSize });
   }
 
   // Data di bawah ini SINTETIS (dibuat dari field di Lampiran
@@ -297,7 +298,7 @@ describe.skipIf(!hasTestDatabase())("worker PUDU: processPendingLogs", () => {
         where: { logId: log.logId },
         data: { nextAttemptAt: new Date(Date.now() - 1000) },
       });
-      await processPendingLogs(testDb!, { integrationId, maxAttempts: 3, batchSize: 1 });
+      await processPendingLogs(testDb!, { integrationId, adapter: puduAdapter, maxAttempts: 3, batchSize: 1 });
     }
     const updated = await testDb!.integrationLog.findUniqueOrThrow({ where: { logId: log.logId } });
     expect(updated.attempts).toBe(3);
@@ -306,7 +307,7 @@ describe.skipIf(!hasTestDatabase())("worker PUDU: processPendingLogs", () => {
       where: { logId: log.logId },
       data: { nextAttemptAt: new Date(Date.now() - 1000) },
     });
-    const result = await processPendingLogs(testDb!, { integrationId, maxAttempts: 3, batchSize: 1 });
+    const result = await processPendingLogs(testDb!, { integrationId, adapter: puduAdapter, maxAttempts: 3, batchSize: 1 });
     expect(result.processed).toBe(0);
   });
 
@@ -314,8 +315,8 @@ describe.skipIf(!hasTestDatabase())("worker PUDU: processPendingLogs", () => {
     await enqueue("robotBinding", { sn: "SYN0013", shop_id: "1004" });
 
     const [a, b] = await Promise.all([
-      processPendingLogs(testDb!, { integrationId, maxAttempts: 5, batchSize: 1 }),
-      processPendingLogs(testDb!, { integrationId, maxAttempts: 5, batchSize: 1 }),
+      processPendingLogs(testDb!, { integrationId, adapter: puduAdapter, maxAttempts: 5, batchSize: 1 }),
+      processPendingLogs(testDb!, { integrationId, adapter: puduAdapter, maxAttempts: 5, batchSize: 1 }),
     ]);
 
     expect(a.processed + b.processed).toBe(1);

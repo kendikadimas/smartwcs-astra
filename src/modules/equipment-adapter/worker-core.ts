@@ -1,5 +1,5 @@
-import type { PrismaClient } from "../../../generated/prisma/client";
-import { parsers } from "./parsers";
+import type { PrismaClient } from "../../generated/prisma/client";
+import type { EquipmentAdapter } from "./contract";
 
 interface ClaimedLog {
   logId: string;
@@ -29,10 +29,14 @@ export interface ProcessResult {
  * mengambil baris yang sama (ADR Section 9.2). Setiap baris diproses dalam
  * transaksinya sendiri (bukan satu transaksi untuk seluruh batch) supaya
  * lock-nya dilepas secepat baris itu selesai.
+ *
+ * Netral vendor: dispatch ke `adapter.handleInbound()` (bukan mengimpor
+ * parser vendor tertentu) -- satu fungsi ini jalan untuk adapter manapun
+ * yang diberi lewat `options.adapter`.
  */
 export async function processPendingLogs(
   prisma: PrismaClient,
-  options: { integrationId: string; maxAttempts: number; batchSize?: number },
+  options: { integrationId: string; adapter: EquipmentAdapter; maxAttempts: number; batchSize?: number },
 ): Promise<ProcessResult> {
   const batchSize = options.batchSize ?? 10;
   const result: ProcessResult = { processed: 0, succeeded: 0, failed: 0 };
@@ -58,13 +62,15 @@ export async function processPendingLogs(
       const row = rows[0];
       if (!row) return null;
 
-      const parser = parsers[row.messageType];
       try {
-        if (!parser) {
-          throw new Error(`Tidak ada parser untuk callback_type "${row.messageType}"`);
-        }
         const payload = row.payload as { data?: unknown } | null;
-        await parser({ tx, integrationLogId: row.logId, occurredAt: row.occurredAt, data: payload?.data });
+        await options.adapter.handleInbound(tx, {
+          kind: "queued",
+          messageType: row.messageType,
+          data: payload?.data,
+          integrationLogId: row.logId,
+          occurredAt: row.occurredAt,
+        });
         await tx.integrationLog.update({
           where: { logId: row.logId },
           data: { status: "SUCCESS", processedAt: new Date() },

@@ -1,122 +1,94 @@
 import { NextResponse } from "next/server";
-import { z } from "zod";
-import { env } from "@/lib/env";
-import { logger } from "@/lib/logger";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api-response";
-import { verifyCallbackCode } from "@/modules/equipment-adapter/pudu/callback-auth";
-import { getPuduIntegration } from "@/modules/equipment-adapter/pudu/integration";
-import { handleNotifyRobotPose, notifyRobotPoseSchema } from "@/modules/equipment-adapter/pudu/pose";
+import "@/modules/equipment-adapter/adapters";
+import { getAdapter, findIntegrationForAdapterKey } from "@/modules/equipment-adapter/registry";
 
-// Envelope minimal callback PUDU (PUDU_INTEGRATION.md bagian 4):
-// { "callback_type": "...", "data": { ... } }. Field lain diabaikan di sini --
-// parsing detail per callback_type dilakukan worker (Fase 2).
-const callbackEnvelopeSchema = z
-  .object({
-    callback_type: z.string().min(1),
-    data: z.unknown().optional(),
-  })
-  .passthrough();
+// URL ini sudah didaftarkan ke PUDU (tidak boleh pindah), tapi isinya tidak
+// lagi mengimpor kode PUDU langsung -- lewat registri adapter supaya rute
+// ini bisa dipakai pola yang sama untuk vendor lain nanti.
+const ADAPTER_KEY = "pudu";
 
 export async function POST(request: Request) {
-  if (!env.PUDU_CALLBACK_CODE) {
-    logger.warn("callback PUDU ditolak: PUDU_CALLBACK_CODE belum diset");
-    return apiError(503, "PUDU_NOT_CONFIGURED", "Integrasi PUDU belum dikonfigurasi");
+  const adapter = getAdapter(ADAPTER_KEY);
+  if (!adapter) {
+    return apiError(503, "ADAPTER_NOT_REGISTERED", "Adapter belum terdaftar");
   }
 
-  const integration = await getPuduIntegration(db);
+  const integration = await findIntegrationForAdapterKey(db, adapter.key);
   if (!integration) {
-    logger.warn("callback PUDU ditolak: baris Integration PUDU belum ada (jalankan seed)");
     return apiError(503, "PUDU_NOT_CONFIGURED", "Integrasi PUDU belum dikonfigurasi");
   }
 
-  const traceId = request.headers.get("TraceId");
-  const callbackCodeValid = verifyCallbackCode(
-    request.headers.get("CallbackCode"),
-    env.PUDU_CALLBACK_CODE,
-  );
-  const occurredAt = new Date();
-
-  if (!callbackCodeValid) {
-    await db.integrationLog.createMany({
-      data: [
-        {
-          integrationId: integration.integrationId,
-          direction: "INBOUND",
-          status: "IGNORED",
-          traceId,
-          messageType: "UNKNOWN",
-          payload: {},
-          callbackCodeValid: false,
-          errorMessage: "CallbackCode tidak valid",
-          occurredAt,
-        },
-      ],
-      skipDuplicates: true,
-    });
-    logger.warn({ traceId }, "callback PUDU ditolak: CallbackCode tidak valid");
-    return apiError(401, "INVALID_CALLBACK_CODE", "CallbackCode tidak valid");
-  }
-
+  const headers: Record<string, string | null> = {};
+  for (const [key, value] of request.headers.entries()) headers[key] = value;
   const rawBody = await request.text();
-  let body: unknown = null;
-  try {
-    body = rawBody ? JSON.parse(rawBody) : null;
-  } catch {
-    body = null;
+  const receivedAt = new Date();
+
+  const result = await adapter.handleInbound(db, { kind: "raw", headers, rawBody, receivedAt });
+
+  switch (result.kind) {
+    case "unavailable":
+      return apiError(503, "PUDU_NOT_CONFIGURED", result.reason);
+
+    case "unauthorized":
+      await db.integrationLog.createMany({
+        data: [
+          {
+            integrationId: integration.integrationId,
+            direction: "INBOUND",
+            status: "IGNORED",
+            traceId: result.traceId,
+            messageType: "UNKNOWN",
+            payload: {},
+            callbackCodeValid: false,
+            errorMessage: result.reason,
+            occurredAt: receivedAt,
+          },
+        ],
+        skipDuplicates: true,
+      });
+      return apiError(401, "INVALID_CALLBACK_CODE", result.reason);
+
+    case "invalid":
+      await db.integrationLog.createMany({
+        data: [
+          {
+            integrationId: integration.integrationId,
+            direction: "INBOUND",
+            status: "IGNORED",
+            traceId: result.traceId,
+            messageType: "UNKNOWN",
+            payload: result.payload && typeof result.payload === "object" ? (result.payload as object) : {},
+            callbackCodeValid: true,
+            errorMessage: result.reason,
+            occurredAt: receivedAt,
+          },
+        ],
+        skipDuplicates: true,
+      });
+      return NextResponse.json({ status: "ignored" }, { status: 200 });
+
+    case "queue":
+      await db.integrationLog.createMany({
+        data: [
+          {
+            integrationId: integration.integrationId,
+            direction: "INBOUND",
+            status: "PENDING",
+            traceId: result.traceId,
+            messageType: result.messageType,
+            payload: result.payload as object,
+            callbackCodeValid: true,
+            occurredAt: receivedAt,
+          },
+        ],
+        skipDuplicates: true,
+      });
+      return NextResponse.json({ status: "ok" }, { status: 200 });
+
+    case "handled":
+    case "processed":
+      return NextResponse.json({ status: "ok" }, { status: 200 });
   }
-
-  const parsedEnvelope = callbackEnvelopeSchema.safeParse(body);
-  if (!parsedEnvelope.success) {
-    await db.integrationLog.createMany({
-      data: [
-        {
-          integrationId: integration.integrationId,
-          direction: "INBOUND",
-          status: "IGNORED",
-          traceId,
-          messageType: "UNKNOWN",
-          payload: body && typeof body === "object" ? (body as object) : { raw: rawBody },
-          callbackCodeValid: true,
-          errorMessage: "Body bukan JSON valid atau callback_type kosong",
-          occurredAt,
-        },
-      ],
-      skipDuplicates: true,
-    });
-    logger.warn({ traceId }, "callback PUDU diabaikan: payload tidak valid");
-    return NextResponse.json({ status: "ignored" }, { status: 200 });
-  }
-
-  const { callback_type: callbackType, data } = parsedEnvelope.data;
-
-  // Pengecualian notifyRobotPose: frekuensi tinggi, upsert langsung tanpa
-  // lewat antrean IntegrationLog (PUDU_INTEGRATION.md bagian 4 poin 5).
-  if (callbackType === "notifyRobotPose") {
-    const parsedPose = notifyRobotPoseSchema.safeParse(data);
-    if (parsedPose.success) {
-      await handleNotifyRobotPose(db, parsedPose.data);
-    } else {
-      logger.warn({ traceId }, "notifyRobotPose diabaikan: data tidak valid");
-    }
-    return NextResponse.json({ status: "ok" }, { status: 200 });
-  }
-
-  await db.integrationLog.createMany({
-    data: [
-      {
-        integrationId: integration.integrationId,
-        direction: "INBOUND",
-        status: "PENDING",
-        traceId,
-        messageType: callbackType,
-        payload: parsedEnvelope.data as object,
-        callbackCodeValid: true,
-        occurredAt,
-      },
-    ],
-    skipDuplicates: true,
-  });
-
-  return NextResponse.json({ status: "ok" }, { status: 200 });
 }

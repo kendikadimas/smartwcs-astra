@@ -59,6 +59,28 @@ export async function createTaskFixture(
   });
 }
 
+/**
+ * Baris Integration generik untuk test -- dipakai test di luar folder
+ * adapter vendor manapun (lihat eslint.config.mjs no-restricted-imports),
+ * supaya tidak perlu mengimpor seed khas vendor (mis. seedPuduIntegration).
+ * `name` dicocokkan ke kunci adapter di registry.ts tidak peka huruf besar.
+ */
+export async function createIntegrationFixture(
+  prisma: PrismaClient,
+  opts: { name: string; systemType?: string; protocol?: string },
+) {
+  return prisma.integration.create({
+    data: {
+      systemType: opts.systemType ?? "RCS",
+      name: opts.name,
+      protocol: opts.protocol ?? "REST",
+      endpointUrl: "https://example.invalid",
+      credentials: {},
+      status: "DISCONNECTED",
+    },
+  });
+}
+
 export async function createMissionFixture(
   prisma: PrismaClient,
   opts: { taskId: string; robotId: string; status?: string },

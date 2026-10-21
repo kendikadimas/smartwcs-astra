@@ -1,6 +1,6 @@
 import { afterAll, afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestDb, hasTestDatabase, truncateAll } from "@/test/db";
-import { seedPuduIntegration } from "@/modules/equipment-adapter/pudu/integration";
+import { createIntegrationFixture } from "@/test/fixtures";
 
 const ORIGINAL_ENV = { ...process.env };
 const CALLBACK_CODE = "test-callback-code-32-bytes-long!!";
@@ -27,7 +27,7 @@ describe.skipIf(!hasTestDatabase())("POST /api/integrations/pudu/callback", () =
     process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
     process.env.PUDU_CALLBACK_CODE = CALLBACK_CODE;
     await truncateAll(testDb!);
-    await seedPuduIntegration(testDb!);
+    await createIntegrationFixture(testDb!, { name: "PUDU" });
   });
 
   afterEach(() => {
