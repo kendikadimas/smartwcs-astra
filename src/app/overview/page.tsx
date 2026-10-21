@@ -114,7 +114,7 @@ PLC: Connected
       {/* Row 1: Six KPI Cards */}
       <KpiCards metrics={mockOverviewMetrics} />
 
-      {/* Row 2: Warehouse Schematic + Robot Fleet Table + Equipment & Integration Panel */}
+      {/* Row 2: Warehouse Schematic + Robot Fleet Status + Equipment & Integration Panel */}
       <div className="overview-grid-row2">
         {/* Left: Warehouse Schematic */}
         <WarehouseSchematic />
@@ -123,32 +123,25 @@ PLC: Connected
         <RobotFleetTable fleet={mockRobotFleet} />
 
         {/* Right: Equipment Health + Integration Adapters Stack */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', height: '100%' }}>
           <EquipmentHealth categories={mockEquipmentHealth} />
           <IntegrationAdapters adapters={mockIntegrationAdapters} />
         </div>
       </div>
 
-      {/* Row 3: Active Tasks Table + Task Distribution Horizontal Bar Chart */}
+      {/* Row 3: Active Tasks + Task Distribution + Task Completion Trend */}
       <div className="overview-grid-row3">
         <ActiveTasksMini tasks={mockActiveTasksMini} />
         <TaskDistributionChart distribution={mockTaskDistribution} />
-      </div>
-
-      {/* Row 4: Recent Events + Active Alarms + Task Completion Trend Chart */}
-      <div className="overview-grid-row4">
-        <RecentEventsList events={mockRecentEvents} />
-        <ActiveAlarmsList alarms={mockActiveAlarms} />
         <TaskCompletionTrend data={mockHourlyCompletion} />
       </div>
 
       {/* Footer Operational Boundary Disclaimer */}
       <div className="footer-disclaimer">
         <span>
-          WCS coordinates tasks & dispatch. WMS: inventory · RCS: robot execution · PLC: equipment
-          control · Safety authority remains external.
+          WCS coordinates tasks &amp; dispatch, WMS: inventory · RCS: robot execution · PLC: equipment control · Safety authority remains external.
         </span>
-        <span className="demo-snapshot-tag">DEMO SNAPSHOT</span>
+        <span className="demo-snapshot-tag">DEMO SNAPSHOT · 16 Jun 2025, 10:24:15 WIB</span>
       </div>
     </AppShell>
   );

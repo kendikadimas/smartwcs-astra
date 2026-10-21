@@ -1,72 +1,91 @@
+'use client';
+
 import React from 'react';
+import Link from 'next/link';
 import { TaskMetrics } from '@/types/task';
-import { ClipboardCheck, Clock, PlayCircle, AlertTriangle, ArrowUp } from 'lucide-react';
+import {
+  ClipboardCheck,
+  Clock,
+  PlayCircle,
+  AlertTriangle,
+  ChevronRight,
+} from 'lucide-react';
 
 interface TaskKpisProps {
   metrics: TaskMetrics;
 }
 
 export function TaskKpis({ metrics }: TaskKpisProps) {
+  const cards = [
+    {
+      title: 'Total Tasks',
+      value: metrics.total,
+      subtext: `+${metrics.totalChangePercent}% vs. previous day`,
+      theme: 'theme-blue',
+      icon: ClipboardCheck,
+      href: '/tasks',
+    },
+    {
+      title: 'Queued',
+      value: metrics.queued,
+      subtext: `${metrics.queuedPercent}% of total tasks`,
+      theme: 'theme-orange',
+      icon: Clock,
+      href: '/tasks?status=Queued',
+    },
+    {
+      title: 'Running',
+      value: metrics.running,
+      subtext: `${metrics.runningPercent}% of total tasks`,
+      theme: 'theme-green',
+      icon: PlayCircle,
+      href: '/tasks?status=Running',
+    },
+    {
+      title: 'Failed',
+      value: metrics.failed,
+      subtext: `${metrics.failedPercent}% of total tasks`,
+      theme: 'theme-rose',
+      icon: AlertTriangle,
+      href: '/alarms',
+    },
+  ];
+
   return (
     <div className="kpi-grid-4">
-      {/* 1. Total Tasks */}
-      <div className="kpi-card kpi-card-with-icon">
-        <div className="kpi-icon-box blue">
-          <ClipboardCheck size={22} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <span className="kpi-title">Total tasks</span>
-          <div className="kpi-value">{metrics.total}</div>
-          <div className="kpi-subtext">
-            <span className="kpi-delta-up" style={{ display: 'inline-flex', alignItems: 'center', gap: '2px' }}>
-              <ArrowUp size={11} />+{metrics.totalChangePercent}%
-            </span>
-            <span>vs. previous day</span>
-          </div>
-        </div>
-      </div>
+      {cards.map((card) => {
+        const Icon = card.icon;
+        return (
+          <div key={card.title} className={`gradient-card ${card.theme}`}>
+            {/* Background Decorative Concentric Circles */}
+            <div className="card-decor-circles" aria-hidden="true">
+              <svg viewBox="0 0 160 160" fill="none" xmlns="http://www.w3.org/2000/svg">
+                <circle cx="130" cy="130" r="115" fill="white" fillOpacity="0.08" />
+                <circle cx="130" cy="130" r="80" fill="white" fillOpacity="0.12" />
+                <circle cx="130" cy="130" r="48" fill="white" fillOpacity="0.16" />
+              </svg>
+            </div>
 
-      {/* 2. Queued */}
-      <div className="kpi-card kpi-card-with-icon">
-        <div className="kpi-icon-box amber">
-          <Clock size={22} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <span className="kpi-title">Queued</span>
-          <div className="kpi-value">{metrics.queued}</div>
-          <div className="kpi-subtext">
-            <span>{metrics.queuedPercent}% of total tasks</span>
-          </div>
-        </div>
-      </div>
+            {/* Top Bar: Icon + View Detail */}
+            <div className="gradient-card-header">
+              <div className="gradient-card-icon-wrap">
+                <Icon size={17} />
+              </div>
+              <Link href={card.href} className="gradient-card-view-btn">
+                <span>View Detail</span>
+                <ChevronRight size={12} />
+              </Link>
+            </div>
 
-      {/* 3. Running */}
-      <div className="kpi-card kpi-card-with-icon">
-        <div className="kpi-icon-box blue">
-          <PlayCircle size={22} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <span className="kpi-title">Running</span>
-          <div className="kpi-value">{metrics.running}</div>
-          <div className="kpi-subtext">
-            <span>{metrics.runningPercent}% of total tasks</span>
+            {/* Card Body */}
+            <div className="gradient-card-body">
+              <div className="gradient-card-title">{card.title}</div>
+              <div className="gradient-card-value">{card.value}</div>
+              <div className="gradient-card-subtext">{card.subtext}</div>
+            </div>
           </div>
-        </div>
-      </div>
-
-      {/* 4. Failed */}
-      <div className="kpi-card kpi-card-with-icon">
-        <div className="kpi-icon-box red">
-          <AlertTriangle size={22} />
-        </div>
-        <div style={{ flex: 1 }}>
-          <span className="kpi-title">Failed</span>
-          <div className="kpi-value">{metrics.failed}</div>
-          <div className="kpi-subtext">
-            <span>{metrics.failedPercent}% of total tasks</span>
-          </div>
-        </div>
-      </div>
+        );
+      })}
     </div>
   );
 }
