@@ -5,6 +5,10 @@ import { z } from "zod";
 // adapter PUDU / Better Auth benar-benar dibuat.
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
+  // Database terpisah untuk test integrasi (Vitest), supaya test tidak
+  // menulis ke database dev. Opsional: test integrasi yang butuh ini skip
+  // sendiri kalau kosong (lihat src/test/db.ts).
+  TEST_DATABASE_URL: z.string().optional(),
   PORT: z.coerce.number().int().positive().default(3000),
   NODE_ENV: z.enum(["development", "production", "test"]).default("development"),
   LOG_LEVEL: z
