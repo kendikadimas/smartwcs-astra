@@ -432,47 +432,15 @@ export default function DispatchExecutionPage() {
           }}
         >
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <h1 className="page-title" style={{ margin: 0 }}>
-                Dispatch & Execution
-              </h1>
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  padding: '2px 8px',
-                  borderRadius: '12px',
-                  backgroundColor: '#e0f2fe',
-                  color: '#0369a1',
-                  border: '1px solid #bae6fd',
-                }}
-              >
-                FR-03 Fleet Coordination
-              </span>
-            </div>
+            <h1 className="page-title" style={{ margin: 0, marginBottom: '4px' }}>
+              Dispatch & Execution
+            </h1>
             <p className="page-subtitle" style={{ margin: 0 }}>
               Real-time mission coordination for PUDU AMRs, AGVs, and automated material handling equipment via RCS & PLC adapters.
             </p>
           </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            {/* Auto-Dispatch Engine Indicator Pill */}
-            <div
-              style={{
-                display: 'flex',
-                alignItems: 'center',
-                padding: '6px 14px',
-                backgroundColor: isEngineActive ? '#f0fdf4' : '#fffbeb',
-                border: isEngineActive ? '1px solid #bbf7d0' : '1px solid #fde68a',
-                borderRadius: '20px',
-                fontSize: '12px',
-                fontWeight: 600,
-                color: isEngineActive ? '#15803d' : '#b45309',
-              }}
-            >
-              <span>{isEngineActive ? 'Auto-Dispatch Online' : 'Engine Paused'}</span>
-            </div>
-
             {/* Export CSV Button */}
             <button
               type="button"
@@ -561,11 +529,32 @@ export default function DispatchExecutionPage() {
                 onOpenAbortModal={(mission) => setAbortTargetMission(mission)}
                 onQuickAssign={handleQuickAssign}
               />
+
+              {/* Panel Footer Summary */}
+              <div
+                style={{
+                  padding: '10px 18px',
+                  borderTop: '1px solid #f1f5f9',
+                  backgroundColor: '#fafbfc',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  fontSize: '11.5px',
+                  color: '#64748b',
+                }}
+              >
+                <span>Showing {filteredMissions.length} active execution missions</span>
+                <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                  <span>Auto-Dispatch scheduler: 10s cycle</span>
+                  <span style={{ color: '#cbd5e1' }}>&bull;</span>
+                  <span>RCS &amp; PLC Telemetry: Connected</span>
+                </div>
+              </div>
             </div>
           </div>
 
-          {/* Right Column: Fleet Allocator & Equipment Status Panel */}
-          <div>
+          {/* Right Column: Fleet Allocator & Equipment Status Panel (Sticky on scroll) */}
+          <div style={{ position: 'sticky', top: '16px' }}>
             <FleetAllocatorPanel
               fleet={fleet}
               equipment={equipment}

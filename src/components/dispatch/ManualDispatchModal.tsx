@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import {
   DispatchMission,
   FleetResourceItem,
@@ -33,6 +34,12 @@ export function ManualDispatchModal({
   preselectedRobotId,
   onConfirmDispatch,
 }: ManualDispatchModalProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [selectedMissionId, setSelectedMissionId] = useState<string>(
     queuedMissions.length > 0 ? queuedMissions[0].id : ''
   );
@@ -41,7 +48,7 @@ export function ManualDispatchModal({
   );
   const [reason, setReason] = useState<string>('Supervisor manual dispatch override');
 
-  if (!isOpen) return null;
+  if (!isOpen || !mounted) return null;
 
   const currentMission = queuedMissions.find((m) => m.id === selectedMissionId) || queuedMissions[0];
   const currentRobot = availableRobots.find((r) => r.id === selectedRobotId) || availableRobots[0];
@@ -57,14 +64,14 @@ export function ManualDispatchModal({
     onClose();
   };
 
-  return (
+  return createPortal(
     <div
       style={{
         position: 'fixed',
         inset: 0,
         backgroundColor: 'rgba(15, 23, 42, 0.45)',
         backdropFilter: 'blur(3px)',
-        zIndex: 60,
+        zIndex: 1100,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -297,6 +304,7 @@ export function ManualDispatchModal({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

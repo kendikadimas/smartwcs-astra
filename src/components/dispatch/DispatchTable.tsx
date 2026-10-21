@@ -55,18 +55,8 @@ export function DispatchTable({
   }
 
   return (
-    <div
-      className="panel"
-      style={{
-        backgroundColor: '#ffffff',
-        border: '1px solid var(--border-subtle)',
-        borderRadius: 'var(--radius-xl)',
-        overflow: 'hidden',
-        boxShadow: 'var(--shadow-xs)',
-      }}
-    >
-      <div className="data-table-wrapper" style={{ overflowX: 'auto' }}>
-        <table className="data-table" style={{ width: '100%', minWidth: '800px' }}>
+    <div className="data-table-wrapper" style={{ overflowX: 'auto', width: '100%' }}>
+      <table className="data-table" style={{ width: '100%', minWidth: '800px' }}>
           <thead>
             <tr>
               <th style={{ width: '14%' }}>MISSION / TASK</th>
@@ -354,6 +344,5 @@ export function DispatchTable({
           </tbody>
         </table>
       </div>
-    </div>
   );
 }

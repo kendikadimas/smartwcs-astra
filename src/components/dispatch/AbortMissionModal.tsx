@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { DispatchMission } from '@/types/dispatch';
 import {
   AlertTriangle,
@@ -31,11 +32,17 @@ export function AbortMissionModal({
   mission,
   onConfirmAbort,
 }: AbortMissionModalProps) {
+  const [mounted, setMounted] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
+
   const [actionType, setActionType] = useState<'Abort' | 'Requeue' | 'EmergencyStop'>('Abort');
   const [reason, setReason] = useState<string>('Physical path obstacle / blocked aisle');
   const [customNote, setCustomNote] = useState<string>('');
 
-  if (!isOpen || !mission) return null;
+  if (!isOpen || !mission || !mounted) return null;
 
   const reasonOptions = [
     'Physical path obstacle / blocked aisle',
@@ -53,7 +60,7 @@ export function AbortMissionModal({
     onClose();
   };
 
-  return (
+  return createPortal(
     <div
       style={{
         position: 'fixed',
@@ -446,6 +453,7 @@ export function AbortMissionModal({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }
