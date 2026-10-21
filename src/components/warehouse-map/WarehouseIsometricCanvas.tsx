@@ -63,6 +63,19 @@ export function WarehouseIsometricCanvas({
   const lastMousePosRef = useRef({ x: 0, y: 0 });
   const pulseOffsetRef = useRef(0);
 
+  // Preload 3D Claymorphic Warehouse Digital Twin Image
+  const clayImageRef = useRef<HTMLImageElement | null>(null);
+  const [imageLoaded, setImageLoaded] = useState(false);
+
+  useEffect(() => {
+    const img = new Image();
+    img.src = '/images/warehouse_clay_isometric.jpg';
+    img.onload = () => {
+      clayImageRef.current = img;
+      setImageLoaded(true);
+    };
+  }, []);
+
   // Selected Robot
   const selectedRobot = robots.find((r) => r.id === selectedRobotId) || robots[1];
 
@@ -148,21 +161,42 @@ export function WarehouseIsometricCanvas({
     [viewMode, TILE_W, TILE_H]
   );
 
-  // Inverse Coordinate Conversion: Screen (x, y) -> Grid (gx, gy)
-  const screenToGrid = useCallback(
-    (sx: number, sy: number) => {
+  // Calibrated World Position of Robots
+  const getRobotWorldPos = useCallback(
+    (robotId: string, robotState: WarehouseRobot, pulse: number) => {
       if (viewMode === 'Top') {
-        const scale = 22;
-        return { gx: sx / scale, gy: sy / scale };
+        return gridToScreen(robotState.gx, robotState.gy);
       }
-      const gx = sx / TILE_W + sy / TILE_H;
-      const gy = sy / TILE_H - sx / TILE_W;
-      return { gx, gy };
+      // Calibrated positions on 3D claymorphic warehouse asset (1376x768 center (0,0))
+      switch (robotId) {
+        case 'AMR-01':
+          return { x: -370, y: 115 };
+        case 'AMR-02': {
+          const t = (Math.sin(pulse * Math.PI * 2) + 1) / 2;
+          return {
+            x: -210 + t * 150,
+            y: 95 + t * 50,
+          };
+        }
+        case 'AMR-03':
+          return { x: -160, y: 225 };
+        case 'AMR-04':
+          return { x: 185, y: 95 };
+        case 'PUDU-001': {
+          const t = (Math.cos(pulse * Math.PI * 2) + 1) / 2;
+          return {
+            x: 40 + t * 150,
+            y: 135 + t * 60,
+          };
+        }
+        default:
+          return { x: 0, y: 0 };
+      }
     },
-    [viewMode, TILE_W, TILE_H]
+    [viewMode, gridToScreen]
   );
 
-  // Center Camera: Fits entire warehouse from left door to right trucks perfectly in view
+  // Center Camera: Fits entire warehouse from left racks to right dock perfectly in view
   const resetCamera = useCallback(() => {
     if (!containerRef.current) return;
     const { clientWidth, clientHeight } = containerRef.current;
@@ -190,18 +224,14 @@ export function WarehouseIsometricCanvas({
       return;
     }
 
-    // 2.5D Isometric Mode
-    // Screen bounds of entire warehouse in isometric units:
-    // Min SX = -650, Max SX = +780 -> Width = 1430px, Center X = +65px
-    // Min SY = -85, Max SY = +720 -> Height = 805px, Center Y = +317px
-
-    const idealZoom = Math.min(availW / 1460, availH / 840, 1.2) * 0.96;
+    // 2.5D Isometric Mode (Centered on 1376x768 3D claymorphic digital twin)
+    const idealZoom = Math.min(availW / 1376, availH / 768, 1.2) * 0.95;
     const targetScreenX = leftControlsW + availW / 2;
     const targetScreenY = 16 + availH / 2;
 
     setCamera({
-      x: targetScreenX - 65 * idealZoom,
-      y: targetScreenY - 317 * idealZoom,
+      x: targetScreenX,
+      y: targetScreenY,
       zoom: idealZoom,
     });
   }, [viewMode]);
@@ -262,9 +292,9 @@ export function WarehouseIsometricCanvas({
     const worldY = (clickY - camera.y) / camera.zoom;
 
     robots.forEach((robot) => {
-      const pos = gridToScreen(robot.gx, robot.gy);
+      const pos = getRobotWorldPos(robot.id, robot, pulseOffsetRef.current);
       const dist = Math.hypot(worldX - pos.x, worldY - pos.y);
-      if (dist < 34) {
+      if (dist < 36) {
         onSelectRobot(robot.id);
       }
     });
