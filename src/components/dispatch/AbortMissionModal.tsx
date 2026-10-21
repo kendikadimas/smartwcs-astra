@@ -201,7 +201,7 @@ export function AbortMissionModal({
               <span style={{ fontWeight: 500 }}>{mission.origin}</span>
               <ArrowRight size={12} style={{ color: '#94a3b8' }} />
               <span style={{ fontWeight: 500 }}>{mission.destination}</span>
-              <span style={{ color: '#94a3b8' }}>•</span>
+              <span style={{ color: '#cbd5e1' }}>/</span>
               <span style={{ color: '#64748b' }}>Waypoint: {mission.currentWaypoint}</span>
             </div>
           </div>

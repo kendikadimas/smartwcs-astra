@@ -228,7 +228,7 @@ export function DispatchTable({
                             <span style={{ color: battColor, fontWeight: 600, display: 'inline-flex', alignItems: 'center', gap: '3px' }}>
                               <Battery size={11} /> {batt}%
                             </span>
-                            <span style={{ color: '#94a3b8' }}>•</span>
+                            <span style={{ color: '#cbd5e1' }}>/</span>
                             <span style={{ color: '#64748b' }}>{mission.speedMps} m/s</span>
                           </div>
                         )}
@@ -254,8 +254,7 @@ export function DispatchTable({
                           style={{
                             display: 'inline-flex',
                             alignItems: 'center',
-                            gap: '4px',
-                            padding: '1.5px 7px',
+                            padding: '2px 8px',
                             borderRadius: '12px',
                             fontSize: '10.5px',
                             fontWeight: 600,
@@ -264,14 +263,6 @@ export function DispatchTable({
                             color: badgeColor,
                           }}
                         >
-                          <span
-                            style={{
-                              width: '5px',
-                              height: '5px',
-                              borderRadius: '50%',
-                              backgroundColor: badgeColor,
-                            }}
-                          />
                           {mission.dispatchStatus}
                         </span>
 

@@ -461,8 +461,7 @@ export default function DispatchExecutionPage() {
               style={{
                 display: 'flex',
                 alignItems: 'center',
-                gap: '8px',
-                padding: '6px 12px',
+                padding: '6px 14px',
                 backgroundColor: isEngineActive ? '#f0fdf4' : '#fffbeb',
                 border: isEngineActive ? '1px solid #bbf7d0' : '1px solid #fde68a',
                 borderRadius: '20px',
@@ -471,15 +470,6 @@ export default function DispatchExecutionPage() {
                 color: isEngineActive ? '#15803d' : '#b45309',
               }}
             >
-              <span
-                style={{
-                  width: '8px',
-                  height: '8px',
-                  borderRadius: '50%',
-                  backgroundColor: isEngineActive ? '#22c55e' : '#f59e0b',
-                  boxShadow: isEngineActive ? '0 0 0 3px rgba(34, 197, 94, 0.25)' : 'none',
-                }}
-              />
               <span>{isEngineActive ? 'Auto-Dispatch Online' : 'Engine Paused'}</span>
             </div>
 

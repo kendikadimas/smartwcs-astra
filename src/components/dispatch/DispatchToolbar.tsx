@@ -177,8 +177,7 @@ export function DispatchToolbar({
             style={{
               display: 'inline-flex',
               alignItems: 'center',
-              gap: '7px',
-              padding: '6.5px 12px',
+              padding: '6.5px 14px',
               borderRadius: 'var(--radius-lg)',
               border: `1px solid ${isEngineActive ? '#a7f3d0' : '#fed7aa'}`,
               backgroundColor: isEngineActive ? '#ecfdf5' : '#fff7ed',
@@ -190,15 +189,6 @@ export function DispatchToolbar({
             }}
             title={isEngineActive ? 'Click to Pause Auto-Dispatch Engine' : 'Click to Resume Auto-Dispatch Engine'}
           >
-            <span
-              style={{
-                width: '7px',
-                height: '7px',
-                borderRadius: '50%',
-                backgroundColor: isEngineActive ? '#10b981' : '#f97316',
-                boxShadow: isEngineActive ? '0 0 6px #10b981' : 'none',
-              }}
-            />
             <span>{isEngineActive ? 'Engine: Active' : 'Engine: Paused'}</span>
           </button>
 
