@@ -10,6 +10,14 @@ export type DispatchStatus =
   | 'Suspended'
   | 'Aborted';
 
+export interface DispatchTaskStop {
+  seq: number;
+  pointName: string;
+  status: 'Pending' | 'Heading' | 'Arrived' | 'Departed';
+  arrivedAt?: string;
+  rawDurationSec?: number;
+}
+
 export interface DispatchMission {
   id: string; // e.g., 'DSP-101'
   taskId: string; // e.g., 'T-001'
@@ -36,6 +44,15 @@ export interface DispatchMission {
   adapterChannel: 'RCS / PUDU Cloud API' | 'PLC Modbus TCP' | 'PLC OPC UA' | 'Internal Adapter';
   isManualDispatch: boolean;
   overrideReason?: string;
+
+  // Backend ERD / Vendor Data Alignment (from docs/Data per menu dashboard WCS)
+  externalMissionId?: string; // PuduTask.id or vendor mission ID
+  attempt?: number; // Mission.attempt
+  queueNo?: number; // PuduTask.queueNo
+  isOverTime?: boolean; // PuduTask.isOverTime
+  robotResponseCode?: string; // PuduTask.robotResponseCode (e.g. '0: SUCCESS_ACK')
+  robotResponseMessage?: string; // PuduTask.robotResponseMessage
+  stops?: DispatchTaskStop[]; // PuduTaskStop sequence
 }
 
 export interface DispatchMetrics {

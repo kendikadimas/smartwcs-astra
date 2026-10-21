@@ -246,7 +246,120 @@ export function DispatchDetailDrawer({
                 <span style={{ color: '#64748b' }}>Adapter Channel:</span>
                 <div style={{ fontWeight: 600, color: '#2563eb' }}>{mission.adapterChannel}</div>
               </div>
+              {mission.externalMissionId && (
+                <div>
+                  <span style={{ color: '#64748b' }}>Vendor Mission ID:</span>
+                  <div style={{ fontWeight: 600, color: '#0f172a' }}>{mission.externalMissionId}</div>
+                </div>
+              )}
+              {mission.attempt !== undefined && (
+                <div>
+                  <span style={{ color: '#64748b' }}>Dispatch Attempt:</span>
+                  <div style={{ fontWeight: 600, color: '#0f172a' }}>Attempt #{mission.attempt}</div>
+                </div>
+              )}
             </div>
+
+            {/* Vendor Robot Response */}
+            {mission.robotResponseCode && (
+              <div
+                style={{
+                  marginTop: '4px',
+                  padding: '8px 10px',
+                  backgroundColor: '#f1f5f9',
+                  borderRadius: '6px',
+                  fontSize: '11px',
+                  border: '1px solid #e2e8f0',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+                  <span style={{ fontWeight: 600, color: '#334155' }}>Robot Response:</span>
+                  <span
+                    style={{
+                      fontFamily: 'monospace',
+                      fontSize: '10px',
+                      padding: '1px 5px',
+                      borderRadius: '4px',
+                      backgroundColor: mission.robotResponseCode.includes('WARN') ? '#fef3c7' : '#dcfce7',
+                      color: mission.robotResponseCode.includes('WARN') ? '#b45309' : '#15803d',
+                      fontWeight: 600,
+                    }}
+                  >
+                    {mission.robotResponseCode}
+                  </span>
+                </div>
+                {mission.robotResponseMessage && (
+                  <div style={{ color: '#64748b' }}>{mission.robotResponseMessage}</div>
+                )}
+              </div>
+            )}
+
+            {/* Waypoint Stops Sequence (PuduTaskStop) */}
+            {mission.stops && mission.stops.length > 0 && (
+              <div style={{ marginTop: '4px' }}>
+                <div style={{ fontSize: '11.5px', fontWeight: 600, color: '#334155', marginBottom: '6px' }}>
+                  Waypoint Stop Sequence (PuduTaskStop):
+                </div>
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '5px' }}>
+                  {mission.stops.map((stop) => {
+                    const isArrived = stop.status === 'Arrived' || stop.status === 'Departed';
+                    const isHeading = stop.status === 'Heading';
+
+                    return (
+                      <div
+                        key={stop.seq}
+                        style={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          padding: '6px 8px',
+                          borderRadius: '4px',
+                          backgroundColor: isHeading ? '#eff6ff' : '#f8fafc',
+                          border: isHeading ? '1px solid #bfdbfe' : '1px solid #e2e8f0',
+                          fontSize: '11px',
+                        }}
+                      >
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                          <span
+                            style={{
+                              width: '18px',
+                              height: '18px',
+                              borderRadius: '50%',
+                              backgroundColor: isArrived ? '#00529C' : isHeading ? '#0284c7' : '#cbd5e1',
+                              color: '#ffffff',
+                              fontSize: '10px',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'center',
+                              fontWeight: 700,
+                            }}
+                          >
+                            {stop.seq}
+                          </span>
+                          <span style={{ fontWeight: isHeading ? 600 : 500, color: '#0f172a' }}>
+                            {stop.pointName}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                          {stop.arrivedAt && (
+                            <span style={{ color: '#64748b', fontSize: '10px' }}>{stop.arrivedAt}</span>
+                          )}
+                          <span
+                            style={{
+                              fontSize: '10px',
+                              fontWeight: 600,
+                              color: isArrived ? '#16a34a' : isHeading ? '#0284c7' : '#94a3b8',
+                            }}
+                          >
+                            {stop.status}
+                          </span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {mission.overrideReason && (
               <div style={{ marginTop: '4px', padding: '8px', backgroundColor: '#fffbeb', borderRadius: '4px', fontSize: '11px', color: '#b45309' }}>
