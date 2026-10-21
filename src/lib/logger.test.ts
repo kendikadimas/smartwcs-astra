@@ -38,6 +38,7 @@ describe("logger", () => {
         apiAppSecret: "app-secret-xyz",
         password: "p4ssw0rd",
         token: "tok-123",
+        callbackCode: "cb-code-xyz",
         username: "alya",
       },
       "test log entry",
@@ -49,6 +50,7 @@ describe("logger", () => {
     expect(output).not.toContain("app-secret-xyz");
     expect(output).not.toContain("p4ssw0rd");
     expect(output).not.toContain("tok-123");
+    expect(output).not.toContain("cb-code-xyz");
     expect(output).toContain("[REDACTED]");
     expect(output).toContain("alya");
   });

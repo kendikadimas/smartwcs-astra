@@ -18,6 +18,8 @@ export const loggerOptions: pino.LoggerOptions = {
       "*.password",
       "token",
       "*.token",
+      "callbackCode",
+      "*.callbackCode",
     ],
     censor: "[REDACTED]",
   },

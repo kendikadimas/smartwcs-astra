@@ -4,6 +4,56 @@ Mencatat perubahan pada `docs/` (ADR, ERD, Functional Boundary, Use Case, RBAC, 
 
 Format: `[file] perubahan` -- dasar perubahan.
 
+## 2026-10-21
+
+### Kontrak adapter netral vendor (refactor `refactor/adapter-contract`)
+
+Backend PUDU yang sudah jalan (`feat/backend-pudu-tanpa-api-key`: callback,
+worker, klien HMAC, pemetaan status, API Task/master data) dirapikan
+supaya PUDU jadi satu implementasi dari kontrak netral, bukan ditempel
+langsung ke route/worker. Refactor murni -- perilaku tidak berubah (tsc 0
+error, eslint tidak naik dari baseline, 84 test lama tetap lolos tanpa
+diubah asersinya).
+
+**`src/modules/equipment-adapter/{contract,types,registry}.ts` (baru)** --
+`EquipmentAdapter` (`dispatch`, `cancel`, `syncResources`, `handleInbound`,
+`capabilities`); tipe hasil netral (status mentah vendor tidak boleh keluar
+dari folder adapter); registri pilih adapter lewat `Robot.vendor` (case-
+insensitive) atau `Integration.name` (bukan kolom rahasia) -- tidak ada
+perubahan skema.
+
+**`pudu/index.ts` (baru)** -- membungkus kode PUDU yang sudah ada (client,
+parsers, status-map, sync) di balik kontrak, tanpa menulis ulang logika.
+`cancelCallTask` ditambahkan ke `client.ts` (dibutuhkan `cancel()`,
+belum ada sebelumnya).
+
+**Layanan netral dipindah keluar dari `pudu/`** -- `src/modules/task/apply-status-change.ts`
+dan `src/modules/event/record-event.ts` (dari `task-status.ts`/`parsers.ts`),
+`src/modules/equipment-adapter/{unknown-location,provision-robot}.ts` (dari
+`unknown-robot.ts`), `src/modules/equipment-adapter/worker-core.ts` (pindah
+dari `pudu/`, sekarang menerima `adapter` lewat parameter alih-alih
+mengimpor dispatch map PUDU langsung).
+
+**ESLint `no-restricted-imports`** -- kode di luar `pudu/` dilarang
+mengimpor dari situ langsung, kecuali `adapters.ts` dan test di dalam
+`pudu/` sendiri.
+
+**`fake/` (baru)** -- adapter tiruan (robot in-memory, tanpa tabel sendiri)
+sebagai bukti kenetralan: `contract.test-suite.ts` dijalankan identik
+terhadap PUDU (mock HTTP) dan fake, plus satu test E2E dengan
+`PUDU_BASE_URL`/`PUDU_API_APP_KEY`/dst dikosongkan total -- POST
+`/api/tasks` -> dispatch lewat registri -> callback fake -> Mission/Task
+berubah status + `TaskStatusHistory` tertulis, tanpa menyentuh PUDU sama
+sekali.
+
+**Dokumen baru** -- `docs/ADAPTER_CONTRACT.md`: operasi kontrak, tipe hasil
+netral, cara registri memilih adapter, langkah menambah vendor baru.
+
+**Tidak dilakukan (sesuai batasan)** -- `prisma/schema.prisma`/migration
+tidak disentuh; tidak ada dependency baru; UI/data mock tidak disentuh;
+Better Auth dan `pg-boss` belum dikerjakan (fase berikutnya, perlu
+persetujuan terpisah).
+
 ## 2026-10-19
 
 ### Stack hardening: Better Auth, worker+pg-boss (keputusan), env/logger/test/Docker (implementasi)
