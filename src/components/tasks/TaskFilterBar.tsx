@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { TaskFilterState, TaskItem } from '@/types/task';
+import { TaskFilterState } from '@/types/task';
 import {
   Search,
   Calendar,

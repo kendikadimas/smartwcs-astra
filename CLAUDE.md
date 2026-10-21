@@ -29,12 +29,14 @@ PUDU sebagai pilot.
 | Dokumen | Isi | Status | Kapan dibaca |
 | --- | --- | --- | --- |
 | `docs/PRD_Smart_WCS_v0.2_Revisi.docx` | Product requirements lengkap, FR-01–FR-16 | Revisi 0.2 | Sebelum apapun — ini sumber kebenaran scope produk |
-| `docs/ADR.md` | Keputusan stack teknologi (Next.js) + justifikasi + risiko | Revisi 2026-10-05 | Sebelum setup apapun |
-| `docs/ERD.md` | Data model, termasuk entity baru ERP/Production/Packaging/Delivery | Revisi 2026-10-05 | Sebelum bikin schema Prisma |
+| `docs/ADR.md` | Keputusan stack teknologi (Next.js) + justifikasi + risiko, termasuk Section 7.1 (PUDU Cloud API butuh internet) | Revisi 2026-10-19 | Sebelum setup apapun |
+| `docs/ERD.md` | Data model v3.1: 46 tabel (inti + ERP usulan + 11 tabel adapter PUDU), constraint, index | **Revisi 2026-10-21 (v3.1)** | Sebelum menyentuh `prisma/schema.prisma` |
+| `prisma/schema.prisma` | Implementasi ERD v3 (Prisma 7). **Sumber kebenaran schema** — harus selalu sinkron dengan `ERD.md` | **Baru 2026-10-19** | Sebelum query/migration apa pun |
+| `docs/PUDU_INTEGRATION.md` | Integrasi PUDU Cloud API: base URL, autentikasi HMAC, alur callback, scope T600, pemetaan status & field ke tabel | **Baru 2026-10-19** | Sebelum menulis kode di `src/modules/equipment-adapter/pudu` |
 | `docs/API_SPECIFICATION.md` | Ringkasan modul + endpoint, termasuk 4 modul baru | Revisi 2026-10-05 | Referensi cepat endpoint |
 | `docs/ARCHITECTURE.md` | Gambaran arsitektur sistem | Revisi 2026-10-05 | Sebelum setup struktur project |
-| `docs/CHANGELOG.md` | Riwayat perubahan dokumen | Revisi 2026-10-05 | Kalau butuh histori keputusan |
-| `docs/FUNCTIONAL_BOUNDARY.md` | Batas tanggung jawab WCS vs WMS/RCS/PLC/ERP | Revisi 2026-10-06 | Sebelum implementasi business logic, termasuk FR-13 |
+| `docs/CHANGELOG.md` | Riwayat perubahan dokumen | Revisi 2026-10-19 | Kalau butuh histori keputusan |
+| `docs/FUNCTIONAL_BOUNDARY.md` | Batas tanggung jawab WCS vs WMS/RCS/PLC/ERP | Revisi 2026-10-19 | Sebelum implementasi business logic, termasuk FR-13 |
 | `docs/USE_CASE.md` | Use case UC-01–UC-16 (UC-13–16 detail lengkap) | Revisi 2026-10-06 | Sebelum implementasi fitur/endpoint, termasuk modul baru |
 | `docs/RBAC.md` | Role & matriks akses, termasuk 3 role baru | Revisi 2026-10-06 | Sebelum implementasi auth/guard |
 | `docs/openapi-smart-wcs.yaml` | Kontrak API lengkap (OpenAPI 3.0.3), v0.4.0-proposed | Revisi 2026-10-06 | Saat implementasi route handler/schema |
@@ -54,8 +56,12 @@ diasumsikan jawabannya saat implementasi.
 
 > Versi di bawah dicek ulang 6 Oktober 2026 (npm registry + endoflife.date).
 > Jangan anggap berlaku selamanya — cek ulang kalau sudah lama sejak tanggal
-> ini, terutama Node.js (Node 26 jadi Active LTS 28 Okt 2026) dan Auth.js
-> (masih beta, bisa saja sudah GA).
+> ini, terutama Node.js (Node 24 masuk maintenance 20 Okt 2026, tetap
+> didukung; Node 26 jadi Active LTS 28 Okt 2026 — migrasi dijadwalkan
+> ulang, bukan darurat, lihat ADR.md Section 9.5).
+>
+> **[Revisi 2026-10-19]** Auth.js v5 diganti **Better Auth** — lihat
+> ADR.md Section 9.1 (diputuskan, belum diimplementasikan).
 
 - Backend + Frontend: **Next.js 16 (App Router, LTS), Node.js 24 LTS, TypeScript**
   — satu codebase, dijalankan lewat **custom Node server** (`server.ts`),
@@ -65,21 +71,27 @@ diasumsikan jawabannya saat implementasi.
 - Database: **PostgreSQL 18** + **Prisma ORM 7.x** (Rust-free client, ORM + migration) — jangan pakai PostgreSQL 19 (masih beta) atau Prisma 8 (masih RC) untuk production dulu
 - Real-time: **Socket.IO 4.8.x / `ws`** di atas custom Node server (status
   task/equipment/alarm event-driven, bukan polling terus-menerus)
-- Equipment/IoT: **mqtt.js 5.x** (MQTT), **node-opcua 2.179.x** (OPC UA untuk
-  PLC — masih Proposed, perlu PoC, lihat ADR.md Section 5)
+- Equipment/IoT: **mqtt.js 5.x** (MQTT), **node-opcua 2.187.x** (OPC UA untuk
+  PLC — masih Proposed, perlu PoC, lihat ADR.md Section 5). Belum dipakai:
+  ditunda sampai tahap PLC (ADR.md Section 9.3) — pilot PUDU lewat HTTPS
 - API: REST + OpenAPI 3.0 (**zod-to-openapi** / **next-swagger-doc**, Zod 4.x)
-- Auth: **Auth.js v5** (`next-auth@beta`, App Router-native — **masih
-  berstatus beta**, bukan `next-auth@4` yang didesain untuk Pages Router)
-  atau middleware JWT custom (`jose`) kalau butuh sesuatu yang stabil secara
-  formal, RBAC sesuai `docs/RBAC.md`
+- Auth: **Better Auth** (diputuskan, belum diimplementasikan — lihat
+  ADR.md Section 9.1), self-hosted, adapter Prisma, plugin admin untuk
+  RBAC sesuai `docs/RBAC.md`
 - Data-fetching client: **TanStack Query v5**
+- Test: **Vitest** — unit test untuk kode server (`src/lib/*`, modul
+  domain), bukan test UI/E2E
+- Log: **pino** (`pino-pretty` di development) lewat `src/lib/logger.ts`
+- Validasi env: **Zod** lewat `src/lib/env.ts`
 - Deployment: Docker Compose, **on-premise/LAN-first** — operasi inti (task
   execution, dispatching, monitoring, dashboard) tidak boleh bergantung pada
-  internet (lihat ADR.md Section 7)
+  internet (lihat ADR.md Section 7). **Pengecualian yang disadari:** kontrol
+  robot PUDU pilot lewat PUDU Cloud API butuh internet (ADR.md Section 7.1)
 - Equipment integration: **Adapter Framework** — kontrak interface baku
   (register, status, mission command, event), satu implementasi per vendor.
-  Vendor pilot adalah **PUDU** (Open Platform Cloud API — Open API untuk
-  command dari WCS, Callback Notification untuk event dari PUDU). Tujuan
+  Vendor pilot adalah **PUDU T600** (Open Platform Cloud API — Open API untuk
+  command dari WCS dengan autentikasi HMAC, Callback Notification untuk event
+  dari PUDU). Detail di `docs/PUDU_INTEGRATION.md`. Tujuan
   akhir arsitektur ini **multi-vendor** — adapter PUDU adalah blueprint,
   bukan batasan.
 
@@ -100,16 +112,23 @@ Material Request.
 Maintenance/Engineer, System Integrator (baku) + Operator Produksi, Operator
 Box/Packaging, Operator Delivery (baru, role/RBAC-nya belum diformalkan).
 
-## Status implementasi
+## Status implementasi (per 2026-10-19)
 
-Skeleton sebelumnya (`backend/` Spring Boot, `frontend/` React+Vite) dibangun
-untuk stack **lama** dan **tidak lagi sesuai keputusan ADR terbaru** — jangan
-dilanjutkan begitu saja di atas skeleton itu. Sebelum lanjut Phase 1, konfirmasi
-dulu: apakah mulai ulang skeleton infra untuk Next.js (`package.json`,
-`server.ts`, Prisma schema), atau skeleton existing mau dipertahankan sebagai
-referensi migrasi data (V1 migration SQL di skeleton lama masih relevan
-sebagai referensi struktur tabel master data, tinggal dipindah ke Prisma
-schema).
+- **Infra:** Next.js 16 + custom server (`server.ts`, Socket.IO di path `/ws`),
+  Prisma 7 dengan `@prisma/adapter-pg`, PostgreSQL 18 di `docker-compose.yml`.
+  Config Prisma ada di `prisma7.config.ts`.
+- **Database:** `prisma/schema.prisma` sudah berisi ERD v3.1 (46 model). Migration
+  belum dibuat. Migration pertama wajib mengikuti langkah di
+  `prisma/sql/pudu_pose_log_partition.sql` (partisi `PuduPoseLog`).
+- **UI:** halaman Overview dan Task Management sudah jadi, **sengaja masih
+  memakai data mock** (`src/data/mock*.ts`). Halaman lain masih
+  `PlaceholderPage`. Tahap ini memang UI statis — jangan sambungkan UI ke
+  database atau PUDU kecuali diminta.
+- **Modul domain** (`src/modules/*`): baru berisi README, belum ada kode.
+- **Belum ada:** API route (`src/app/api/`), auth, adapter PUDU, worker callback.
+- **Dokumen yang dirujuk tapi belum ada di repo:** `ADAPTER_CONTRACT.md`,
+  `API_CONVENTIONS.md`, `TASK_STATE_MACHINE.md`, `DATA_DICTIONARY.md`. Jangan
+  mengasumsikan isinya (lihat catatan di ADR.md Section 9).
 
 ## Aturan kerja untuk Claude Code di repo ini
 
@@ -141,6 +160,28 @@ schema).
 8. Field yang masih open question (lihat PRD Section 15 "Open Items") jangan
    diasumsikan jawabannya saat implementasi — flag saja di PR/komentar kalau
    relevan.
+9. **Schema database:** setiap perubahan `prisma/schema.prisma` harus ikut
+   diperbarui di `docs/ERD.md` (dan sebaliknya), lalu dibuat lewat
+   `prisma migrate dev` — jangan `db push`. Semua kolom waktu `Timestamptz`
+   (UTC). Nilai enum WCS divalidasi di aplikasi (Zod), status mentah vendor
+   disimpan apa adanya.
+10. **Adapter PUDU:** ikuti `docs/PUDU_INTEGRATION.md`. Endpoint callback hanya
+    memverifikasi `CallbackCode`, menyimpan ke `IntegrationLog` (`ON CONFLICT`
+    traceId) dan membalas 200 dalam 5 detik; penguraian dilakukan worker.
+    Semua tulis data PUDU memakai upsert pada kunci unik di `ERD.md`. Elemen
+    peta tidak pernah di-DELETE (soft delete). Lifting/transport/robot group
+    di luar scope T600.
+11. **Kredensial** (`PUDU_API_APP_SECRET`, `PUDU_CALLBACK_CODE`, `AUTH_SECRET`)
+    hanya dari environment (`.env`, lihat `.env.example`) — jangan di-commit
+    dan jangan dikirim ke client/browser.
+12. **Konfigurasi lewat `src/lib/env.ts`.** Dilarang mengakses `process.env`
+    langsung di kode aplikasi (`NODE_ENV` di config Next.js/Prisma yang
+    memang butuh akses langsung dikecualikan). Variabel baru ditambah ke
+    skema Zod di `env.ts`, bukan dibaca ad-hoc.
+13. **Log lewat `src/lib/logger.ts`.** Dilarang `console.log` di kode
+    server — pakai `logger` dari `src/lib/logger.ts` supaya level dan
+    redaksi field rahasia (authorization, signature, apiAppSecret,
+    password, token) konsisten.
 
 ## Catatan konteks developer
 

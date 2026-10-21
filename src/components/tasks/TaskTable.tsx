@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { TaskItem, TaskPriority } from '@/types/task';
+import { TaskItem } from '@/types/task';
 import { StatusBadge, PriorityBadge } from '@/components/ui/Badge';
 import {
   ArrowUpDown,
@@ -39,7 +39,6 @@ export function TaskTable({
   onCancelTask,
   onRetryTask,
   sortColumn,
-  sortDirection,
   onSort,
 }: TaskTableProps) {
   const [activeMenuId, setActiveMenuId] = useState<string | null>(null);

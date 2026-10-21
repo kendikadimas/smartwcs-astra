@@ -1,7 +1,7 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Get a free hosted Postgres database in seconds: `npx create-db`
+// schema.prisma — Smart WCS Platform (ERD v3)
+// Dibangkitkan dari model ERD v3: tabel inti ERD.md + 11 tabel adapter PUDU T600.
+// Konvensi: semua waktu timestamptz (UTC); status mentah vendor = String bebas; enum WCS divalidasi di aplikasi.
+// Partisi PuduPoseLog per bulan dibuat lewat migration SQL manual (Prisma tidak mendukung deklarasi partisi).
 
 generator client {
   provider = "prisma-client"
@@ -10,4 +10,789 @@ generator client {
 
 datasource db {
   provider = "postgresql"
+}
+
+// ===================== Master data =====================
+model Warehouse {
+  warehouseId String @id @default(uuid()) @db.Uuid
+  name String
+  address String
+  zones Zone[] @relation("Zone_warehouseId")
+  puduMaps PuduMap[] @relation("PuduMap_warehouseId")
+}
+
+model Zone {
+  zoneId String @id @default(uuid()) @db.Uuid
+  warehouseId String @db.Uuid /// FK -> Warehouse
+  name String
+  zoneType String
+  warehouse Warehouse @relation("Zone_warehouseId", fields: [warehouseId], references: [warehouseId])
+  locations Location[] @relation("Location_zoneId")
+  nodes Node[] @relation("Node_zoneId")
+  stations Station[] @relation("Station_zoneId")
+  routes Route[] @relation("Route_zoneId")
+  lines Line[] @relation("Line_zoneId")
+  puduMaps PuduMap[] @relation("PuduMap_zoneId")
+}
+
+model Location {
+  locationId String @id @default(uuid()) @db.Uuid
+  zoneId String @db.Uuid /// FK -> Zone
+  nodeId String? @db.Uuid /// FK -> Node, nullable (titik peta tempat lokasi berada)
+  code String
+  locationType String
+  zone Zone @relation("Location_zoneId", fields: [zoneId], references: [zoneId])
+  node Node? @relation("Location_nodeId", fields: [nodeId], references: [nodeId])
+  equipments Equipment[] @relation("Equipment_locationId")
+  stations Station[] @relation("Station_locationId")
+  routesByFromLocation Route[] @relation("Route_fromLocationId")
+  routesByToLocation Route[] @relation("Route_toLocationId")
+  tasksBySourceLocation Task[] @relation("Task_sourceLocationId")
+  tasksByDestinationLocation Task[] @relation("Task_destinationLocationId")
+  materialMovementsByFromLocation MaterialMovement[] @relation("MaterialMovement_fromLocationId")
+  materialMovementsByToLocation MaterialMovement[] @relation("MaterialMovement_toLocationId")
+  inventoryItems InventoryItem[] @relation("InventoryItem_locationId")
+  materialRequests MaterialRequest[] @relation("MaterialRequest_destinationLocationId")
+  discrepanciesByExpectedLocation Discrepancy[] @relation("Discrepancy_expectedLocationId")
+  discrepanciesByActualLocation Discrepancy[] @relation("Discrepancy_actualLocationId")
+}
+
+model Node {
+  nodeId String @id @default(uuid()) @db.Uuid
+  zoneId String @db.Uuid /// FK -> Zone
+  x Decimal @db.Decimal(14, 4) /// koordinat
+  y Decimal @db.Decimal(14, 4) /// koordinat
+  zone Zone @relation("Node_zoneId", fields: [zoneId], references: [zoneId])
+  locations Location[] @relation("Location_nodeId")
+  edgesByFromNode Edge[] @relation("Edge_fromNodeId")
+  edgesByToNode Edge[] @relation("Edge_toNodeId")
+  puduMapElements PuduMapElement[] @relation("PuduMapElement_nodeId")
+}
+
+model Edge {
+  edgeId String @id @default(uuid()) @db.Uuid
+  fromNodeId String @db.Uuid /// FK -> Node
+  toNodeId String @db.Uuid /// FK -> Node
+  isActive Boolean @default(true)
+  fromNode Node @relation("Edge_fromNodeId", fields: [fromNodeId], references: [nodeId])
+  toNode Node @relation("Edge_toNodeId", fields: [toNodeId], references: [nodeId])
+}
+
+model Equipment {
+  equipmentId String @id @default(uuid()) @db.Uuid
+  locationId String @db.Uuid /// FK -> Location
+  name String /// nama yang terbaca manusia, mis. Conveyor Line 1 atau T600-01
+  equipmentType String /// mis. conveyor, PLC
+  vendor String
+  status String /// ONLINE/OFFLINE/ERROR/MAINTENANCE (lihat DATA_DICTIONARY.md)
+  capabilities Json /// kemampuan untuk dispatching (PRD FR-03): taskTypes, maxPayloadKg, supportsCancel, dst. Lihat ADAPTER_CONTRACT.md bagian 4
+  location Location @relation("Equipment_locationId", fields: [locationId], references: [locationId])
+  robot Robot? @relation("Robot_equipmentId")
+  equipmentStatuses EquipmentStatus[] @relation("EquipmentStatus_equipmentId")
+}
+
+model Robot {
+  robotId String @id @default(uuid()) @db.Uuid
+  equipmentId String @unique @db.Uuid /// FK -> Equipment (1:1, base record)
+  name String /// nama yang terbaca manusia, mis. T600-01; boleh disalin dari PuduRobot.name
+  serialNumber String? @unique /// nullable; serial number robot, netral vendor. Untuk PUDU diisi dari sn
+  vendor String /// mis. Pudu
+  model String
+  protocol String /// mis. VDA5050
+  equipment Equipment @relation("Robot_equipmentId", fields: [equipmentId], references: [equipmentId])
+  missions Mission[] @relation("Mission_robotId")
+  robotStatuses RobotStatus[] @relation("RobotStatus_robotId")
+  integrationLogs IntegrationLog[] @relation("IntegrationLog_robotId")
+  puduRobot PuduRobot? @relation("PuduRobot_robotId")
+}
+
+model Station {
+  stationId String @id @default(uuid()) @db.Uuid
+  zoneId String @db.Uuid /// FK -> Zone
+  locationId String @db.Uuid /// FK -> Location (agar station bisa jadi titik asal/tujuan task, PRD 9.5 "location/station")
+  name String
+  stationType String /// PICKUP/DROPOFF/CHARGING/STAGING
+  zone Zone @relation("Station_zoneId", fields: [zoneId], references: [zoneId])
+  location Location @relation("Station_locationId", fields: [locationId], references: [locationId])
+}
+
+model Material {
+  materialId String @id @default(uuid()) @db.Uuid
+  sku String
+  name String
+  unit String
+  tasks Task[] @relation("Task_materialId")
+  materialMovements MaterialMovement[] @relation("MaterialMovement_materialId")
+  inventoryItems InventoryItem[] @relation("InventoryItem_materialId")
+  materialRequests MaterialRequest[] @relation("MaterialRequest_materialId")
+  discrepancies Discrepancy[] @relation("Discrepancy_materialId")
+  productionPlans ProductionPlan[] @relation("ProductionPlan_materialId")
+  customerOrders CustomerOrder[] @relation("CustomerOrder_materialId")
+  productionLineRequests ProductionLineRequest[] @relation("ProductionLineRequest_materialId")
+  packagingRequests PackagingRequest[] @relation("PackagingRequest_materialId")
+}
+
+model Route {
+  routeId String @id @default(uuid()) @db.Uuid
+  zoneId String @db.Uuid /// FK -> Zone
+  fromLocationId String @db.Uuid /// FK -> Location
+  toLocationId String @db.Uuid /// FK -> Location
+  resourceType String /// EQUIPMENT / ROBOT
+  isActive Boolean @default(true)
+  zone Zone @relation("Route_zoneId", fields: [zoneId], references: [zoneId])
+  fromLocation Location @relation("Route_fromLocationId", fields: [fromLocationId], references: [locationId])
+  toLocation Location @relation("Route_toLocationId", fields: [toLocationId], references: [locationId])
+}
+
+// ===================== Transaksi & task =====================
+model Task {
+  taskId String @id @default(uuid()) @db.Uuid
+  taskType String /// MOVE/PICKUP/DROP/etc
+  source String /// WMS/WES/MANUAL/API -- asal task (PRD FR-02 dan Section 11 CREATED). Bukan source pada PRD 9.5, yang berarti lokasi asal (lihat sourceLocationId)
+  sourceLocationId String @db.Uuid /// FK -> Location
+  destinationLocationId String @db.Uuid /// FK -> Location
+  materialId String? @db.Uuid /// FK -> Material, nullable
+  containerId String? /// nullable
+  quantity Decimal? @db.Decimal(14, 4) /// nullable
+  priority Int
+  status String /// state machine (Section 11 PRD)
+  resourceType String? /// EQUIPMENT / ROBOT, nullable
+  assignedResourceId String? @db.Uuid /// FK polymorphic -> Equipment/Robot, nullable
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  startedAt DateTime? @db.Timestamptz(3) /// nullable
+  completedAt DateTime? @db.Timestamptz(3) /// nullable
+  failureCode String? /// nullable; NO_RESOURCE_AVAILABLE/DISPATCH_TIMEOUT/ACK_TIMEOUT/TASK_TIMEOUT/COMM_LOST/RESOURCE_ERROR (lihat TASK_STATE_MACHINE.md)
+  externalRef String /// ID task di sistem pengirim; wajib untuk WMS/WES/API. UNIQUE bersama source untuk idempotensi POST /tasks (lihat TASK_STATE_MACHINE.md)
+  retryCount Int @default(0) /// default 0; bertambah setiap RETRY
+  sourceLocation Location @relation("Task_sourceLocationId", fields: [sourceLocationId], references: [locationId])
+  destinationLocation Location @relation("Task_destinationLocationId", fields: [destinationLocationId], references: [locationId])
+  material Material? @relation("Task_materialId", fields: [materialId], references: [materialId])
+  taskStatusHistories TaskStatusHistory[] @relation("TaskStatusHistory_taskId")
+  taskDetails TaskDetail[] @relation("TaskDetail_taskId")
+  missions Mission[] @relation("Mission_taskId")
+  assignments Assignment[] @relation("Assignment_taskId")
+  materialMovements MaterialMovement[] @relation("MaterialMovement_taskId")
+  materialRequests MaterialRequest[] @relation("MaterialRequest_taskId")
+  discrepancies Discrepancy[] @relation("Discrepancy_taskId")
+  productionLineRequests ProductionLineRequest[] @relation("ProductionLineRequest_taskId")
+  packagingRequests PackagingRequest[] @relation("PackagingRequest_taskId")
+  deliveryRequests DeliveryRequest[] @relation("DeliveryRequest_taskId")
+  events Event[] @relation("Event_taskId")
+  robotStatuses RobotStatus[] @relation("RobotStatus_currentTaskId")
+  @@unique([source, externalRef])
+  @@index([status, priority])
+}
+
+model TaskStatusHistory {
+  historyId String @id @default(uuid()) @db.Uuid
+  taskId String @db.Uuid /// FK -> Task
+  fromStatus String? /// nullable (kosong saat task pertama dibuat)
+  toStatus String /// TaskStatus (PRD Section 11)
+  reason String? /// nullable; alasan FAILED/CANCELLED/RETRY (PRD FR-02)
+  changedBy String? @db.Uuid /// FK -> User, nullable (kosong jika diubah sistem/RCS/PLC)
+  integrationLogId String? @db.Uuid /// -> IntegrationLog, nullable; callback yang memicu perubahan status
+  changedAt DateTime @db.Timestamptz(3)
+  task Task @relation("TaskStatusHistory_taskId", fields: [taskId], references: [taskId])
+  changedByUser User? @relation("TaskStatusHistory_changedBy", fields: [changedBy], references: [userId])
+  integrationLog IntegrationLog? @relation("TaskStatusHistory_integrationLogId", fields: [integrationLogId], references: [logId], onDelete: SetNull)
+  @@index([taskId, changedAt])
+}
+
+model TaskDetail {
+  taskDetailId String @id @default(uuid()) @db.Uuid
+  taskId String @db.Uuid /// FK -> Task
+  lineNo Int
+  metadata Json /// field fleksibel
+  task Task @relation("TaskDetail_taskId", fields: [taskId], references: [taskId])
+}
+
+model Mission {
+  missionId String @id @default(uuid()) @db.Uuid
+  taskId String @db.Uuid /// FK -> Task
+  robotId String @db.Uuid /// FK -> Robot
+  externalMissionId String? /// nullable; ID mission di RCS (untuk cancel dan rekonsiliasi)
+  attempt Int @default(1) /// percobaan ke-n untuk task ini (naik saat retry)
+  status String /// PENDING/SUBMITTED/ACCEPTED/RUNNING/COMPLETED/FAILED/CANCELLED
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  task Task @relation("Mission_taskId", fields: [taskId], references: [taskId])
+  robot Robot @relation("Mission_robotId", fields: [robotId], references: [robotId])
+  puduTask PuduTask? @relation("PuduTask_missionId")
+  @@index([taskId])
+  @@index([robotId, status])
+}
+
+model Assignment {
+  assignmentId String @id @default(uuid()) @db.Uuid
+  taskId String @db.Uuid /// FK -> Task
+  resourceType String /// EQUIPMENT / ROBOT
+  resourceId String @db.Uuid /// FK polymorphic
+  assignedAt DateTime @db.Timestamptz(3)
+  task Task @relation("Assignment_taskId", fields: [taskId], references: [taskId])
+}
+
+model MaterialMovement {
+  movementId String @id @default(uuid()) @db.Uuid
+  taskId String @db.Uuid /// FK -> Task
+  materialId String @db.Uuid /// FK -> Material
+  fromLocationId String @db.Uuid /// FK -> Location
+  toLocationId String @db.Uuid /// FK -> Location
+  containerId String? /// nullable
+  quantity Decimal @db.Decimal(14, 4) /// jumlah yang benar-benar dipindahkan (hasil eksekusi)
+  resourceType String? /// EQUIPMENT / ROBOT, nullable (PRD Traceability: equipment yang memproses)
+  resourceId String? @db.Uuid /// FK polymorphic, nullable
+  movedAt DateTime @db.Timestamptz(3)
+  task Task @relation("MaterialMovement_taskId", fields: [taskId], references: [taskId])
+  material Material @relation("MaterialMovement_materialId", fields: [materialId], references: [materialId])
+  fromLocation Location @relation("MaterialMovement_fromLocationId", fields: [fromLocationId], references: [locationId])
+  toLocation Location @relation("MaterialMovement_toLocationId", fields: [toLocationId], references: [locationId])
+}
+
+model InventoryItem {
+  inventoryId String @id @default(uuid()) @db.Uuid /// operational inventory view, PRD FR-01
+  materialId String @db.Uuid /// FK -> Material
+  locationId String @db.Uuid /// FK -> Location
+  containerId String? /// nullable (pallet/cart/container)
+  quantity Decimal @db.Decimal(14, 4)
+  source String /// WMS_SYNC/EXECUTION -- asal pembaruan terakhir
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  lastSyncedAt DateTime? @db.Timestamptz(3) /// nullable; kapan terakhir disinkronkan dari WMS
+  material Material @relation("InventoryItem_materialId", fields: [materialId], references: [materialId])
+  location Location @relation("InventoryItem_locationId", fields: [locationId], references: [locationId])
+}
+
+model MaterialRequest {
+  requestId String @id @default(uuid()) @db.Uuid /// PRD FR-12, UC-08
+  materialId String @db.Uuid /// FK -> Material
+  quantity Decimal @db.Decimal(14, 4)
+  destinationLocationId String @db.Uuid /// FK -> Location
+  status String /// nilai belum diputuskan (UC-08 vs TaskStatus di OpenAPI, lihat CHANGELOG "Masih terbuka"); sementara mengikuti OpenAPI
+  taskId String? @db.Uuid /// FK -> Task, nullable (terisi setelah task eksekusi dibuat)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  material Material @relation("MaterialRequest_materialId", fields: [materialId], references: [materialId])
+  destinationLocation Location @relation("MaterialRequest_destinationLocationId", fields: [destinationLocationId], references: [locationId])
+  task Task? @relation("MaterialRequest_taskId", fields: [taskId], references: [taskId])
+}
+
+model Discrepancy {
+  discrepancyId String @id @default(uuid()) @db.Uuid /// PRD FR-01, UC-11
+  taskId String @db.Uuid /// FK -> Task
+  materialId String? @db.Uuid /// FK -> Material, nullable
+  expectedQuantity Decimal @db.Decimal(14, 4)
+  actualQuantity Decimal @db.Decimal(14, 4)
+  expectedLocationId String? @db.Uuid /// FK -> Location, nullable
+  actualLocationId String? @db.Uuid /// FK -> Location, nullable
+  status String /// OPEN/NOTIFIED/RESOLVED
+  detectedAt DateTime @db.Timestamptz(3)
+  notifiedAt DateTime? @db.Timestamptz(3) /// nullable
+  resolvedAt DateTime? @db.Timestamptz(3) /// nullable
+  task Task @relation("Discrepancy_taskId", fields: [taskId], references: [taskId])
+  material Material? @relation("Discrepancy_materialId", fields: [materialId], references: [materialId])
+  expectedLocation Location? @relation("Discrepancy_expectedLocationId", fields: [expectedLocationId], references: [locationId])
+  actualLocation Location? @relation("Discrepancy_actualLocationId", fields: [actualLocationId], references: [locationId])
+}
+
+// ===================== ERP & produksi (usulan) =====================
+model Line {
+  lineId String @id @default(uuid()) @db.Uuid /// production line, mis. "Line 1"
+  zoneId String @db.Uuid /// FK -> Zone
+  name String
+  shiftCapacityUnit Decimal @db.Decimal(14, 4) /// kapasitas produksi per shift, mis. 330 unit/shift/line (dari ADM di diagram referensi)
+  zone Zone @relation("Line_zoneId", fields: [zoneId], references: [zoneId])
+  productionPlans ProductionPlan[] @relation("ProductionPlan_lineId")
+  productionLineRequests ProductionLineRequest[] @relation("ProductionLineRequest_lineId")
+}
+
+model ProductionPlan {
+  planId String @id @default(uuid()) @db.Uuid /// FR-13 ERP Integration -- "Planning produksi per line pershift"
+  lineId String @db.Uuid /// FK -> Line
+  materialId String @db.Uuid /// FK -> Material (tipe produk, mis. "Lighting Tipe A")
+  shiftDate DateTime @db.Date
+  shiftNumber Int
+  plannedQty Decimal @db.Decimal(14, 4)
+  source String /// ERP (selalu, lewat Get Method -- lihat ARCHITECTURE.md §3)
+  syncedAt DateTime @db.Timestamptz(3)
+  line Line @relation("ProductionPlan_lineId", fields: [lineId], references: [lineId])
+  material Material @relation("ProductionPlan_materialId", fields: [materialId], references: [materialId])
+}
+
+model CustomerOrder {
+  orderId String @id @default(uuid()) @db.Uuid /// FR-13 ERP Integration -- "Order Delivery (Waktu, Tipe, Qty)"
+  customerName String
+  materialId String @db.Uuid /// FK -> Material
+  quantity Decimal @db.Decimal(14, 4)
+  requestedDeliveryAt DateTime @db.Timestamptz(3)
+  status String /// RECEIVED/IN_PROGRESS/DELIVERED/CANCELLED (nilai usulan sementara)
+  source String /// ERP
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  material Material @relation("CustomerOrder_materialId", fields: [materialId], references: [materialId])
+  deliveryRequests DeliveryRequest[] @relation("DeliveryRequest_orderId")
+}
+
+model ProductionLineRequest {
+  requestId String @id @default(uuid()) @db.Uuid /// FR-14 Production Line Interface
+  lineId String @db.Uuid /// FK -> Line
+  requestType String /// RAW_MATERIAL (request material ke warehouse) / FINISH_GOOD_PICKUP (calling AMR pick finish good setelah produksi selesai)
+  materialId String @db.Uuid /// FK -> Material
+  quantity Decimal @db.Decimal(14, 4)
+  requestedBy String? @db.Uuid /// FK -> User, nullable (operator produksi)
+  status String /// nilai belum diputuskan; sementara mengikuti pola TaskStatus
+  taskId String? @db.Uuid /// FK -> Task, nullable (terisi setelah task eksekusi AMR dibuat, pola sama dengan MaterialRequest.taskId)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  line Line @relation("ProductionLineRequest_lineId", fields: [lineId], references: [lineId])
+  material Material @relation("ProductionLineRequest_materialId", fields: [materialId], references: [materialId])
+  requestedByUser User? @relation("ProductionLineRequest_requestedBy", fields: [requestedBy], references: [userId])
+  task Task? @relation("ProductionLineRequest_taskId", fields: [taskId], references: [taskId])
+}
+
+model PackagingRequest {
+  packagingRequestId String @id @default(uuid()) @db.Uuid /// FR-15 Packaging Interface -- "Request Box Packging"
+  materialId String? @db.Uuid /// FK -> Material, nullable
+  boxType String
+  quantity Decimal @db.Decimal(14, 4)
+  requestedBy String? @db.Uuid /// FK -> User, nullable (operator box/packaging)
+  status String /// nilai belum diputuskan; sementara mengikuti pola TaskStatus
+  taskId String? @db.Uuid /// FK -> Task, nullable
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  material Material? @relation("PackagingRequest_materialId", fields: [materialId], references: [materialId])
+  requestedByUser User? @relation("PackagingRequest_requestedBy", fields: [requestedBy], references: [userId])
+  task Task? @relation("PackagingRequest_taskId", fields: [taskId], references: [taskId])
+}
+
+model DeliveryRequest {
+  deliveryRequestId String @id @default(uuid()) @db.Uuid /// FR-16 Delivery-to-Customer Interface
+  orderId String @db.Uuid /// FK -> CustomerOrder
+  taskId String? @db.Uuid /// FK -> Task, nullable (task AMR/robot untuk proses delivery, kalau delivery internal pakai robot)
+  status String /// PENDING/DISPATCHED/DELIVERED/FAILED (nilai usulan sementara)
+  requestedBy String? @db.Uuid /// FK -> User, nullable (operator delivery)
+  dispatchedAt DateTime? @db.Timestamptz(3) /// nullable
+  deliveredAt DateTime? @db.Timestamptz(3) /// nullable
+  order CustomerOrder @relation("DeliveryRequest_orderId", fields: [orderId], references: [orderId])
+  task Task? @relation("DeliveryRequest_taskId", fields: [taskId], references: [taskId])
+  requestedByUser User? @relation("DeliveryRequest_requestedBy", fields: [requestedBy], references: [userId])
+}
+
+// ===================== Event, status & integrasi =====================
+model Event {
+  eventId String @id @default(uuid()) @db.Uuid
+  eventType String /// jenis event (PRD FR-08), mis. TASK_FAILED, COMMUNICATION_TIMEOUT
+  sourceType String /// EQUIPMENT/ROBOT/TASK (huruf besar, sesuai OpenAPI)
+  sourceId String @db.Uuid /// FK polymorphic
+  severity String /// INFO/WARNING/ERROR/CRITICAL
+  message String
+  errorCode String? /// nullable; kode error dari equipment/robot. DiagnosticLog (UC-09) adalah tampilan Event dengan sourceType EQUIPMENT/ROBOT, bukan tabel terpisah
+  externalErrorId String? /// nullable; ID error dari vendor, dipakai dedup kanal realtime vs tertunda
+  externalLevel String? /// nullable; level asli dari vendor sebelum dipetakan ke severity
+  integrationLogId String? @db.Uuid /// -> IntegrationLog, nullable; callback asal event
+  payload Json? /// nullable; detail tambahan vendor (extend_info: battery, map_point, task_id, position)
+  taskId String? @db.Uuid /// -> Task, nullable; task yang sedang berjalan saat error (dari extend_info.task_id)
+  occurredAt DateTime @db.Timestamptz(3)
+  integrationLog IntegrationLog? @relation("Event_integrationLogId", fields: [integrationLogId], references: [logId], onDelete: SetNull)
+  task Task? @relation("Event_taskId", fields: [taskId], references: [taskId])
+  alarms Alarm[] @relation("Alarm_eventId")
+  @@index([sourceType, sourceId, occurredAt])
+  @@index([externalErrorId])
+  @@index([taskId])
+}
+
+model Alarm {
+  alarmId String @id @default(uuid()) @db.Uuid
+  eventId String @db.Uuid /// FK -> Event
+  status String /// ACTIVE/ACKNOWLEDGED/CLEARED (PRD FR-08: Active -> Acknowledge -> Clear/Reset)
+  acknowledgedBy String? @db.Uuid /// FK -> User, nullable
+  acknowledgedAt DateTime? @db.Timestamptz(3) /// nullable
+  clearedBy String? @db.Uuid /// FK -> User, nullable (kosong jika clear otomatis dari equipment/RCS)
+  clearedAt DateTime? @db.Timestamptz(3) /// nullable (UC-06 langkah 7 mencatat waktu clear)
+  event Event @relation("Alarm_eventId", fields: [eventId], references: [eventId])
+  acknowledgedByUser User? @relation("Alarm_acknowledgedBy", fields: [acknowledgedBy], references: [userId])
+  clearedByUser User? @relation("Alarm_clearedBy", fields: [clearedBy], references: [userId])
+  @@index([status])
+}
+
+model EquipmentStatus {
+  statusId String @id @default(uuid()) @db.Uuid
+  equipmentId String @db.Uuid /// FK -> Equipment
+  status String
+  x Decimal? @db.Decimal(14, 4) /// posisi pada warehouse map, nullable (PRD FR-09)
+  y Decimal? @db.Decimal(14, 4) /// posisi pada warehouse map, nullable (PRD FR-09)
+  recordedAt DateTime @db.Timestamptz(3)
+  equipment Equipment @relation("EquipmentStatus_equipmentId", fields: [equipmentId], references: [equipmentId])
+}
+
+model RobotStatus {
+  statusId String @id @default(uuid()) @db.Uuid
+  robotId String @db.Uuid /// FK -> Robot
+  status String
+  battery Decimal @db.Decimal(14, 4)
+  x Decimal @db.Decimal(14, 4) /// posisi
+  y Decimal @db.Decimal(14, 4) /// posisi
+  currentTaskId String? @db.Uuid /// FK -> Task, nullable (mission aktif)
+  recordedAt DateTime @db.Timestamptz(3) /// Ditulis adapter hanya saat status/state robot berubah, bukan setiap update posisi. Riwayat posisi frekuensi tinggi ada di PuduPoseLog
+  robot Robot @relation("RobotStatus_robotId", fields: [robotId], references: [robotId])
+  currentTask Task? @relation("RobotStatus_currentTaskId", fields: [currentTaskId], references: [taskId])
+  @@index([robotId, recordedAt])
+}
+
+model IntegrationLog {
+  logId String @id @default(uuid()) @db.Uuid
+  integrationId String @db.Uuid /// FK -> Integration (menggantikan systemName; nama sistem ada di Integration)
+  direction String /// INBOUND/OUTBOUND
+  status String @default("PENDING") /// PENDING / SUCCESS / FAILED / IGNORED. INBOUND masuk sebagai PENDING lalu diurai worker; OUTBOUND langsung SUCCESS/FAILED
+  errorMessage String? /// nullable
+  payload Json /// payloadSummary di API adalah ringkasan dari kolom ini
+  traceId String? /// nullable; UNIQUE bersama integrationId + direction. Header TraceId callback atau trace_id response command
+  messageType String /// callback_type untuk INBOUND (mis. notifyRobotPose), nama API untuk OUTBOUND (mis. DeliveryTask)
+  robotId String? @db.Uuid /// -> Robot, nullable; robot yang terkait (dari sn)
+  callbackCodeValid Boolean? /// nullable; hasil verifikasi header CallbackCode untuk INBOUND
+  httpStatus Int? /// nullable; untuk OUTBOUND
+  responseCode String? /// nullable; kode dari vendor, mis. 70001-70005 SwitchMap
+  attempts Int @default(0) /// default 0; bertambah setiap worker mencoba mengurai ulang
+  nextAttemptAt DateTime? @db.Timestamptz(3) /// nullable; jadwal retry berikutnya untuk status FAILED
+  processedAt DateTime? @db.Timestamptz(3) /// nullable; kapan payload INBOUND selesai diurai worker
+  occurredAt DateTime @db.Timestamptz(3)
+  integration Integration @relation("IntegrationLog_integrationId", fields: [integrationId], references: [integrationId])
+  robot Robot? @relation("IntegrationLog_robotId", fields: [robotId], references: [robotId])
+  taskStatusHistories TaskStatusHistory[] @relation("TaskStatusHistory_integrationLogId")
+  events Event[] @relation("Event_integrationLogId")
+  puduRobotStatusLogs PuduRobotStatusLog[] @relation("PuduRobotStatusLog_integrationLogId")
+  @@unique([integrationId, direction, traceId])
+  @@index([status, nextAttemptAt])
+  @@index([messageType, occurredAt])
+  @@index([robotId, occurredAt])
+}
+
+model OutboxEvent {
+  eventId String @id @default(uuid()) @db.Uuid /// outbox pengiriman event ke sistem eksternal, ADR Section 7; API_CONVENTIONS.md bagian 8
+  integrationId String @db.Uuid /// FK -> Integration (tujuan)
+  eventType String /// TASK_STATUS_CHANGED/DISCREPANCY_DETECTED/ALARM_RAISED/ALARM_CLEARED
+  aggregateType String /// TASK/DISCREPANCY/ALARM
+  aggregateId String @db.Uuid
+  sequence BigInt /// naik monoton per aggregateId
+  payload Json
+  status String /// PENDING/SENT/FAILED
+  attempts Int @default(0) /// default 0
+  nextAttemptAt DateTime? @db.Timestamptz(3) /// nullable
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  sentAt DateTime? @db.Timestamptz(3) /// nullable
+  integration Integration @relation("OutboxEvent_integrationId", fields: [integrationId], references: [integrationId])
+}
+
+// ===================== Keamanan & konfigurasi =====================
+model User {
+  userId String @id @default(uuid()) @db.Uuid
+  username String @unique /// UNIQUE
+  fullName String
+  passwordHash String
+  roleId String @db.Uuid /// FK -> Role
+  active Boolean @default(true) /// DELETE /users/{id} menonaktifkan (active=false), bukan menghapus baris
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  role Role @relation("User_roleId", fields: [roleId], references: [roleId])
+  taskStatusHistories TaskStatusHistory[] @relation("TaskStatusHistory_changedBy")
+  productionLineRequests ProductionLineRequest[] @relation("ProductionLineRequest_requestedBy")
+  packagingRequests PackagingRequest[] @relation("PackagingRequest_requestedBy")
+  deliveryRequests DeliveryRequest[] @relation("DeliveryRequest_requestedBy")
+  alarmsByAcknowledgedBy Alarm[] @relation("Alarm_acknowledgedBy")
+  alarmsByClearedBy Alarm[] @relation("Alarm_clearedBy")
+  auditLogs AuditLog[] @relation("AuditLog_userId")
+}
+
+model Role {
+  roleId String @id @default(uuid()) @db.Uuid
+  name String @unique /// 5 nilai tetap sesuai enum Role di OpenAPI: WAREHOUSE_OPERATOR, WAREHOUSE_SUPERVISOR, WCS_ADMINISTRATOR, MAINTENANCE_ENGINEER, SYSTEM_INTEGRATOR
+  permissions Json
+  users User[] @relation("User_roleId")
+}
+
+model AuditLog {
+  auditId String @id @default(uuid()) @db.Uuid
+  userId String? @db.Uuid /// FK -> User, nullable (kosong jika login gagal oleh username tak dikenal)
+  username String? /// nullable; salinan username saat aksi terjadi
+  action String /// mis. ROLE_CHANGED
+  targetType String? /// nullable, mis. USER
+  targetId String? @db.Uuid /// nullable
+  beforeValue Json? /// nullable (menggantikan details)
+  afterValue Json? /// nullable
+  result String /// SUCCESS/FAILED
+  ipAddress String? /// nullable
+  occurredAt DateTime @db.Timestamptz(3)
+  user User? @relation("AuditLog_userId", fields: [userId], references: [userId])
+}
+
+model Integration {
+  integrationId String @id @default(uuid()) @db.Uuid /// konfigurasi koneksi WMS/RCS/PLC; di luar daftar PRD 9.4, ditambahkan untuk UC-10
+  systemType String /// WMS/RCS/PLC
+  name String
+  protocol String /// REST/MQTT/OPC_UA/MODBUS_TCP/VDA5050
+  endpointUrl String
+  credentials Json /// terenkripsi, write-only, tidak pernah dikembalikan di response GET. Untuk PUDU berisi region, baseUrl, ApiAppKey, ApiAppSecret, hash CallbackCode
+  apiKeyHash String? /// nullable; hash API key masuk dari sistem eksternal (key asli tidak disimpan). Lihat API_CONVENTIONS.md bagian 2
+  apiKeyRotatedAt DateTime? @db.Timestamptz(3) /// nullable
+  status String /// CONNECTED/DISCONNECTED/DEGRADED
+  lastTestedAt DateTime? @db.Timestamptz(3) /// nullable
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  integrationLogs IntegrationLog[] @relation("IntegrationLog_integrationId")
+  outboxEvents OutboxEvent[] @relation("OutboxEvent_integrationId")
+}
+
+// ===================== Adapter PUDU T600 =====================
+/// Toko/lokasi di akun PUDU (shop). Induk dari robot, peta, dan group. Diisi dari GetStoreList.
+model PuduShop {
+  puduShopId String @id @default(uuid()) @db.Uuid
+  shopId String @unique /// shop_id dari PUDU. Disimpan sebagai teks karena docs menulis int tapi contohnya string
+  shopName String? /// nullable; kosong kalau toko baru dikenal dari callback dan belum disinkronkan
+  companyId String? /// nullable; ID agen/perusahaan di PUDU
+  companyName String? /// nullable
+  syncedAt DateTime? @db.Timestamptz(3) /// nullable; terakhir disinkronkan dari GetStoreList
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  puduRobotGroups PuduRobotGroup[] @relation("PuduRobotGroup_puduShopId")
+  puduRobots PuduRobot[] @relation("PuduRobot_puduShopId")
+  puduMaps PuduMap[] @relation("PuduMap_puduShopId")
+}
+
+/// Group robot di PUDU. Diisi dari GetBoundRobotGroups; anggota dari GetRobotsInGroup.
+model PuduRobotGroup {
+  puduRobotGroupId String @id @default(uuid()) @db.Uuid
+  groupId String @unique /// group_id dari PUDU. Dipakai sebagai param GetRobotsInGroup dan GetGroupRobotStatusV2
+  groupName String? /// nullable
+  puduShopId String? @db.Uuid /// -> PuduShop, nullable
+  syncedAt DateTime? @db.Timestamptz(3) /// nullable
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  puduShop PuduShop? @relation("PuduRobotGroup_puduShopId", fields: [puduShopId], references: [puduShopId])
+  puduRobots PuduRobot[] @relation("PuduRobot_puduRobotGroupId")
+  @@index([puduShopId])
+}
+
+/// Profil vendor robot, 1:1 dengan Robot inti. Kunci integrasi = sn. Daftar sn didapat dari StoreRobotList.
+model PuduRobot {
+  puduRobotId String @id @default(uuid()) @db.Uuid
+  robotId String @unique @db.Uuid /// -> Robot, 1:1 (UNIQUE)
+  sn String @unique /// serial number, dipakai hampir semua API. Disalin ke Robot.serialNumber
+  mac String? /// nullable
+  name String? /// nullable; nama/nickname robot di PUDU
+  model String /// T600
+  productCode String? /// nullable; kode produk PUDU (contoh PuduBot). Terpisah dari model WCS
+  puduShopId String? @db.Uuid /// -> PuduShop, nullable (robot belum di-bind)
+  puduRobotGroupId String? @db.Uuid /// -> PuduRobotGroup, nullable
+  bindingStatus String /// BOUND / UNBOUND
+  boundAt DateTime? @db.Timestamptz(3) /// nullable
+  unboundAt DateTime? @db.Timestamptz(3) /// nullable
+  activatedAt DateTime? @db.Timestamptz(3) /// nullable; aktivasi pertama
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  robot Robot @relation("PuduRobot_robotId", fields: [robotId], references: [robotId])
+  puduShop PuduShop? @relation("PuduRobot_puduShopId", fields: [puduShopId], references: [puduShopId])
+  puduRobotGroup PuduRobotGroup? @relation("PuduRobot_puduRobotGroupId", fields: [puduRobotGroupId], references: [puduRobotGroupId])
+  puduRobotState PuduRobotState? @relation("PuduRobotState_puduRobotId")
+  puduRobotStatusLogs PuduRobotStatusLog[] @relation("PuduRobotStatusLog_puduRobotId")
+  puduPoseLogs PuduPoseLog[] @relation("PuduPoseLog_puduRobotId")
+  puduRobotMaps PuduRobotMap[] @relation("PuduRobotMap_puduRobotId")
+  puduTasks PuduTask[] @relation("PuduTask_puduRobotId")
+  @@index([puduShopId])
+  @@index([puduRobotGroupId])
+}
+
+/// Snapshot terakhir per robot (1 baris per robot, di-upsert). Untuk dashboard live.
+model PuduRobotState {
+  puduRobotId String @id @db.Uuid /// -> PuduRobot
+  online Boolean? /// nullable
+  runState String? /// nullable; OFFLINE / DISABLE / BUSY / IDLE
+  moveState String? /// nullable; IDLE / MOVING / STUCK / APPROACHING / ARRIVE / PAUSE / AVOID
+  chargeStage String? /// nullable
+  chargeType String? /// nullable
+  isCharging Int? /// nullable; nilai mentah PUDU (contoh -1). Arti nilai belum diverifikasi
+  remainTime Int? /// nullable; nilai mentah PUDU. Arti dan satuan belum diverifikasi
+  battery Int? /// nullable; 0-100
+  currentPuduMapId String? @db.Uuid /// -> PuduMap, nullable; peta aktif
+  x Decimal? @db.Decimal(14, 4) /// nullable
+  y Decimal? @db.Decimal(14, 4) /// nullable
+  yaw Decimal? @db.Decimal(14, 4) /// nullable; arah hadap robot
+  nearestPoint String? /// nullable
+  currentPuduTaskId String? @db.Uuid /// -> PuduTask, nullable
+  poseReportInterval Int? /// nullable; detik
+  poseReportTimes Int? /// nullable; maks 1000
+  poseReportStartedAt DateTime? @db.Timestamptz(3) /// nullable; WCS kirim ulang sebelum interval x times habis
+  emergencyRecoveredAt DateTime? @db.Timestamptz(3) /// nullable
+  lastPoseAt DateTime? @db.Timestamptz(3) /// nullable; notify_timestamp pose terakhir, untuk deteksi robot berhenti lapor
+  vendorStatusAt DateTime? @db.Timestamptz(3) /// nullable; waktu status menurut PUDU (epoch detik, dikonversi ke UTC)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  puduRobot PuduRobot @relation("PuduRobotState_puduRobotId", fields: [puduRobotId], references: [puduRobotId], onDelete: Cascade)
+  currentPuduMap PuduMap? @relation("PuduRobotState_currentPuduMapId", fields: [currentPuduMapId], references: [puduMapId])
+  currentPuduTask PuduTask? @relation("PuduRobotState_currentPuduTaskId", fields: [currentPuduTaskId], references: [puduTaskId])
+}
+
+/// Riwayat perubahan state robot. Sumber KPI utilisasi, idle, charging, online time.
+model PuduRobotStatusLog {
+  statusLogId BigInt @id @default(autoincrement()) /// autoincrement
+  puduRobotId String @db.Uuid /// -> PuduRobot
+  integrationLogId String? @db.Uuid /// -> IntegrationLog, nullable (polling, atau log sudah dihapus retensi)
+  source String /// robotStatus / notifyRobotStatus / notifyRobotPower / notifyRobotMoveState / POLL
+  online Boolean? /// nullable
+  runState String? /// nullable
+  moveState String? /// nullable
+  chargeStage String? /// nullable
+  battery Int? /// nullable
+  isCharging Int? /// nullable; nilai mentah PUDU
+  remainTime Int? /// nullable; nilai mentah PUDU
+  recordedAt DateTime @db.Timestamptz(3) /// waktu dari PUDU: notify_timestamp (milidetik) untuk callback, timestamp (detik) untuk GetRobotStatusV2, atau waktu polling
+  puduRobot PuduRobot @relation("PuduRobotStatusLog_puduRobotId", fields: [puduRobotId], references: [puduRobotId])
+  integrationLog IntegrationLog? @relation("PuduRobotStatusLog_integrationLogId", fields: [integrationLogId], references: [logId], onDelete: SetNull)
+  @@index([puduRobotId, recordedAt])
+}
+
+/// Riwayat posisi frekuensi tinggi. Dipartisi per bulan (PK menyertakan recordedAt), retensi 30-90 hari.
+model PuduPoseLog {
+  poseLogId BigInt @default(autoincrement()) /// autoincrement; PK gabungan (poseLogId, recordedAt) karena tabel dipartisi
+  puduRobotId String @db.Uuid /// -> PuduRobot
+  puduMapId String? @db.Uuid /// -> PuduMap, nullable
+  x Decimal @db.Decimal(14, 4)
+  y Decimal @db.Decimal(14, 4)
+  z Decimal? @db.Decimal(14, 4) /// nullable
+  yaw Decimal? @db.Decimal(14, 4) /// nullable
+  nearestPoint String? /// nullable
+  source String /// CALLBACK / POLL
+  recordedAt DateTime @db.Timestamptz(3) /// kunci partisi
+  puduRobot PuduRobot @relation("PuduPoseLog_puduRobotId", fields: [puduRobotId], references: [puduRobotId])
+  puduMap PuduMap? @relation("PuduPoseLog_puduMapId", fields: [puduMapId], references: [puduMapId])
+  @@id([poseLogId, recordedAt])
+  @@index([puduRobotId, recordedAt])
+}
+
+/// Peta hasil mapping di PUDU App. WCS hanya menyalin. Dihubungkan ke gudang & zona WCS.
+model PuduMap {
+  puduMapId String @id @default(uuid()) @db.Uuid
+  warehouseId String? @db.Uuid /// -> Warehouse, nullable sampai admin memetakan
+  zoneId String? @db.Uuid /// -> Zone, nullable; area/lantai yang dicakup peta ini
+  puduShopId String @db.Uuid /// -> PuduShop; UNIQUE bersama mapName
+  mapName String /// format PUDU lantai#id#nama (contoh 2#4#2F_gudang); perlu escape karakter khusus (#)
+  mapCode String? /// nullable; kode peta
+  floor String? /// nullable
+  imageUrl String? /// nullable; background peta di dashboard
+  width Decimal? @db.Decimal(14, 4) /// nullable; ukuran peta, satuan belum diverifikasi
+  height Decimal? @db.Decimal(14, 4) /// nullable; ukuran peta, satuan belum diverifikasi
+  resolution Decimal? @db.Decimal(14, 4) /// nullable; skala gambar peta (contoh 0.05). Dibutuhkan untuk menggambar posisi robot di atas peta
+  originX Decimal? @db.Decimal(14, 4) /// nullable; titik asal koordinat peta
+  originY Decimal? @db.Decimal(14, 4) /// nullable
+  originZ Decimal? @db.Decimal(14, 4) /// nullable
+  zones Json? /// nullable; zone_list[] termasuk area traffic control (area_id)
+  isActive Boolean @default(true) /// default true; false kalau peta tidak lagi muncul di StoreMapList
+  lastChangedAt DateTime? @db.Timestamptz(3) /// nullable; memicu sync ulang elemen
+  syncedAt DateTime? @db.Timestamptz(3) /// nullable
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  warehouse Warehouse? @relation("PuduMap_warehouseId", fields: [warehouseId], references: [warehouseId])
+  zone Zone? @relation("PuduMap_zoneId", fields: [zoneId], references: [zoneId])
+  puduShop PuduShop @relation("PuduMap_puduShopId", fields: [puduShopId], references: [puduShopId])
+  puduRobotStates PuduRobotState[] @relation("PuduRobotState_currentPuduMapId")
+  puduPoseLogs PuduPoseLog[] @relation("PuduPoseLog_puduMapId")
+  puduRobotMaps PuduRobotMap[] @relation("PuduRobotMap_puduMapId")
+  puduMapElements PuduMapElement[] @relation("PuduMapElement_puduMapId")
+  puduTasks PuduTask[] @relation("PuduTask_puduMapId")
+  puduTaskStops PuduTaskStop[] @relation("PuduTaskStop_puduMapId")
+  @@unique([puduShopId, mapName])
+}
+
+/// Peta yang terpasang di tiap robot. Dipakai untuk validasi SwitchMap sebelum dikirim.
+model PuduRobotMap {
+  puduRobotId String @db.Uuid /// -> PuduRobot
+  puduMapId String @db.Uuid /// -> PuduMap
+  isUsed Int /// nilai mentah PUDU (contoh 1 dan 2); arti belum diverifikasi, jangan dipakai sebagai boolean
+  syncedAt DateTime @db.Timestamptz(3)
+  puduRobot PuduRobot @relation("PuduRobotMap_puduRobotId", fields: [puduRobotId], references: [puduRobotId], onDelete: Cascade)
+  puduMap PuduMap @relation("PuduRobotMap_puduMapId", fields: [puduMapId], references: [puduMapId], onDelete: Cascade)
+  @@id([puduRobotId, puduMapId])
+}
+
+/// Titik & elemen peta (point, track, circle). Titik = tujuan task, dipetakan ke Node WCS. Soft delete saat sync ulang.
+model PuduMapElement {
+  puduMapElementId String @id @default(uuid()) @db.Uuid
+  puduMapId String @db.Uuid /// -> PuduMap
+  vendorElementId String /// id elemen dari PUDU; UNIQUE bersama puduMapId. Kunci upsert saat sync ulang peta
+  name String /// task menyebut titik lewat nama, jadi diberi index (puduMapId, name)
+  elementType String /// type dari PUDU (source, charging_pile, area, elevator, ...); teks bebas
+  pointType String? /// nullable; mode dari PUDU (contoh return_point)
+  x Decimal? @db.Decimal(14, 4) /// nullable; untuk titik: vector_list[0] / vector[0]
+  y Decimal? @db.Decimal(14, 4) /// nullable
+  z Decimal? @db.Decimal(14, 4) /// nullable
+  geometry Json? /// nullable; vector_list (polygon area), clean_path_list, group, width, max_speed
+  nodeId String? @db.Uuid /// -> Node, nullable; diisi admin saat memetakan titik
+  isActive Boolean @default(true) /// default true; false kalau elemen hilang saat sync (tidak dihapus agar FK tetap utuh)
+  deletedAt DateTime? @db.Timestamptz(3) /// nullable; kapan elemen hilang dari peta PUDU
+  syncedAt DateTime? @db.Timestamptz(3) /// nullable
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  puduMap PuduMap @relation("PuduMapElement_puduMapId", fields: [puduMapId], references: [puduMapId])
+  node Node? @relation("PuduMapElement_nodeId", fields: [nodeId], references: [nodeId])
+  puduTaskStops PuduTaskStop[] @relation("PuduTaskStop_puduMapElementId")
+  @@unique([puduMapId, vendorElementId])
+  @@index([nodeId])
+  @@index([puduMapId, name])
+}
+
+/// Task di PUDU (CALL / DELIVERY / RECHARGE / SWITCH_MAP). 1:1 dengan Mission bila dibuat WCS.
+model PuduTask {
+  puduTaskId String @id @default(uuid()) @db.Uuid
+  missionId String? @unique @db.Uuid /// -> Mission, nullable (UNIQUE) untuk task yang tidak dibuat WCS
+  puduRobotId String @db.Uuid /// -> PuduRobot
+  previousPuduTaskId String? @db.Uuid /// -> PuduTask, nullable; call task sebelumnya kalau dibuat lewat CompleteCallTask.next_call_task
+  vendorTaskId String @unique /// task_id dari PUDU, juga disalin ke Mission.externalMissionId
+  taskKind String /// CALL / DELIVERY / RECHARGE / SWITCH_MAP
+  status String /// status mentah PUDU terakhir
+  queueNo Int? /// nullable
+  puduMapId String? @db.Uuid /// -> PuduMap, nullable
+  targetPoint String? /// nullable; CALL / RECHARGE
+  pointType String? /// nullable
+  callMode String? /// nullable
+  priority Int? /// nullable
+  deliverySort String? /// nullable
+  deliveryMode String? /// nullable
+  completeType String? /// nullable
+  remark String? /// nullable
+  isOverTime Boolean? /// nullable
+  spentTime Int? /// nullable; nilai mentah PUDU (contoh 100). Satuan belum diverifikasi
+  robotResponseCode String? /// nullable
+  robotResponseMessage String? /// nullable
+  requestPayload Json? /// nullable; body yang dikirim WCS (do_not_queue, robot_group_ids, execute_task, dll)
+  vendorCreatedAt DateTime? @db.Timestamptz(3) /// nullable; waktu task dibuat menurut PUDU
+  startedAt DateTime? @db.Timestamptz(3) /// nullable
+  finishedAt DateTime? @db.Timestamptz(3) /// nullable
+  lastNotifiedAt DateTime? @db.Timestamptz(3) /// nullable
+  createdAt DateTime @default(now()) @db.Timestamptz(3) /// waktu insert di WCS
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  mission Mission? @relation("PuduTask_missionId", fields: [missionId], references: [missionId])
+  puduRobot PuduRobot @relation("PuduTask_puduRobotId", fields: [puduRobotId], references: [puduRobotId])
+  previousPuduTask PuduTask? @relation("PuduTask_previousPuduTaskId", fields: [previousPuduTaskId], references: [puduTaskId])
+  puduMap PuduMap? @relation("PuduTask_puduMapId", fields: [puduMapId], references: [puduMapId])
+  puduRobotStates PuduRobotState[] @relation("PuduRobotState_currentPuduTaskId")
+  puduTasksByPreviousPuduTask PuduTask[] @relation("PuduTask_previousPuduTaskId")
+  puduTaskStops PuduTaskStop[] @relation("PuduTaskStop_puduTaskId")
+  @@index([puduRobotId, status])
+  @@index([createdAt])
+}
+
+/// Tray & destinasi delivery task. Satu baris per destinasi per tray.
+model PuduTaskStop {
+  puduTaskStopId String @id @default(uuid()) @db.Uuid
+  puduTaskId String @db.Uuid /// -> PuduTask (hapus berantai)
+  trayNo Int /// UNIQUE bersama puduTaskId + seq
+  seq Int /// urutan stop
+  pointName String /// salinan nama titik, tetap utuh walau peta berubah
+  puduMapElementId String? @db.Uuid /// -> PuduMapElement, nullable; ON DELETE RESTRICT agar elemen peta hanya bisa di-soft delete
+  puduMapId String? @db.Uuid /// -> PuduMap, nullable; peta tujuan destinasi ini
+  vendorStopId String? /// nullable; id destinasi dari PUDU (dikembalikan saat sinkronisasi status)
+  destType String? /// nullable; REMOTE / MANUAL
+  status String? /// nullable; status per destinasi
+  estimatedTime Int? /// nullable; nilai mentah PUDU (contoh 60000). Satuan belum diverifikasi
+  spendTime Int? /// nullable; nilai mentah PUDU (contoh 80000). Satuan belum diverifikasi
+  isTimeout Boolean? /// nullable
+  completeType String? /// nullable
+  arrivedAt DateTime? @db.Timestamptz(3) /// nullable; dihitung WCS dari perubahan status
+  finishedAt DateTime? @db.Timestamptz(3) /// nullable
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  puduTask PuduTask @relation("PuduTaskStop_puduTaskId", fields: [puduTaskId], references: [puduTaskId], onDelete: Cascade)
+  puduMapElement PuduMapElement? @relation("PuduTaskStop_puduMapElementId", fields: [puduMapElementId], references: [puduMapElementId], onDelete: Restrict)
+  puduMap PuduMap? @relation("PuduTaskStop_puduMapId", fields: [puduMapId], references: [puduMapId])
+  @@unique([puduTaskId, trayNo, seq])
 }

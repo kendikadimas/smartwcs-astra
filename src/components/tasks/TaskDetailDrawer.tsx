@@ -3,7 +3,7 @@
 import React from 'react';
 import { TaskItem, PrdTaskStatus } from '@/types/task';
 import { StatusBadge, PriorityBadge } from '@/components/ui/Badge';
-import { X, ArrowRight, CheckCircle2, AlertCircle, RotateCcw, Ban, Clock } from 'lucide-react';
+import { X, ArrowRight, AlertCircle, RotateCcw, Ban } from 'lucide-react';
 
 interface TaskDetailDrawerProps {
   task: TaskItem | null;
