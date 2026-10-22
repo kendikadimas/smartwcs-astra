@@ -1,0 +1,53 @@
+import { FullSystemSettings } from '@/types/settings';
+
+export const initialFullSystemSettings: FullSystemSettings = {
+  general: {
+    facilityName: 'Main Smart Warehouse · Plant Bekasi',
+    facilityCode: 'BKS-WH-01',
+    timezone: 'Asia/Jakarta (WIB, UTC+7)',
+    language: 'en',
+    dateFormat: 'DD/MM/YYYY HH:mm:ss',
+    autoRefreshIntervalSeconds: 5,
+    maintenanceMode: false,
+  },
+  dispatch: {
+    lowBatteryThresholdPercent: 20,
+    criticalBatteryThresholdPercent: 10,
+    maxRetryAttempts: 3,
+    dispatchTimeoutSeconds: 30,
+    autoReassignOnFault: true,
+    fleetSpeedLimitMps: 1.2,
+    chargingStrategy: 'NEAREST_DOCK',
+    simultaneousMissionLimit: 8,
+  },
+  safety: {
+    audioAlertCritical: true,
+    audioAlertWarning: false,
+    autoPauseFleetOnEStop: true,
+    autoClearObstacleAlertSeconds: 15,
+    escalationTimeoutMinutes: 10,
+    webhookNotificationEnabled: true,
+    webhookNotificationUrl: 'https://alerts.astra-winteq.local/webhook/wcs-critical',
+    criticalAlarmEmail: 'spv.warehouse@winteq.astra.co.id',
+  },
+  retention: {
+    poseLogRetentionDays: 60,
+    integrationLogRetentionDays: 45,
+    auditLogRetentionDays: 365,
+    eventLogRetentionDays: 90,
+    autoArchiveEnabled: true,
+    archiveStorageBucket: 's3://astra-wcs-cold-storage/bekasi-logs/',
+  },
+  diagnostics: {
+    workerPollIntervalMs: 2000,
+    workerMaxAttempts: 5,
+    nodeEnvironment: 'development (Node 24 LTS)',
+    databaseHost: 'PostgreSQL 18 · pg_adapter (port 5432)',
+    databaseStatus: 'HEALTHY',
+    databaseConnections: 12,
+    socketIoStatus: 'CONNECTED',
+    activeClientsCount: 4,
+    uptimeHours: 138.4,
+    wcsVersion: 'v1.4.2-enterprise (Prisma 7)',
+  },
+};
