@@ -15,9 +15,10 @@ import type {
 import { verifyCallbackCode } from "./callback-auth";
 import { handleNotifyRobotPose, notifyRobotPoseSchema } from "./pose";
 import { parsers } from "./parsers";
-import { PuduClient } from "./client";
+import { PuduClient, PuduApiError } from "./client";
 import { syncShops, syncRobots } from "./sync";
-import { mapPuduStatus } from "./status-map";
+import { mapCallStatus, mapDeliveryStatus } from "./status-map";
+import { DispatchRejectedError, mapPuduErrorToFailureCode } from "./error-map";
 
 // Envelope minimal callback PUDU (PUDU_INTEGRATION.md bagian 4):
 // { "callback_type": "...", "data": { ... } }.
@@ -32,33 +33,112 @@ function getPuduClient(): PuduClient {
   return new PuduClient({ baseUrl: env.PUDU_BASE_URL, apiAppKey: env.PUDU_API_APP_KEY, apiAppSecret: env.PUDU_API_APP_SECRET });
 }
 
+/**
+ * PUDU_OFFICIAL_EXCERPT.md InitiateCallTask poin 1: run_state menentukan
+ * apakah robot bisa dipanggil -- OFFLINE/DISABLE ditolak sebelum memanggil
+ * PUDU sama sekali, BUSY tetap dikirim (PUDU yang mengantre), IDLE jalan
+ * langsung. State basi (lebih tua dari PUDU_ROBOT_STATE_STALE_MS, atau
+ * belum pernah ada) dibarui dulu lewat GetRobotStatusV2 -- kalau panggilan
+ * itu sendiri gagal, dispatch tetap lanjut pakai data lama apa adanya
+ * (robot yang benar-benar tidak bisa dihubungi akan tertangkap sendiri
+ * oleh error InitiateCallTask di bawah).
+ */
+async function resolveFreshRunState(
+  client: PuduClient,
+  sn: string,
+  cached: { runState: string | null; updatedAt: Date | null } | null,
+): Promise<string | null> {
+  const staleMs = env.PUDU_ROBOT_STATE_STALE_MS;
+  const isStale = !cached?.updatedAt || Date.now() - cached.updatedAt.getTime() > staleMs;
+  if (!isStale) return cached?.runState ?? null;
+
+  try {
+    const res = await client.getRobotStatusV2({ sn });
+    return res.data?.run_state ?? cached?.runState ?? null;
+  } catch (err) {
+    logger.warn({ sn, errMessage: err instanceof Error ? err.message : String(err) }, "gagal getRobotStatusV2 sebelum dispatch, pakai state lama");
+    return cached?.runState ?? null;
+  }
+}
+
 async function dispatch(tx: Prisma.TransactionClient, command: DispatchCommand): Promise<DispatchResult> {
-  const puduRobot = await tx.puduRobot.findUnique({ where: { robotId: command.robotId } });
+  const puduRobot = await tx.puduRobot.findUnique({
+    where: { robotId: command.robotId },
+    include: { puduRobotState: true },
+  });
   if (!puduRobot) {
     throw new Error(`Robot ${command.robotId} belum terdaftar sebagai PuduRobot`);
   }
 
   const client = getPuduClient();
+  const state = puduRobot.puduRobotState;
+  const runState = await resolveFreshRunState(client, puduRobot.sn, state ? { runState: state.runState, updatedAt: state.updatedAt } : null);
+
+  if (runState === "OFFLINE" || runState === "DISABLE") {
+    throw new DispatchRejectedError(`Robot ${puduRobot.sn} run_state=${runState}, tidak bisa dipanggil`, "NO_RESOURCE_AVAILABLE");
+  }
+  // runState === "BUSY" tetap lanjut (PUDU mengantre, lihat excerpt) --
+  // tidak ada cara mengirim do_not_queue=true dari DispatchCommand (tidak
+  // ada field itu di kontrak, types.ts tidak diubah di task ini).
+
   let vendorTaskId: string | undefined;
   let rawState: string | undefined;
 
-  if (command.kind === "CALL") {
-    if (!command.targetPoint) throw new Error("targetPoint wajib untuk dispatch kind CALL");
-    const response = await client.initiateCallTask({
-      sn: puduRobot.sn,
-      point: command.targetPoint,
-      priority: command.priority,
-    });
-    vendorTaskId = response.task_id;
-    rawState = response.state;
-  } else {
-    if (!command.destinations?.length) throw new Error("destinations wajib untuk dispatch kind DELIVERY");
-    const response = await client.deliveryTask({
-      sn: puduRobot.sn,
-      trays: [{ destinations: command.destinations.map((d) => ({ destination: d.point, type: d.type })) }],
-    });
-    vendorTaskId = response.data?.task_id;
-    rawState = response.data?.task_status;
+  try {
+    if (command.kind === "CALL") {
+      if (!command.targetPoint) throw new Error("targetPoint wajib untuk dispatch kind CALL");
+      if (!state?.currentPuduMapId) {
+        throw new DispatchRejectedError(
+          `Robot ${puduRobot.sn} belum punya peta aktif (currentPuduMapId kosong), tidak bisa resolve map_name`,
+          "NO_RESOURCE_AVAILABLE",
+        );
+      }
+      const element = await tx.puduMapElement.findFirst({
+        where: { puduMapId: state.currentPuduMapId, name: command.targetPoint, isActive: true },
+      });
+      if (!element) {
+        throw new DispatchRejectedError(
+          `Titik "${command.targetPoint}" tidak ditemukan di peta aktif robot ${puduRobot.sn}`,
+          "NO_RESOURCE_AVAILABLE",
+        );
+      }
+      const map = await tx.puduMap.findUnique({ where: { puduMapId: state.currentPuduMapId } });
+
+      // priority WCS -> PUDU: 1-5 valid (1 tertinggi), di luar rentang
+      // tidak dikirim supaya PUDU memakai default 5 (excerpt InitiateCallTask).
+      const priority =
+        command.priority !== undefined && command.priority >= 1 && command.priority <= 5 ? command.priority : undefined;
+
+      const response = await client.initiateCallTask({
+        sn: puduRobot.sn,
+        map_name: map!.mapName,
+        point: command.targetPoint,
+        point_type: element.pointType ?? "",
+        priority,
+      });
+      vendorTaskId = response.data?.task_id;
+      rawState = response.data?.state;
+    } else {
+      if (!command.destinations?.length) throw new Error("destinations wajib untuk dispatch kind DELIVERY");
+      // DeliveryTask (API inisiasi) BELUM diverifikasi dokumen resmi --
+      // field dari PUDU_INTEGRATION.md Lampiran #5 (lihat client.ts).
+      const response = await client.deliveryTask({
+        sn: puduRobot.sn,
+        trays: [{ destinations: command.destinations.map((d) => ({ destination: d.point, type: d.type })) }],
+      });
+      vendorTaskId = response.data?.task_id;
+      rawState = response.data?.task_status;
+    }
+  } catch (err) {
+    if (err instanceof DispatchRejectedError) throw err;
+    if (err instanceof PuduApiError) {
+      throw new DispatchRejectedError(
+        `PUDU menolak dispatch: ${err.code ?? err.message}`,
+        mapPuduErrorToFailureCode(err.code),
+        err.code,
+      );
+    }
+    throw err;
   }
 
   if (!vendorTaskId) {
@@ -77,7 +157,8 @@ async function dispatch(tx: Prisma.TransactionClient, command: DispatchCommand):
     },
   });
 
-  const mapped = mapPuduStatus(rawState ?? "QUEUEING");
+  const mapped =
+    command.kind === "CALL" ? mapCallStatus(rawState ?? "QUEUEING") : mapDeliveryStatus(rawState ?? "ON_THE_WAY");
   return { externalTaskId: vendorTaskId, status: mapped.recognized ? mapped.taskStatus : "DISPATCHED" };
 }
 
@@ -89,7 +170,24 @@ async function cancel(tx: Prisma.TransactionClient, missionRef: MissionRef): Pro
   if (!puduTask) return; // tidak ada task PUDU untuk mission ini
 
   const client = getPuduClient();
-  await client.cancelCallTask({ task_id: puduTask.vendorTaskId, sn: puduTask.puduRobot.sn });
+  try {
+    // Catatan: InitiateCallTask dan CancelCallTask WAJIB memakai ApiAppKey
+    // yang sama (excerpt CancelCallTask poin 3), kalau tidak PUDU membalas
+    // CLOUD_OPEN_TASK_BELONG_ERROR. WCS hari ini cuma punya satu ApiAppKey
+    // per deployment (satu baris Integration PUDU, lihat integration.ts),
+    // jadi tidak ada aksi kode yang perlu diambil -- dicatat sebagai mode
+    // gagal yang mungkin terjadi kalau asumsi itu berubah.
+    await client.cancelCallTask({ task_id: puduTask.vendorTaskId, sn: puduTask.puduRobot.sn });
+  } catch (err) {
+    if (err instanceof PuduApiError) {
+      throw new DispatchRejectedError(
+        `PUDU menolak cancel: ${err.code ?? err.message}`,
+        mapPuduErrorToFailureCode(err.code),
+        err.code,
+      );
+    }
+    throw err;
+  }
   await tx.puduTask.update({ where: { puduTaskId: puduTask.puduTaskId }, data: { status: "CANCEL" } });
 }
 

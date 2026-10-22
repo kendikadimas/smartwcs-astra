@@ -27,6 +27,12 @@ const envSchema = z.object({
   // baris IntegrationLog berstatus FAILED berhenti di-retry otomatis.
   PUDU_WORKER_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   PUDU_WORKER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
+
+  // Dispatch (pudu/index.ts): PuduRobotState dianggap basi kalau lebih tua
+  // dari ini -- dipicu getRobotStatusV2 dulu sebelum cek run_state. Nilai
+  // default keputusan sendiri (tidak ada rujukan dokumen resmi), lihat
+  // laporan akhir.
+  PUDU_ROBOT_STATE_STALE_MS: z.coerce.number().int().positive().default(60_000),
 });
 
 function parseEnv() {

@@ -18,7 +18,7 @@ beforeEach(async () => {
 
   const server = await startMockPuduServer(() => ({
     status: 200,
-    body: { task_id: "vendor-task-1", state: "QUEUEING" },
+    body: { message: "SUCCESS", data: { task_id: "vendor-task-1", state: "QUEUEING" } },
   }));
   close = server.close;
 
@@ -51,8 +51,20 @@ runAdapterContractTests({
   setup: async () => {
     const location = await createLocationFixture(testDb!);
     const robot = await createRobotFixture(testDb!, { locationId: location.locationId, serialNumber: "PUDU-SETUP-1" });
-    await testDb!.puduRobot.create({
+    const puduRobot = await testDb!.puduRobot.create({
       data: { robotId: robot.robotId, sn: "PUDU-SETUP-1", model: "T600", bindingStatus: "UNBOUND" },
+    });
+    // dispatch() PUDU (Fase C, PUDU_OFFICIAL_EXCERPT.md InitiateCallTask)
+    // butuh run_state bukan OFFLINE/DISABLE, dan map_name/point_type
+    // di-resolve dari PuduMapElement pada peta aktif robot -- bukan cuma
+    // string bebas seperti sebelum diperbaiki.
+    const shop = await testDb!.puduShop.create({ data: { shopId: "contract-suite-shop" } });
+    const map = await testDb!.puduMap.create({ data: { puduShopId: shop.puduShopId, mapName: "contract-suite-map" } });
+    await testDb!.puduMapElement.create({
+      data: { puduMapId: map.puduMapId, vendorElementId: "P1", name: "P1", elementType: "point", pointType: "table" },
+    });
+    await testDb!.puduRobotState.create({
+      data: { puduRobotId: puduRobot.puduRobotId, runState: "IDLE", currentPuduMapId: map.puduMapId },
     });
     const task = await createTaskFixture(testDb!, {
       sourceLocationId: location.locationId,
