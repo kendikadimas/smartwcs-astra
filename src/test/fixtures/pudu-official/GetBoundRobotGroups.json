@@ -1,0 +1,14 @@
+{
+  "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717",
+  "message": "SUCCESS",
+  "data": {
+    "groups": [
+      {
+        "group_id": "UWlBrDb4NmPhiorpHMiir",
+        "group_name": "group-1",
+        "shop_id": 121562,
+        "shop_name": "Shop"
+      }
+    ]
+  }
+}

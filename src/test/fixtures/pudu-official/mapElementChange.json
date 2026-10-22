@@ -1,0 +1,8 @@
+{
+  "callback_type": "mapElementChange",
+  "data": {
+    "map_name": "map123",
+    "shop_id": 1001,
+    "timestamp": 1699364274
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "callback_type": "notifySwitchMap",
+  "data": {
+    "sn": "8260047101A0007",
+    "mac": "90:03:71:42:9A:9A",
+    "map_info": {
+      "map_name": "2#2#222"
+    },
+    "notify_timestamp": 1760624622839,
+    "remark": "success",
+    "task_id": "1760624617357856",
+    "task_status": "COMPLETE",
+    "timestamp": 1760624624
+  }
+}

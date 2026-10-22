@@ -115,6 +115,45 @@ async function handleRobotActivate(ctx: CallbackContext) {
   });
 }
 
+// Fase E.4: robotEmergencyRecover (#16) -- DIKONFIRMASI
+// PUDU_OFFICIAL_EXCERPT.md bagian C (fixture robotEmergencyRecover.json,
+// BUKAN contoh notifyRobotStatus yang callback_type-nya tertulis salah di
+// dokumen -- lihat src/test/fixtures/pudu-official/README.md). Field
+// sn/mac/timestamp, toleran field tambahan (.passthrough()).
+const robotEmergencyRecoverSchema = z
+  .object({
+    sn: z.string().min(1),
+    mac: z.string().optional(),
+    timestamp: z.union([z.string(), z.number()]).optional(),
+  })
+  .passthrough();
+
+async function handleRobotEmergencyRecover(ctx: CallbackContext) {
+  const parsed = robotEmergencyRecoverSchema.parse(ctx.data);
+  const puduRobot = await resolveOrCreatePuduRobot(ctx.tx, parsed.sn, { mac: parsed.mac });
+  const recoveredAt = toDate(parsed.timestamp) ?? ctx.occurredAt;
+
+  await ctx.tx.puduRobotState.upsert({
+    where: { puduRobotId: puduRobot.puduRobotId },
+    update: { emergencyRecoveredAt: recoveredAt },
+    create: { puduRobotId: puduRobot.puduRobotId, emergencyRecoveredAt: recoveredAt },
+  });
+
+  // Tutup alarm emergency terkait, kalau ada ("boleh", bukan "harus" --
+  // tidak ada kode produksi mana pun yang pernah MEMBUAT baris Alarm
+  // hari ini, lihat TASK_STATE_MACHINE.md soal Mission untuk situasi
+  // serupa, jadi ini biasanya no-op; disiapkan untuk saat Alarm memang
+  // ada). Dicocokkan lewat Event.errorCode="EmergencyStop" (nilai dari
+  // contoh resmi robotErrorNotice) pada robot yang sama, status belum CLEARED.
+  await ctx.tx.alarm.updateMany({
+    where: {
+      status: { in: ["ACTIVE", "ACKNOWLEDGED"] },
+      event: { sourceType: "ROBOT", sourceId: puduRobot.robotId, errorCode: "EmergencyStop" },
+    },
+    data: { status: "CLEARED", clearedAt: recoveredAt, clearedBy: null },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // 4-6. robotStatus / notifyRobotStatus / notifyRobotPose (#15, #17, #19)
 // ---------------------------------------------------------------------------
@@ -644,6 +683,7 @@ export const parsers: Record<string, ParserFn> = {
   robotBinding: handleRobotBinding,
   robotUnBinding: handleRobotUnBinding,
   robotActivate: handleRobotActivate,
+  robotEmergencyRecover: handleRobotEmergencyRecover,
   robotStatus: handleRobotStatus,
   notifyRobotStatus: handleNotifyRobotStatus,
   notifyRobotPose: handleNotifyRobotPoseInWorker,

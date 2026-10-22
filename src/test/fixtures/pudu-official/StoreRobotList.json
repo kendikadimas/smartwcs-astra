@@ -1,0 +1,25 @@
+{
+  "data": {
+    "count": 4,
+    "list": [
+      {
+        "mac": "20:50:E7:3E:61:78",
+        "shop_id": 324100000,
+        "shop_name": "Shop-2023-10-08",
+        "sn": "OP2023090702",
+        "product_code": "PuduBot",
+        "nickname": "robot1"
+      },
+      {
+        "mac": "B4:ED:D5:75:6E:E8",
+        "shop_id": 324100000,
+        "shop_name": "Shop-2023-10-08",
+        "sn": "8110A3802050003",
+        "product_code": "PuduBot",
+        "nickname": "robot2"
+      }
+    ]
+  },
+  "message": "success",
+  "trace_id": "YourApiAppKey_bd969310-9897-43c5-a37d-a4eab6825dbb"
+}

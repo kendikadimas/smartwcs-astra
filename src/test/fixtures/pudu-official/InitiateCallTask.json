@@ -1,0 +1,10 @@
+{
+  "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717",
+  "message": "SUCCESS",
+  "data": {
+    "task_id": "CALL-202405201234567890",
+    "queue": 1,
+    "state": "CALLING",
+    "remark": "Call task created"
+  }
+}

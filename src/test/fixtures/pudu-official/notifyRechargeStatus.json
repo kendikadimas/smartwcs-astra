@@ -1,0 +1,14 @@
+{
+  "callback_type": "notifyRechargeStatus",
+  "data": {
+    "mac": "98:A1:4A:38:C4:DA",
+    "map_name": "0#0#Flashbot-pure-lidar",
+    "notify_timestamp": 1760440430417,
+    "point": "Charging dock at finance office entrance",
+    "point_type": "ChargePile",
+    "sn": "OPG7jpSvFoA8cEdP",
+    "state": "COMPLETE",
+    "task_id": "07058bab9ef84625bcfc55d442c5766b",
+    "timestamp": 1760440431
+  }
+}

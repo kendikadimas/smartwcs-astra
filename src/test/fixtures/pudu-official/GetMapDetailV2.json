@@ -1,0 +1,88 @@
+{
+  "data": {
+    "map_code": "dfadfadfasdfdsf",
+    "element_list": [
+      {
+        "clean_path_list": [],
+        "id": "7##return_point0EC1D9EA2821F1691742592683",
+        "mode": "return_point",
+        "name": "return point 2",
+        "type": "source",
+        "vector_list": [-16.4842, 22.78, 0]
+      },
+      {
+        "clean_path_list": [],
+        "id": "30EC1D9EA2821F1694516595756",
+        "mode": "",
+        "name": "charger 0",
+        "type": "charging_pile",
+        "vector_list": [310.62335, -403.46823, -72.81601]
+      },
+      {
+        "clean_path_list": [],
+        "id": "190EC1D9EA2821F1694516595758",
+        "mode": "",
+        "name": "workstation 0",
+        "type": "chargeWorkStation",
+        "vector_list": [235.90141, -283.36914, 1.4906257]
+      },
+      {
+        "clean_path_list": [
+          { "x": -70.338, "y": -68.5, "z": 3.425 },
+          { "x": -70.338, "y": -68.5, "z": 3.425 },
+          { "x": -70.338, "y": -68.5, "z": 3.425 },
+          { "x": -70.338, "y": -20.5, "z": 1.025 },
+          { "x": -70.338, "y": -20.5, "z": 1.025 },
+          { "x": -64.338, "y": -20.5, "z": 1.025 },
+          { "x": -64.338, "y": -20.5, "z": 1.025 },
+          { "x": -64.338, "y": -68.5, "z": 3.425 },
+          { "x": -64.338, "y": -68.5, "z": 3.425 },
+          { "x": -58.337997, "y": -48.5, "z": 2.425 },
+          { "x": -58.337997, "y": -48.5, "z": 2.425 },
+          { "x": -58.337997, "y": -22.5, "z": 1.125 }
+        ],
+        "id": "11691742592859EC1D9EA2821F1691742592865",
+        "mode": "",
+        "name": "2F 5G meeting room",
+        "type": "area",
+        "vector_list": [-59.216, -72.906, -54.851997, -18.366999, -75.35, -16.565199, -76.658, -72.686]
+      },
+      {
+        "clean_path_list": [],
+        "id": "862195055881176",
+        "mode": "",
+        "name": "elevator point 1",
+        "type": "elevator",
+        "vector_list": [-29.599554, 12.126858, 2.3441372]
+      },
+      {
+        "clean_path_list": [],
+        "id": "110EC1D9EA2821F1694516595765",
+        "mode": "",
+        "name": "elevator waiting point 1",
+        "type": "elev_waiter",
+        "vector_list": [-46.661556, 11.453939, -29.448662]
+      }
+    ],
+    "height": 8,
+    "map_name": "2#4#2F_chixz-dustfree-20230811",
+    "origin_list": [-332.8372, -909, 0],
+    "resolution": 0.05,
+    "url": "https://pudu-file-host.oss-cn-beijing.aliyuncs.com/700074196847296512_temp_optemap.png",
+    "width": 6,
+    "zone_list": [
+      {
+        "id": "1180",
+        "type": "elevator_area",
+        "zone_node_list": [
+          { "vector_list": [7.5357995, 21.098001] },
+          { "vector_list": [-38.342, 25.973999] },
+          { "vector_list": [-37.664, -9.702] },
+          { "vector_list": [6.431, -11.259] }
+        ]
+      }
+    ]
+  },
+  "message": "SUCCESS",
+  "trace_id": "YourApiAppKey_bd969310-1208-40c3-9495-e21ebd4ac7db"
+}

@@ -1,0 +1,16 @@
+{
+  "callback_type": "notifyRobotStatus",
+  "data": {
+    "sn": "SN-PD202405000001",
+    "mac": "Robot001",
+    "timestamp": 1640995200,
+    "notify_timestamp": 1640995200000,
+    "battery": 85,
+    "is_charging": -1,
+    "move_state": "IDLE",
+    "charge_stage": "IDLE",
+    "remain_time": 0,
+    "run_state": "IDLE",
+    "charge_type": 2
+  }
+}

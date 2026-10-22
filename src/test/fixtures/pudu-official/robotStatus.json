@@ -1,0 +1,8 @@
+{
+  "callback_type": "robotStatus",
+  "data": {
+    "sn": "SV10111....",
+    "run_status": "online",
+    "timestamp": 1699364274
+  }
+}
