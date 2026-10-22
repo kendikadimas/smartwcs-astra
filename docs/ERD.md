@@ -441,10 +441,10 @@ Detail khas vendor PUDU yang tidak boleh masuk tabel inti. Data PUDU yang sudah 
 | PuduMapElement | name | VARCHAR | task menyebut titik lewat nama, jadi diberi index (puduMapId, name); Sumber: CurrentMap.elements[].name, GetMapDetailV2.element_list[].name, GetCurrentMapPoints.list[].name |
 | PuduMapElement | elementType | VARCHAR | type dari PUDU (source, charging_pile, area, elevator, ...); teks bebas; Sumber: CurrentMap.elements[].type, GetMapDetailV2.element_list[].type |
 | PuduMapElement | pointType | VARCHAR | nullable; mode dari PUDU (contoh return_point); Sumber: CurrentMap.elements[].mode, GetMapDetailV2.element_list[].mode, GetCurrentMapPoints.list[].type |
-| PuduMapElement | x | DECIMAL(14,4) | nullable; untuk titik: vector_list[0] / vector[0]; Sumber: GetCurrentMapPoints.list[].x |
-| PuduMapElement | y | DECIMAL(14,4) | nullable; Sumber: GetCurrentMapPoints.list[].y |
-| PuduMapElement | z | DECIMAL(14,4) | nullable; Sumber: GetCurrentMapPoints.list[].z |
-| PuduMapElement | geometry | JSONB | nullable; vector_list (polygon area), clean_path_list, group, width, max_speed; Sumber: GetMapDetailV2.element_list[], CurrentMap.elements[] |
+| PuduMapElement | x | DECIMAL(14,4) | nullable; untuk titik: vector_list[0] / vector[0]. **[2026-10-22] Arti 3 angka pertama ini BELUM dikonfirmasi dokumen resmi** (bisa x/y/yaw atau sesuatu yang lain -- contoh resmi elemen "area" punya 8 angka, bukan 3, jadi bukan pola titik tunggal yang pasti); Sumber: GetCurrentMapPoints.list[].x |
+| PuduMapElement | y | DECIMAL(14,4) | nullable; sama seperti x di atas; Sumber: GetCurrentMapPoints.list[].y |
+| PuduMapElement | z | DECIMAL(14,4) | nullable; sama seperti x di atas; Sumber: GetCurrentMapPoints.list[].z |
+| PuduMapElement | geometry | JSONB | nullable; array LENGKAP vector_list/vector (bisa >3 angka untuk polygon area, dikonfirmasi contoh resmi GetMapDetailV2: 8 angka), clean_path_list (array objek {x,y,z} pada contoh resmi, bukan array angka), group, width, max_speed; Sumber: GetMapDetailV2.element_list[], CurrentMap.elements[] |
 | PuduMapElement | nodeId | UUID | FK -> Node; nullable; diisi admin saat memetakan titik; Sumber: Input admin |
 | PuduMapElement | isActive | BOOLEAN | default true; false kalau elemen hilang saat sync (tidak dihapus agar FK tetap utuh) |
 | PuduMapElement | deletedAt | TIMESTAMPTZ | nullable; kapan elemen hilang dari peta PUDU |

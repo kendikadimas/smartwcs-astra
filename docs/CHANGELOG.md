@@ -6,6 +6,49 @@ Format: `[file] perubahan` -- dasar perubahan.
 
 ## 2026-10-22
 
+### Integrasi PUDU diselaraskan dengan contoh JSON resmi bagian C/D (putaran kedua, branch `fix/pudu-sesuai-dokumen-resmi`)
+
+`docs/pudu-official/PUDU_OFFICIAL_EXCERPT.md` ditambah bagian C (contoh
+respons Open API & payload callback resmi, ~2150 baris) dan bagian D
+(`NotifyRobotReportPosition`, API+callback terpisah) -- putaran pertama
+hari ini (di bawah) cuma punya bagian A+B.
+
+**Bug diperbaiki:**
+- `notifyRobotReportPosition`: body resmi `{ sn, payload: { interval,
+  times } }`, bukan field rata seperti sebelumnya. Validasi sn/interval/
+  times sebelum memanggil jaringan.
+- Perbandingan `message` envelope sekarang tidak peka huruf besar/kecil --
+  contoh resmi `StoreRobotList` memakai `"success"` huruf kecil, akan
+  keliru dianggap error bisnis oleh perbandingan case-sensitive sebelumnya.
+- `deliveryTask` tipe `data.code` diperbaiki ke number (contoh resmi `0`).
+- `point_type` pada dispatch CALL: tidak lagi mengirim string kosong untuk
+  field wajib PUDU -- dispatch ditolak kalau `mode` elemen peta
+  kosong/null, bukan ditebak.
+- API peta (`StoreMapList`, `AvailableMaps` (baru), `CurrentMap`,
+  `GetMapDetailV2`, `GetCurrentMapPoints`) sekarang memvalidasi `data`
+  lewat skema zod berdasar contoh resmi -- ketahuan `CurrentMap` pakai
+  kunci koordinat `vector`, `GetMapDetailV2` pakai `vector_list` (dua
+  kunci berbeda, dulu diasumsikan sama). Peta yang responsnya tidak cocok
+  skema dilewati (log + lanjut), bukan menggagalkan sinkronisasi shop lain.
+
+**Fitur baru:**
+- Parser callback `robotEmergencyRecover` -- mengisi
+  `PuduRobotState.emergencyRecoveredAt`, menutup Alarm terkait kalau ada.
+- 32 fixture JSON resmi (`src/test/fixtures/pudu-official/`) dari contoh
+  bagian C/D, salah ketik dokumen sumber dibersihkan dan didokumentasikan.
+  33 test baru memakainya (callback lewat `handleInbound`, respons Open
+  API lewat `PuduClient` dengan fetch palsu).
+
+**Masih terbuka** (dicatat di `PUDU_INTEGRATION.md` bagian 9, tidak
+ditebak): sumber persis `point_type` (`mode` vs `type` elemen peta), arti
+3 angka `vector`/`vector_list`, arti `is_used` (1/2), satuan `spent_time`
+level-task, `remain_time` untuk T600 spesifik, signing string/Content-MD5
+byte-persis (menunggu API key nyata, sesuai aturan keras task ini).
+
+`docs/PUDU_INTEGRATION.md`, `docs/ERD.md`, `prisma/schema.prisma`
+(komentar `///` saja -- `prisma validate` dan `prisma migrate diff
+--exit-code` dikonfirmasi tidak ada perubahan SQL) diperbarui.
+
 ### Integrasi PUDU disesuaikan dengan dokumentasi resmi (branch `fix/pudu-sesuai-dokumen-resmi`)
 
 **docs/pudu-official/PUDU_OFFICIAL_EXCERPT.md (baru)** -- kutipan langsung

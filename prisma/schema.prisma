@@ -712,10 +712,10 @@ model PuduMapElement {
   name String /// task menyebut titik lewat nama, jadi diberi index (puduMapId, name)
   elementType String /// type dari PUDU (source, charging_pile, area, elevator, ...); teks bebas
   pointType String? /// nullable; mode dari PUDU (contoh return_point)
-  x Decimal? @db.Decimal(14, 4) /// nullable; untuk titik: vector_list[0] / vector[0]
-  y Decimal? @db.Decimal(14, 4) /// nullable
-  z Decimal? @db.Decimal(14, 4) /// nullable
-  geometry Json? /// nullable; vector_list (polygon area), clean_path_list, group, width, max_speed
+  x Decimal? @db.Decimal(14, 4) /// nullable; vector_list[0]/vector[0], arti persis belum dikonfirmasi dokumen resmi (dikonfirmasi 2026-10-22: bukan selalu x/y/yaw, elemen area punya 8 angka bukan 3)
+  y Decimal? @db.Decimal(14, 4) /// nullable; sama seperti x
+  z Decimal? @db.Decimal(14, 4) /// nullable; sama seperti x
+  geometry Json? /// nullable; array vector_list/vector LENGKAP (bisa >3 angka untuk area/polygon), clean_path_list (array {x,y,z}), group, width, max_speed
   nodeId String? @db.Uuid /// -> Node, nullable; diisi admin saat memetakan titik
   isActive Boolean @default(true) /// default true; false kalau elemen hilang saat sync (tidak dihapus agar FK tetap utuh)
   deletedAt DateTime? @db.Timestamptz(3) /// nullable; kapan elemen hilang dari peta PUDU
