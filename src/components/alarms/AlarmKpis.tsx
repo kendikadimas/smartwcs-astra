@@ -66,13 +66,7 @@ export function AlarmKpis({ metrics, onSelectTab }: AlarmKpisProps) {
   ];
 
   return (
-    <div
-      style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(5, minmax(0, 1fr))',
-        gap: '12px',
-      }}
-    >
+    <div className="kpi-grid-5">
       {cards.map((card) => {
         const Icon = card.icon;
         return (

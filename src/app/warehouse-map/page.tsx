@@ -333,15 +333,7 @@ export default function WarehouseMapPage() {
         {/* =========================================================
             5. BOTTOM SECTION: ACTIVE ROBOTS CARDS & RECENT EVENTS
         ========================================================= */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: '2fr 1fr',
-            gap: '14px',
-            width: '100%',
-            alignItems: 'stretch',
-          }}
-        >
+        <div className="map-bottom-grid">
           {/* Active Robots Cards */}
           <ActiveRobotsCards
             robots={mockRobotsList}

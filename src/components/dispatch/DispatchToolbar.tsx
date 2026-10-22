@@ -65,7 +65,7 @@ export function DispatchToolbar({
         }}
       >
         {/* Left Search Bar */}
-        <div style={{ position: 'relative', flex: '1 1 280px', maxWidth: '380px' }}>
+        <div style={{ position: 'relative', flex: '1 1 240px', minWidth: 0, maxWidth: '100%' }}>
           <Search
             size={15}
             style={{
@@ -95,7 +95,7 @@ export function DispatchToolbar({
         </div>
 
         {/* Middle Filters: Resource Type & Priority */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
           {/* Resource Filter */}
           <div style={{ position: 'relative' }}>
             <select
@@ -170,7 +170,7 @@ export function DispatchToolbar({
         </div>
 
         {/* Right Controls: Auto Engine Toggle & Manual Dispatch Button */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           {/* Auto-Dispatch Engine Toggle */}
           <button
             onClick={onToggleEngine}

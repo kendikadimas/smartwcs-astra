@@ -56,7 +56,7 @@ export function TaskFilterBar({
         }}
       >
         {/* Search Input */}
-        <div style={{ position: 'relative', width: '280px', minWidth: '200px' }}>
+        <div style={{ position: 'relative', flex: '1 1 200px', minWidth: '160px', maxWidth: '360px' }}>
           <Search
             size={13}
             style={{

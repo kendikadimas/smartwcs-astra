@@ -74,13 +74,7 @@ export function AdapterCardGrid({
         </span>
       </div>
 
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(460px, 1fr))',
-          gap: '16px',
-        }}
-      >
+      <div className="adapter-cards-grid">
         {adapters.map((adapter) => {
           const Icon = getSystemIcon(adapter.systemType);
           const isPinging = pingingId === adapter.id;
@@ -156,9 +150,8 @@ export function AdapterCardGrid({
                   {/* Status Indicator */}
                   <div
                     style={{
-                      display: 'flex',
+                      display: 'inline-flex',
                       alignItems: 'center',
-                      gap: '5px',
                       padding: '3px 8px',
                       borderRadius: '9999px',
                       backgroundColor: '#dcfce7',
@@ -168,15 +161,6 @@ export function AdapterCardGrid({
                       border: '1px solid #bbf7d0',
                     }}
                   >
-                    <span
-                      style={{
-                        width: '6px',
-                        height: '6px',
-                        borderRadius: '50%',
-                        backgroundColor: '#16a34a',
-                        animation: 'pulse 2s infinite',
-                      }}
-                    />
                     <span>Connected</span>
                   </div>
                 </div>

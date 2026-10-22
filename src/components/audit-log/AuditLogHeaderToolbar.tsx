@@ -56,7 +56,7 @@ export function AuditLogHeaderToolbar({
         }}
       >
         {/* Search */}
-        <div style={{ position: 'relative', width: '280px' }}>
+        <div style={{ position: 'relative', flex: '1 1 200px', maxWidth: '320px' }}>
           <Search
             size={13}
             style={{

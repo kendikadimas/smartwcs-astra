@@ -121,12 +121,9 @@ export function ActiveRobotsCards({
 
       {/* Cards Row */}
       <div
-        className="panel-body"
+        className="panel-body active-robots-grid"
         style={{
           padding: '12px 14px',
-          display: 'grid',
-          gridTemplateColumns: 'repeat(5, 1fr)',
-          gap: '10px',
         }}
       >
         {robots.map((robot) => {

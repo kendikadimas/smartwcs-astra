@@ -484,15 +484,8 @@ export default function DispatchExecutionPage() {
           isRefreshing={isRefreshing}
         />
 
-        {/* Row 3: Main Workspace (2-Column Layout) */}
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'minmax(0, 1fr) 330px',
-            gap: '18px',
-            alignItems: 'start',
-          }}
-        >
+        {/* Row 3: Main Workspace (Responsive 2-Column or Stacked Layout) */}
+        <div className="dispatch-workspace-grid">
           {/* Main Left Column: Dispatch Mission Table */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '14px' }}>
             <div

@@ -103,14 +103,7 @@ export default function KpiPage() {
       <KpiSummaryCards metrics={metrics} />
 
       {/* Section 1: Throughput Trends (60%) + Fleet Productivity (40%) */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'minmax(0, 1.45fr) minmax(0, 1fr)',
-          gap: '16px',
-          marginBottom: '18px',
-        }}
-      >
+      <div className="kpi-row-trend-grid">
         <ThroughputTrendChart timeRange={filters.timeRange} />
         <FleetUtilizationPanel />
       </div>
@@ -119,7 +112,7 @@ export default function KpiPage() {
       <div
         style={{
           display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(420px, 1fr))',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 380px), 1fr))',
           gap: '16px',
           marginBottom: '18px',
         }}
