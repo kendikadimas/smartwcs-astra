@@ -600,9 +600,9 @@ model PuduRobotState {
   runState String? /// nullable; OFFLINE / DISABLE / BUSY / IDLE
   moveState String? /// nullable; IDLE / MOVING / STUCK / APPROACHING / ARRIVE / PAUSE / AVOID
   chargeStage String? /// nullable
-  chargeType String? /// nullable
-  isCharging Int? /// nullable; nilai mentah PUDU (contoh -1). Arti nilai belum diverifikasi
-  remainTime Int? /// nullable; nilai mentah PUDU. Arti dan satuan belum diverifikasi
+  chargeType String? /// nullable; int32 di PUDU (1=kabel, 2=dock), dikonfirmasi 2026-10-22, disimpan sebagai string
+  isCharging Int? /// nullable; nilai mentah PUDU. Arti dikonfirmasi 2026-10-22: 1=charging, -1=tidak charging
+  remainTime Int? /// nullable; nilai mentah PUDU. Satuan masih kontradiktif per model (T300 menit vs P1 detik), T600 tidak disebut dokumen resmi
   battery Int? /// nullable; 0-100
   currentPuduMapId String? @db.Uuid /// -> PuduMap, nullable; peta aktif
   x Decimal? @db.Decimal(14, 4) /// nullable
@@ -633,8 +633,8 @@ model PuduRobotStatusLog {
   moveState String? /// nullable
   chargeStage String? /// nullable
   battery Int? /// nullable
-  isCharging Int? /// nullable; nilai mentah PUDU
-  remainTime Int? /// nullable; nilai mentah PUDU
+  isCharging Int? /// nullable; nilai mentah PUDU. 1=charging, -1=tidak charging (dikonfirmasi 2026-10-22)
+  remainTime Int? /// nullable; nilai mentah PUDU, satuan belum pasti untuk T600 (lihat PuduRobotState.remainTime)
   recordedAt DateTime @db.Timestamptz(3) /// waktu dari PUDU: notify_timestamp (milidetik) untuk callback, timestamp (detik) untuk GetRobotStatusV2, atau waktu polling
   puduRobot PuduRobot @relation("PuduRobotStatusLog_puduRobotId", fields: [puduRobotId], references: [puduRobotId])
   integrationLog IntegrationLog? @relation("PuduRobotStatusLog_integrationLogId", fields: [integrationLogId], references: [logId], onDelete: SetNull)
@@ -750,7 +750,7 @@ model PuduTask {
   completeType String? /// nullable
   remark String? /// nullable
   isOverTime Boolean? /// nullable
-  spentTime Int? /// nullable; nilai mentah PUDU (contoh 100). Satuan belum diverifikasi
+  spentTime Int? /// nullable; nilai mentah PUDU level-task (contoh 100). Satuan masih belum diverifikasi (beda dari PuduTaskStop.estimatedTime/spendTime yang sudah terkonfirmasi milidetik)
   robotResponseCode String? /// nullable
   robotResponseMessage String? /// nullable
   requestPayload Json? /// nullable; body yang dikirim WCS (do_not_queue, robot_group_ids, execute_task, dll)
@@ -783,8 +783,8 @@ model PuduTaskStop {
   vendorStopId String? /// nullable; id destinasi dari PUDU (dikembalikan saat sinkronisasi status)
   destType String? /// nullable; REMOTE / MANUAL
   status String? /// nullable; status per destinasi
-  estimatedTime Int? /// nullable; nilai mentah PUDU (contoh 60000). Satuan belum diverifikasi
-  spendTime Int? /// nullable; nilai mentah PUDU (contoh 80000). Satuan belum diverifikasi
+  estimatedTime Int? /// nullable; nilai mentah PUDU (contoh 60000). Satuan: milidetik (dikonfirmasi 2026-10-22)
+  spendTime Int? /// nullable; nilai mentah PUDU (contoh 80000). Satuan: milidetik (dikonfirmasi 2026-10-22)
   isTimeout Boolean? /// nullable
   completeType String? /// nullable
   arrivedAt DateTime? @db.Timestamptz(3) /// nullable; dihitung WCS dari perubahan status

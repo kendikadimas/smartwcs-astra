@@ -1,6 +1,21 @@
 # Integrasi PUDU Open Platform (Cloud API)
 
 > **[Baru 2026-10-19]** Ringkasan keputusan integrasi robot PUDU untuk Smart WCS, hasil eksplorasi dokumentasi resmi PUDU Open Platform dan katalog 47 API. Baca dokumen ini sebelum menulis kode di `src/modules/equipment-adapter/pudu`. Data model ada di `ERD.md` (bagian PUDU Adapter Data) dan `prisma/schema.prisma`.
+>
+> **[Revisi 2026-10-22]** `docs/pudu-official/PUDU_OFFICIAL_EXCERPT.md`
+> (kutipan langsung dari situs dokumentasi resmi PUDU) sekarang **sumber
+> kebenaran lebih tinggi** dari dokumen ini untuk 10 API/callback yang
+> dicakupnya (`InitiateCallTask`, `CancelCallTask`, `CompleteCallTask`,
+> `GetCallList`, `notifyCustomCall`, `GetRobotStatusV2`, `robotStatus`,
+> `notifyRobotStatus`, `notifyRobotPose`, `notifyDeliveryTask`) -- kalau
+> dokumen ini berbeda dengan excerpt itu untuk salah satu dari 10 nama
+> tersebut, excerpt yang benar. Untuk API/callback LAIN (37 sisanya,
+> termasuk seluruh API peta, `DeliveryTask`, `NotifyRobotReportPosition`,
+> dan sebagian besar callback status/binding), dokumen ini **masih**
+> satu-satunya acuan -- tetap ditandai "usulan, verifikasi dengan data
+> nyata" karena belum ada excerpt resmi untuk itu. Lihat laporan akhir
+> `fix/pudu-sesuai-dokumen-resmi` untuk daftar lengkap apa yang sudah/belum
+> dicocokkan.
 
 ## 1. Ringkasan
 
@@ -77,7 +92,7 @@ Implementasi: satu fungsi `signRequest()` di `src/modules/equipment-adapter/pudu
 4. Worker di proses `server.ts` mengambil baris `PENDING` (`SELECT ... FOR UPDATE SKIP LOCKED`), mengurai ke tabel tujuan (lihat Lampiran), set `SUCCESS` + `processedAt`, atau `FAILED` + `attempts++` + `nextAttemptAt`. Setelah itu emit event Socket.IO ke dashboard.
 5. **Pengecualian `notifyRobotPose`**: frekuensinya tinggi (hingga 1/detik/robot), jadi boleh langsung di-upsert ke `PuduRobotState` dan insert ke `PuduPoseLog` tanpa disimpan mentah di `IntegrationLog`.
 
-Traffic control area adalah callback dua arah: setelah menerima permintaan `seize`/`release` (dengan `msg_id`), WCS wajib memanggil balik PUDU dengan `action_result`. Scope 1 selalu `allow`. Nama `callback_type`-nya belum terkonfirmasi (lihat bagian 9).
+Traffic control area adalah callback dua arah: setelah menerima permintaan `seize`/`release` (dengan `msg_id`), WCS wajib memanggil balik PUDU dengan `action_result`. Scope 1 selalu `allow`. Nama `callback_type`-nya belum terkonfirmasi (lihat bagian 9). **[Revisi 2026-10-22]** Diputuskan pemilik proyek: traffic control TIDAK dikerjakan di `fix/pudu-sesuai-dokumen-resmi` -- kalau callback ini (atau `callback_type` lain yang memang tidak punya parser, mis. lifting/transport) masuk, worker mencatatnya `IGNORED` sekali (satu Event INFO, dedup per `callback_type`) dan TIDAK retry selamanya seperti sebelumnya (lihat `src/modules/equipment-adapter/worker-core.ts` `IgnoredMessageTypeError`).
 
 **Development (tanpa IP publik):** jalankan `cloudflared tunnel --url http://localhost:3000` untuk mendapat URL `https://<acak>.trycloudflare.com` gratis tanpa domain. Tunnel bersifat outbound sehingga tetap jalan di belakang CGNAT (mis. hotspot HP) dan tidak membuka port jaringan internal. URL berubah setiap tunnel dijalankan ulang -- untuk produksi pakai named tunnel dengan domain tetap. Hanya path `/api/integrations/pudu/callback` yang perlu diakses PUDU.
 
@@ -109,21 +124,74 @@ Traffic control area adalah callback dua arah: setelah menerima permintaan `seiz
 - **Lifting, transport, `notifyLiftingStatus`, robot group:** di luar scope T600, tidak dimodelkan sebagai tabel. Kalau kelak ada robot lain, tambah nilai `PuduTask.taskKind`.
 - **KPI granular** (travel time, idle time, waktu tunggu) tidak dikirim PUDU sebagai angka jadi -- dihitung WCS dari timestamp `TaskStatusHistory`, `PuduTaskStop`, dan `PuduRobotStatusLog`.
 
-## 7. Pemetaan status PUDU ke status WCS (usulan, verifikasi dengan data nyata)
+## 7. Pemetaan status PUDU ke status WCS
 
-Status mentah PUDU disimpan apa adanya di `PuduTask.status`. Adapter menerjemahkannya ke `Mission.status` dan `Task.status` (enum `TaskStatus` OpenAPI). Nilai di bawah berasal dari katalog dan **harus dicek ulang dengan payload callback sungguhan** sebelum dianggap final.
+> **[Revisi 2026-10-22]** Sebelumnya satu tabel gabungan CALL+DELIVERY --
+> **salah**, kosakata keduanya beda dan sebagian bertumpukan secara
+> menyesatkan (`CALL_SUCCESS` dulu dipetakan ke COMPLETED, padahal artinya
+> cuma "robot merespons", bukan "task selesai"). Dipecah dua tabel sesuai
+> `src/modules/equipment-adapter/pudu/status-map.ts` (`mapCallStatus()` /
+> `mapDeliveryStatus()`). Status mentah PUDU disimpan apa adanya di
+> `PuduTask.status`; adapter menerjemahkan ke `Mission.status`/`Task.status`.
 
-| Status PUDU (contoh) | Mission.status | Task.status |
-| --- | --- | --- |
-| response sukses saat create task | SUBMITTED | DISPATCHED |
-| QUEUEING | ACCEPTED | DISPATCHED |
-| CALLING, sedang mengantar, ON_THE_WAY | RUNNING | RUNNING |
-| CALL_SUCCESS, COMPLETE / COMPLETED | COMPLETED | COMPLETED |
-| CANCEL | CANCELLED | CANCELLED |
-| FAIL / FAILED, atau error yang menghentikan task | FAILED | FAILED (failureCode RESOURCE_ERROR) |
-| PAUSE | RUNNING (tetap) | RUNNING |
+### CALL (`InitiateCallTask`, `notifyCustomCall`, `GetCallList`) -- state/status **DIKONFIRMASI** `PUDU_OFFICIAL_EXCERPT.md`
+
+| Status PUDU | Mission.status | Task.status | Catatan |
+| --- | --- | --- | --- |
+| QUEUEING (respons API) / QUEUING (callback) | ACCEPTED | DISPATCHED | Ejaan beda di dokumen resmi sendiri |
+| CALLING | RUNNING | RUNNING | |
+| CALL_SUCCESS | RUNNING | RUNNING | Robot MERESPONS sukses, BUKAN task selesai (dulu salah dipetakan ke COMPLETED) |
+| ARRIVE, PAUSE | RUNNING | RUNNING | Cuma dilaporkan robot P-ONE |
+| CALL_COMPLETE | COMPLETED | COMPLETED | Nilai resmi di daftar enum |
+| COMPLETE | COMPLETED | COMPLETED | Alias dari contoh respons `GetCallList` -- dokumen resmi sendiri tidak konsisten (daftar nilai vs contoh) |
+| CALL_FAILED | FAILED | FAILED (failureCode RESOURCE_ERROR) | |
+| QUEUING_CANCEL, TASK_CANCEL | CANCELLED | CANCELLED | |
+| ROBOT_CANCEL | CANCELLED | CANCELLED | Dibatalkan ROBOT, bukan WCS/sistem -- dibedakan di dokumen resmi tapi WCS belum membedakan efeknya |
+
+Baris pertama tabel lama ("response sukses saat create task" -> SUBMITTED/DISPATCHED) bukan token status PUDU, melainkan kondisi awal sebelum ada field status -- `INITIAL_TASK_STATE` di `status-map.ts`, **tidak dipanggil di mana pun** (lihat `TASK_STATE_MACHINE.md` bagian 5).
+
+### DELIVERY (`DeliveryTask`, `notifyDeliveryTask`) -- task_status **BELUM diverifikasi untuk API inisiasi** (`DeliveryTask` tidak ada di excerpt), tapi **DIKONFIRMASI** untuk callback `notifyDeliveryTask`
+
+| Status PUDU (`task_status`) | Mission.status | Task.status | Catatan |
+| --- | --- | --- | --- |
+| ON_THE_WAY | RUNNING | RUNNING | |
+| PAUSE | RUNNING | RUNNING | |
+| COMPLETED | COMPLETED | COMPLETED | |
+| CANCEL | CANCELLED | CANCELLED | |
+| FAILED | FAILED | FAILED (failureCode RESOURCE_ERROR) | Robot menolak task, diupdate cloud |
+
+`task_status` **opsional** -- robot versi lama tidak mengirimnya (dikonfirmasi excerpt); kalau absen, status Task/Mission tidak diubah, cuma destinasi (`PuduTaskStop`) yang disimpan. Status per-destinasi (`AWAIT`/`ON_THE_WAY`/`ARRIVED`/`CANCEL`/`COMPLETE`) tidak memetakan ke status Task, disimpan mentah saja.
+
+### SWITCH_MAP, RECHARGE -- belum ada tabel status
+
+`notifySwitchMap` dan `notifyRechargeStatus` memanggil `applyPuduTaskStatus` dengan `taskKind: "OTHER"` -- **selalu `recognized=false`**, status mentah tersimpan di `PuduTask.status` tapi tidak pernah mengubah `Task.status`/`Mission.status`. Dulu (sebelum tabel dipecah) kedua ini keliru dicocokkan ke tabel CALL+DELIVERY gabungan, yang bisa salah tafsir kode yang kebetulan sama namanya. Kosakata status resmi untuk SWITCH_MAP (kode 7000x) dan RECHARGE belum ada di excerpt maupun eksplorasi awal -- di luar scope untuk diisi tebakan.
 
 ## 8. Katalog API dan scope T600
+
+> **[Revisi 2026-10-22]** Status implementasi per 2026-10-22 (branch
+> `fix/pudu-sesuai-dokumen-resmi`): diimplementasikan di `client.ts` --
+> #1 `InitiateCallTask`, #2 `CancelCallTask`, #3 `CompleteCallTask`
+> (disiapkan, belum dipanggil pemanggil manapun), #4 `GetCallList` (dipakai
+> rekonsiliasi), #5 `DeliveryTask`, #11 `GetRobotStatusV2`, #28
+> `OneKeyRechargeV2` **tidak**, #29 `NotifyRobotReportPosition`, #30
+> `StoreMapList`, #33 `GetMapDetailV2`, #32 `CurrentMap` (disiapkan, tidak
+> dipanggil `syncResources()` -- `GetMapDetailV2` sudah cukup), #35
+> `GetCurrentMapPoints` (disiapkan, idem), #44 `GetStoreList`, #45
+> `StoreRobotList`, #46 `GetBoundRobotGroups`, #47 `GetRobotsInGroup`.
+> Callback dengan parser: #13 `robotErrorWarning`, #14 `robotErrorNotice`,
+> #15 `robotStatus`, #17 `notifyRobotStatus`, #18 `mapElementChange`, #19
+> `notifyRobotPose`, #20 `notifyRobotMoveState`, #21 `notifyCustomCall`,
+> #22 `notifyDeliveryTask`, #25 `notifyRobotPower`, #27
+> `notifyRechargeStatus`, #38 `robotBinding`, #39 `robotUnBinding`, #40
+> `robotActivate`, #43 `notifySwitchMap`. **Belum ada parser** (masuk jalur
+> `IgnoredMessageTypeError`, lihat bagian 4): #16 `robotEmergencyRecover`
+> (punya kolom cocok `PuduRobotState.emergencyRecoveredAt`, TIDAK dibuatkan
+> parser karena di luar 3 nama yang diinstruksikan dievaluasi -- dicatat di
+> laporan akhir sebagai temuan), #24 Traffic control area (sengaja). #6
+> `DeliveryCommands`, #12 `GetGroupRobotStatusV2`, #41
+> `SendCustomDisplayContent`, #42 `SwitchMap` belum diimplementasikan sama
+> sekali. #8-10, #23, #26, #36, #37 (lifting/transport/cleanbot) sengaja
+> tidak dikerjakan (di luar scope T600).
 
 | No | API / callback | Arah | Endpoint | Scope | Catatan |
 | --- | --- | --- | --- | --- | --- |
@@ -177,13 +245,29 @@ Status mentah PUDU disimpan apa adanya di `PuduTask.status`. Adapter menerjemahk
 
 ## 9. Pertanyaan terbuka ke PUDU / Winteq
 
+> **[Revisi 2026-10-22]** Status per poin diperbarui setelah
+> `docs/pudu-official/PUDU_OFFICIAL_EXCERPT.md` didapat. Poin yang
+> **TERJAWAB** dipindah ke bawah dengan jawabannya; sisanya **masih
+> terbuka** (excerpt tidak mencakupnya).
+
+**Terjawab (excerpt):**
+- ~~Arti `is_charging`~~ -> **1 = charging, -1 = tidak charging** (GetRobotStatusV2 & notifyRobotStatus).
+- ~~Satuan `charge_type`~~ -> int32, **1 = kabel, 2 = dock** (BUKAN string seperti disimpan kode sebelumnya -- lihat Fase D perbaikan, kolom DB tetap String karena tidak ada migrasi di task ini).
+- ~~Daftar nilai `state`/`status` untuk CALL~~ -> terjawab lengkap (lihat bagian 7) -- untuk DELIVERY cuma `task_status` level-task yang terjawab (callback `notifyDeliveryTask`), status per-destinasi juga terjawab; tapi **API inisiasi `DeliveryTask` sendiri tidak ada di excerpt**.
+- ~~Timeout task~~ -> task call gagal otomatis 30 menit sejak dibuat (`InitiateCallTask` poin 1).
+- ~~Aturan `priority`~~ -> 1 (tertinggi) sampai 5, default/di luar rentang = 5.
+- ~~Satuan `estimated_time`/`spend_time` per destinasi delivery~~ -> **milidetik** (`notifyDeliveryTask` Params.data.trays.destinations).
+- ~~Model yang didukung CALL/DELIVERY/status~~ -> PuduT600 & PuduT600Underride termasuk yang didukung (`InitiateCallTask`, `CancelCallTask`, `CompleteCallTask`, `GetCallList`, `GetRobotStatusV2` scope ALL, `notifyCustomCall`, `notifyDeliveryTask`, `notifyRobotPose` -- lihat Scope masing-masing di excerpt).
+
+**Masih terbuka (TIDAK ada di excerpt, jangan ditebak):**
 - **Private Cloud vs Cloud API.** Pilot memakai Cloud API (butuh internet). Docs PUDU punya menu "PUDU Private Cloud API" yang kemungkinan bisa on-premise dan sesuai prinsip LAN-first -- perlu ditanyakan sebelum produksi (lihat ADR 7.1).
-- Nama persis `callback_type` untuk traffic control area.
-- Nilai `callback_type` `notifySwitchMap` (tabel field di docs PUDU tertulis `notifyRobotMoveState`, kemungkinan salah tulis).
-- Daftar lengkap nilai `task_status`/`state` untuk call dan delivery task (untuk memfinalkan pemetaan di bagian 7).
-- Satuan `estimated_time`, `spend_time`, `spent_time`, `remain_time`; arti `is_used` 1/2 dan `is_charging` -1. Disimpan mentah dengan nama kolom netral, diuji dengan robot nyata lalu dikunci.
-- Tipe `shop_id`/`company_id` di docs `GetStoreList` tertulis int, tetapi contoh response berupa string. Disimpan sebagai string.
-- Format persis `Content-MD5` (contoh JS dan Java di docs PUDU berbeda cara encode) -- pastikan lewat healthCheck dengan request POST.
+- Nama persis `callback_type` untuk traffic control area (sengaja tidak dikerjakan di `fix/pudu-sesuai-dokumen-resmi`, diputuskan pemilik proyek -- lihat laporan akhir).
+- Satuan `spent_time` level-task (DELIVERY, berbeda dari `estimated_time`/`spend_time` per-destinasi yang sudah terjawab milidetik).
+- **`remain_time` masih kontradiktif** -- excerpt `GetRobotStatusV2` bilang menit (T300 saja), excerpt `notifyRobotStatus`/`RobotWorkStatusNotification` bilang detik (P1 saja). **T600 (robot pilot WCS) tidak disebut sama sekali di kedua excerpt itu** -- jadi makna `remain_time` untuk T600 spesifik masih belum diketahui. Tetap disimpan mentah tanpa label (`PuduRobotState.remainTime`, respons `/api/monitoring/fleet` field `remainTimeRaw`).
+- API peta (`StoreMapList`, `CurrentMap`, `GetMapDetailV2`, `GetCurrentMapPoints`), `DeliveryTask`/`DeliveryCommands`, `NotifyRobotReportPosition`, `GetStoreList`/`StoreRobotList`/`GetBoundRobotGroups`/`GetRobotsInGroup`, `OneKeyRechargeV2`, `SendCustomDisplayContent`, `SwitchMap`/`notifySwitchMap`, `robotBinding`/`robotUnBinding`/`robotActivate`, `robotErrorWarning`/`robotErrorNotice`, `mapElementChange`, `notifyRobotMoveState`, `notifyRobotPower`, `notifyRechargeStatus`, `robotEmergencyRecover` -- **tidak ada satu pun di excerpt**, implementasi `fix/pudu-sesuai-dokumen-resmi` untuk ini semua memakai field dari dokumen ini (Lampiran, hasil eksplorasi awal), ditandai "belum diverifikasi dokumen resmi" di kode.
+- Tipe `shop_id`/`company_id` di `GetStoreList` tertulis int, tetapi contoh response berupa string -- `GetStoreList` tidak ada di excerpt, jadi ini masih berdasar eksplorasi awal, belum terverifikasi ulang. Disimpan sebagai string.
+- Format persis `Content-MD5` -- excerpt SEKARANG menyebutnya eksplisit: `Base64(hex(MD5(body)))` (bukan base64 dari digest biner, lihat `signing.ts` -- sudah diperbaiki `fix/pudu-sesuai-dokumen-resmi`). **Belum diuji end-to-end ke healthCheck sungguhan** (tidak ada ApiAppKey/Secret asli) -- formula-nya sudah benar menurut teks dokumen, tapi belum terverifikasi lewat request nyata.
+- **Jumlah baris kosong pasti dalam signing string** antara Content-Type dan PathAndParameters -- excerpt punya satu contoh signing string, tapi teks hasil scraping web menunjukkan 2 baris kosong di posisi yang menurut pembacaan paling literal "6 bagian dipisah \n" seharusnya cuma 1 -- ambigu, kemungkinan artefak scraping. `buildSigningString()` dipakai 1 baris kosong (pembacaan literal), BELUM diverifikasi byte-persis.
 
 ## Lampiran: field PUDU ke kolom database
 

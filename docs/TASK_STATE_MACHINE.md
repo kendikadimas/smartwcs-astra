@@ -8,6 +8,15 @@
 > dengan `docs/openapi-smart-wcs.yaml` (enum `TaskStatus` di sana punya
 > lebih banyak nilai), itu dicatat sebagai gap di bagian 5, bukan diikuti
 > begitu saja.
+>
+> **[Revisi 2026-10-22, branch `fix/pudu-sesuai-dokumen-resmi`]**
+> `status-map.ts` dipecah `mapCallStatus()`/`mapDeliveryStatus()` (dulu
+> satu tabel gabungan, salah -- lihat `PUDU_INTEGRATION.md` bagian 7).
+> `failureCode` sekarang punya lebih dari satu nilai yang benar-benar
+> diproduksi kode (lihat bagian 1 & 5, sebelumnya hanya `RESOURCE_ERROR`).
+> `dispatch()`/`cancel()` sekarang bisa menolak lewat `DispatchRejectedError`
+> (lihat `src/modules/equipment-adapter/pudu/error-map.ts`) -- tapi
+> **belum ada pemanggil nyata**, jadi ini belum teramati di produksi.
 
 ## 1. Status yang benar-benar dipakai kode
 
@@ -20,7 +29,7 @@
 | `RUNNING` | `applyTaskStatusChange` | Status PUDU `CALLING`, `ON_THE_WAY`, atau `PAUSE` (PAUSE **tetap** RUNNING, tidak ada status PAUSED tersendiri) |
 | `COMPLETED` | `applyTaskStatusChange` | Status PUDU `CALL_SUCCESS`, `COMPLETE`, `COMPLETED` |
 | `CANCELLED` | `applyTaskStatusChange` | Status PUDU `CANCEL` |
-| `FAILED` | `applyTaskStatusChange` | Status PUDU `FAIL`/`FAILED`, `failureCode` diisi `"RESOURCE_ERROR"` (satu-satunya nilai `failureCode` yang pernah diproduksi kode) |
+| `FAILED` | `applyTaskStatusChange` | Status PUDU `CALL_FAILED` (CALL) / `FAILED` (DELIVERY) -> `failureCode="RESOURCE_ERROR"`. Sejak `fix/pudu-sesuai-dokumen-resmi`: juga ditulis oleh `reconcile.ts` (`failureCode="TASK_TIMEOUT"`, task CALL yang tidak kunjung final setelah `PUDU_TASK_RECONCILE_TIMEOUT_MS`) -- lihat bagian 3 & 5 |
 
 Nilai lain di enum `TaskStatus` OpenAPI (`VALIDATED`, `QUEUED`, `ASSIGNED`,
 `RETRY`) **tidak pernah ditulis kode apa pun** -- lihat bagian 5.
@@ -68,36 +77,36 @@ hari ini -- tidak ada state machine yang ditegakkan, cuma dicatat.
 | Pemicu | Jalur kode | Catatan |
 | --- | --- | --- |
 | API (`POST /api/tasks`) | `src/app/api/tasks/route.ts` | Hanya set `CREATED` saat buat. **Tidak ada** `PATCH /tasks/{id}/status`, `POST /tasks/{id}/cancel`, atau `POST /tasks/{id}/retry` yang terimplementasi -- ketiganya ada di `openapi-smart-wcs.yaml` tapi belum ada route-nya di `src/app/api/tasks/`. |
-| Callback robot (PUDU) | `parsers.ts` (`notifyCustomCall`, `notifyDeliveryTask`, `notifySwitchMap`) -> `applyPuduTaskStatus` -> `mapPuduStatus` -> `applyTaskStatusChange` | Satu-satunya jalur yang benar-benar mengubah `Task.status`/`Mission.status` setelah `CREATED` hari ini. |
-| Adapter fake (demo/test) | `fake/index.ts` `handleInbound` kind `"queued"` -> `applyTaskStatusChange` langsung (status sudah netral, tanpa `mapPuduStatus`) | Dipakai `fake/e2e.test.ts`. |
-| Timeout | **Tidak ada** | Tidak ada job terjadwal/cron yang mengubah status berdasarkan waktu. `pg-boss` (ADR 9.2) belum diimplementasikan. |
+| Callback robot (PUDU) | `parsers.ts` (`notifyCustomCall`, `notifyDeliveryTask`, `notifySwitchMap`, `notifyRechargeStatus`) -> `applyPuduTaskStatus` -> `mapCallStatus`/`mapDeliveryStatus` (atau selalu `recognized=false` untuk `taskKind: "OTHER"`) -> `applyTaskStatusChange` | Jalur utama yang mengubah `Task.status`/`Mission.status` setelah `CREATED`. |
+| Rekonsiliasi (`reconcile.ts`, `fix/pudu-sesuai-dokumen-resmi`) | `reconcileStalledCallTasks()` -> `GetCallList` -> `applyPuduTaskStatus` (status ketemu) ATAU langsung `applyTaskStatusChange` (`failureCode="TASK_TIMEOUT"`, task CALL lewat `PUDU_TASK_RECONCILE_TIMEOUT_MS` dan masih belum final) | Dipanggil `worker.ts` lewat `adapter.syncResources()` berkala (`PUDU_SYNC_INTERVAL_MS`) -- menutup celah kalau callback status hilang. |
+| `dispatch()`/`cancel()` ditolak (`error-map.ts`, `fix/pudu-sesuai-dokumen-resmi`) | `DispatchRejectedError` (failureCode `NO_RESOURCE_AVAILABLE`/`DISPATCH_TIMEOUT`/`TASK_TIMEOUT`/`COMM_LOST`/`RESOURCE_ERROR`) | **Dilempar sebagai exception, BUKAN ditulis otomatis ke `Task.failureCode`** -- belum ada pemanggil nyata `dispatch()` di produksi (lihat bagian 5), jadi failureCode ini belum pernah benar-benar sampai ke `Task` lewat jalur ini. |
+| Adapter fake (demo/test) | `fake/index.ts` `handleInbound` kind `"queued"` -> `applyTaskStatusChange` langsung (status sudah netral) | Dipakai `fake/e2e.test.ts`. |
 
 ## 4. Tabel pemetaan status vendor PUDU -> WCS
 
-Diambil langsung dari `src/modules/equipment-adapter/pudu/status-map.ts`
-(`STATUS_MAP`), berlaku tidak peka huruf besar/kecil:
+**[Revisi 2026-10-22]** Dipecah dua tabel terpisah -- lihat
+`src/modules/equipment-adapter/pudu/status-map.ts`
+(`mapCallStatus()`/`mapDeliveryStatus()`) dan detail lengkap + status mana
+yang **dikonfirmasi** `PUDU_OFFICIAL_EXCERPT.md` di
+`docs/PUDU_INTEGRATION.md` bagian 7. Ringkasnya:
 
-| Status PUDU | Mission.status | Task.status | failureCode |
-| --- | --- | --- | --- |
-| `QUEUEING` | `ACCEPTED` | `DISPATCHED` | - |
-| `CALLING` | `RUNNING` | `RUNNING` | - |
-| `ON_THE_WAY` | `RUNNING` | `RUNNING` | - |
-| `CALL_SUCCESS` | `COMPLETED` | `COMPLETED` | - |
-| `COMPLETE` | `COMPLETED` | `COMPLETED` | - |
-| `COMPLETED` | `COMPLETED` | `COMPLETED` | - |
-| `CANCEL` | `CANCELLED` | `CANCELLED` | - |
-| `FAIL` | `FAILED` | `FAILED` | `RESOURCE_ERROR` |
-| `FAILED` | `FAILED` | `FAILED` | `RESOURCE_ERROR` |
-| `PAUSE` | `RUNNING` (tetap) | `RUNNING` | - |
+- **CALL** (`QUEUEING`/`QUEUING`, `CALLING`, `CALL_SUCCESS`, `ARRIVE`,
+  `PAUSE`, `CALL_COMPLETE`/`COMPLETE`, `CALL_FAILED`, `QUEUING_CANCEL`,
+  `TASK_CANCEL`, `ROBOT_CANCEL`) -- kosakata resmi, dikonfirmasi excerpt.
+- **DELIVERY** (`ON_THE_WAY`, `PAUSE`, `COMPLETED`, `CANCEL`, `FAILED`) --
+  dikonfirmasi excerpt untuk callback `notifyDeliveryTask`.
+- `taskKind: "OTHER"` (dipakai `notifySwitchMap`, `notifyRechargeStatus`)
+  **selalu** `recognized=false` -- tidak ada tabel untuk SWITCH_MAP/RECHARGE.
 
-**Status tak dikenal** (tidak ada di tabel di atas): `mapPuduStatus()`
-mengembalikan `{ recognized: false }`, **tidak melempar error**.
-`applyPuduTaskStatus` lalu mencatat `Event` severity `WARNING`
+**Status tak dikenal** (tidak ada di tabel manapun untuk `taskKind`-nya):
+`applyPuduTaskStatus` mencatat `Event` severity `WARNING`
 (`eventType: "PUDU_UNKNOWN_STATUS"`, `sourceType: "ROBOT"`, `sourceId`
 = `Robot.robotId`) lewat `recordEvent` -- **tidak** mengubah
 `Mission.status`/`Task.status` sama sekali (status mentah tetap tersimpan
 di `PuduTask.status` oleh pemanggil `applyPuduTaskStatus`, di luar fungsi
-ini).
+ini). Ini **tidak sama** dengan callback_type yang tidak punya parser sama
+sekali (lihat `PUDU_INTEGRATION.md` bagian 4, `IgnoredMessageTypeError`) --
+dua mekanisme berbeda untuk dua masalah berbeda.
 
 ## 5. Belum diputuskan / gap (JANGAN diisi tebakan)
 
@@ -121,10 +130,19 @@ ini).
   menaikkan, kapan, batas maksimum) belum diputuskan -- beda dari retry
   `IntegrationLog` di worker (`PUDU_WORKER_MAX_ATTEMPTS`), yang sudah ada
   dan tidak berhubungan dengan `retryCount` ini.
-- **`failureCode`** hari ini hanya pernah diisi `"RESOURCE_ERROR"` (satu
-  nilai, dari `FAIL`/`FAILED` PUDU). PRD menyebut nilai lain
-  (`NO_RESOURCE_AVAILABLE`, `DISPATCH_TIMEOUT`, `ACK_TIMEOUT`,
-  `TASK_TIMEOUT`, `COMM_LOST`) tapi tidak ada kode yang memproduksinya.
+- **`failureCode`** -- sampai `fix/pudu-sesuai-dokumen-resmi`, hanya pernah
+  diisi `"RESOURCE_ERROR"` (dari `CALL_FAILED`/`FAILED` PUDU, lewat jalur
+  callback). **Sekarang juga**: `"TASK_TIMEOUT"` (dari `reconcile.ts`,
+  task CALL yang menyerah ditunggu -- jalur ini AKTIF, benar-benar
+  berjalan lewat `worker.ts`), dan `"NO_RESOURCE_AVAILABLE"`/
+  `"DISPATCH_TIMEOUT"`/`"COMM_LOST"` (dari `error-map.ts`, dilempar
+  `DispatchRejectedError` dari `dispatch()`/`cancel()` -- jalur ini **TIDAK
+  aktif** karena belum ada pemanggil `dispatch()` di produksi, jadi
+  ketiga failureCode ini ada di kode tapi belum pernah benar-benar
+  tersimpan ke kolom `Task.failureCode` lewat jalur manapun). `ACK_TIMEOUT`
+  dari PRD masih tidak diproduksi kode mana pun. Pemetaan kode PUDU persis
+  ke failureCode ini (`error-map.ts`) keputusan sendiri, belum ada dokumen
+  resmi yang menjodohkan keduanya secara eksplisit.
 - **`INITIAL_TASK_STATE`** di `status-map.ts` (nilai awal Mission/Task
   saat task baru dibuat di PUDU) **ada di kode tapi tidak dipanggil di
   mana pun** -- `dispatch()` di `pudu/index.ts` tidak memakainya. Apakah

@@ -4,6 +4,55 @@ Mencatat perubahan pada `docs/` (ADR, ERD, Functional Boundary, Use Case, RBAC, 
 
 Format: `[file] perubahan` -- dasar perubahan.
 
+## 2026-10-22
+
+### Integrasi PUDU disesuaikan dengan dokumentasi resmi (branch `fix/pudu-sesuai-dokumen-resmi`)
+
+**docs/pudu-official/PUDU_OFFICIAL_EXCERPT.md (baru)** -- kutipan langsung
+dari situs dokumentasi resmi PUDU Open Platform (10 API/callback:
+`InitiateCallTask`, `CancelCallTask`, `CompleteCallTask`, `GetCallList`,
+`notifyCustomCall`, `GetRobotStatusV2`, `robotStatus`, `notifyRobotStatus`,
+`notifyRobotPose`, `notifyDeliveryTask`). Sumber kebenaran lebih tinggi
+dari `PUDU_INTEGRATION.md` untuk 10 nama itu; 37 API/callback lain masih
+berdasar `PUDU_INTEGRATION.md` ("usulan, verifikasi dengan data nyata").
+
+**Bug dikonfirmasi dan diperbaiki** (`client.ts`, `signing.ts`, `index.ts`,
+`parsers.ts`, `status-map.ts`, `pose.ts`): envelope respons
+`{trace_id, message, data}` ditegakkan (field task_id dulu dibaca dari
+level atas, bukan `data`); HTTP 2xx dengan `message != "SUCCESS"` sekarang
+error bisnis (retry cuma untuk kode transien); `map_name`/`point_type`
+(Required) diresolve dari `PuduMapElement`, bukan dikirim kosong; kosakata
+status CALL vs DELIVERY dipisah (dulu satu tabel campur, `CALL_SUCCESS`
+salah dipetakan ke COMPLETED); `robot_response_code` int32 (dulu wajib
+string); `notifyDeliveryTask.task_status` dibuat opsional (robot versi
+lama tidak mengirim); `notifyRobotPose` menyaring pesan out-of-order lewat
+`notify_timestamp`; `dispatch()` CALL sekarang cek `run_state` robot
+sebelum memanggil PUDU (OFFLINE/DISABLE ditolak, BUSY tetap dikirim).
+
+**Bug tambahan ditemukan saat verifikasi** (di luar 8 poin awal):
+`computeContentMd5` salah formula (base64 digest biner, seharusnya
+base64-dari-hex-string); `buildSigningString` menyisipkan baris kosong
+ekstra sebelum HTTPMethod; `charge_type` divalidasi string padahal int32;
+status SWITCH_MAP/RECHARGE keliru ikut tabel status CALL+DELIVERY
+gabungan sebelum dipecah; callback_type tanpa parser retry selamanya tanpa
+pernah SUCCESS (sekarang `IGNORED` sekali, `IgnoredMessageTypeError`).
+
+**Fitur baru**: `NotifyRobotReportPosition` dikirim ulang berkala supaya
+callback posisi tidak berhenti; sinkronisasi `PuduMap`/`PuduMapElement`
+lewat `StoreMapList`+`GetMapDetailV2` (soft delete elemen hilang);
+rekonsiliasi task CALL yang nyangkut lewat `GetCallList`, menyerah dan
+menandai `TASK_TIMEOUT` sendiri setelah batas waktu; 3 parser callback
+baru (`notifyRobotMoveState`, `notifyRobotPower`, `notifyRechargeStatus`).
+`docs/PUDU_INTEGRATION.md`, `docs/TASK_STATE_MACHINE.md`, `docs/ERD.md`,
+`prisma/schema.prisma` (komentar `///` saja, tidak ada migrasi -- `prisma
+validate` dan `prisma migrate diff` dikonfirmasi tidak ada perubahan SQL)
+diperbarui mengikuti semua temuan di atas.
+
+**Tidak dikerjakan** (di luar scope, diputuskan pemilik proyek atau
+menunggu persetujuan terpisah): traffic control area, lifting/transport,
+robot pembersih, uji ke robot PUDU asli (tidak ada API key), Better Auth,
+pg-boss, WebSocket, dispatch nyata dari API/UI WCS.
+
 ## 2026-10-21
 
 ### State machine Task/Mission, endpoint Event/Alarm/Monitoring (branch `feat/state-machine-event-monitoring`)
