@@ -259,24 +259,9 @@ export default function EquipmentPage() {
           }}
         >
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <h1 className="page-title" style={{ margin: 0 }}>
-                Equipment &amp; Resources
-              </h1>
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  padding: '2px 8px',
-                  borderRadius: '12px',
-                  backgroundColor: '#e0f2fe',
-                  color: '#0369a1',
-                  border: '1px solid #bae6fd',
-                }}
-              >
-                FR-05 &amp; FR-06 Fleet &amp; PLC Telemetry
-              </span>
-            </div>
+            <h1 className="page-title" style={{ margin: 0, marginBottom: '4px' }}>
+              Equipment &amp; Resources
+            </h1>
             <p className="page-subtitle" style={{ margin: 0 }}>
               Real-time monitoring, battery health, spatial poses, and diagnostics for PUDU AMRs, conveyors, vertical lifts, and charging hubs.
             </p>

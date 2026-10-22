@@ -31,22 +31,7 @@ export function IntegrationHeaderToolbar({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '18px' }}>
       <div className="page-header-row" style={{ marginBottom: 0 }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h1 className="page-title">Integrations &amp; Adapter Hub</h1>
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: 600,
-                color: '#0284c7',
-                backgroundColor: '#e0f2fe',
-                padding: '2px 8px',
-                borderRadius: '9999px',
-                border: '1px solid #bae6fd',
-              }}
-            >
-              PRD FR-05 · UC-10
-            </span>
-          </div>
+          <h1 className="page-title">Integrations &amp; Adapter Hub</h1>
           <p className="page-subtitle">
             Vendor-neutral adapter management, Cloud API credentials, OPC UA PLC telemetry, and message exchange queues.
           </p>

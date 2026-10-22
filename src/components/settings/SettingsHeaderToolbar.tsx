@@ -23,19 +23,6 @@ export function SettingsHeaderToolbar({
       <div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
           <h1 className="page-title">System Settings &amp; Global Configuration</h1>
-          <span
-            style={{
-              fontSize: '11px',
-              fontWeight: 600,
-              color: '#0284c7',
-              backgroundColor: '#e0f2fe',
-              padding: '2px 8px',
-              borderRadius: '9999px',
-              border: '1px solid #bae6fd',
-            }}
-          >
-            PRD FR-11
-          </span>
           {isDirty && (
             <span
               style={{

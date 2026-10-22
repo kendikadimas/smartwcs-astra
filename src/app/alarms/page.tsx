@@ -441,24 +441,9 @@ export default function AlarmsPage() {
         ========================================================= */}
         <div className="page-header-row">
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <h1 className="page-title" style={{ margin: 0 }}>
-                Alarms &amp; Events
-              </h1>
-              <span
-                style={{
-                  fontSize: '11px',
-                  fontWeight: 600,
-                  padding: '2px 8px',
-                  borderRadius: '12px',
-                  backgroundColor: '#fee2e2',
-                  color: '#991b1b',
-                  border: '1px solid #fecaca',
-                }}
-              >
-                FR-08 ISA-18.2 Standard
-              </span>
-            </div>
+            <h1 className="page-title" style={{ margin: 0, marginBottom: '4px' }}>
+              Alarms &amp; Events
+            </h1>
             <p className="page-subtitle" style={{ margin: 0 }}>
               Centralized incident management, 3-state tracking (Active &rarr; Acknowledged &rarr; Cleared), and technical telemetry payloads for AMR fleet, conveyors, lifts, and integration adapters.
             </p>

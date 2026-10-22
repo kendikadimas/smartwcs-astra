@@ -59,22 +59,7 @@ export function KpiHeaderToolbar({
       {/* Top Header Row */}
       <div className="page-header-row" style={{ marginBottom: 0 }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h1 className="page-title">KPI &amp; Performance Reports</h1>
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: 600,
-                color: '#0284c7',
-                backgroundColor: '#e0f2fe',
-                padding: '2px 8px',
-                borderRadius: '9999px',
-                border: '1px solid #bae6fd',
-              }}
-            >
-              PRD FR-10
-            </span>
-          </div>
+          <h1 className="page-title">KPI &amp; Performance Reports</h1>
           <p className="page-subtitle">
             Comprehensive throughput analytics, robot productivity, cycle time SLAs, and Pareto alarm metrics.
           </p>

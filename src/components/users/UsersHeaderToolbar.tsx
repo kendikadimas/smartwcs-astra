@@ -22,22 +22,7 @@ export function UsersHeaderToolbar({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '18px' }}>
       <div className="page-header-row" style={{ marginBottom: 0 }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h1 className="page-title">Users &amp; Access Control (RBAC)</h1>
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: 600,
-                color: '#0284c7',
-                backgroundColor: '#e0f2fe',
-                padding: '2px 8px',
-                borderRadius: '9999px',
-                border: '1px solid #bae6fd',
-              }}
-            >
-              PRD FR-11 · UC-05
-            </span>
-          </div>
+          <h1 className="page-title">Users &amp; Access Control (RBAC)</h1>
           <p className="page-subtitle">
             Operator account provisioning, shift assignments, and role-based access control matrix per docs/RBAC.md.
           </p>

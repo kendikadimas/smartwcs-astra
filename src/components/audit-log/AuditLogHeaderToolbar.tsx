@@ -26,22 +26,7 @@ export function AuditLogHeaderToolbar({
     <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', marginBottom: '18px' }}>
       <div className="page-header-row" style={{ marginBottom: 0 }}>
         <div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-            <h1 className="page-title">Audit Trail &amp; Compliance Logs</h1>
-            <span
-              style={{
-                fontSize: '11px',
-                fontWeight: 600,
-                color: '#0284c7',
-                backgroundColor: '#e0f2fe',
-                padding: '2px 8px',
-                borderRadius: '9999px',
-                border: '1px solid #bae6fd',
-              }}
-            >
-              PRD FR-11 · UC-12
-            </span>
-          </div>
+          <h1 className="page-title">Audit Trail &amp; Compliance Logs</h1>
           <p className="page-subtitle">
             Immutable security and operational trail capturing supervisor manual overrides, task cancellations, and config updates.
           </p>
