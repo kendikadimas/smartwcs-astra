@@ -31,6 +31,8 @@ import {
   RotateCcw,
 } from 'lucide-react';
 
+import { useSidebar } from '@/components/layout/SidebarContext';
+
 // ===========================================================================
 // PORTAL HELPER: Mounts outside layout containers directly to document.body
 // ===========================================================================
@@ -41,6 +43,53 @@ function ClientPortal({ children }: { children: React.ReactNode }) {
   }, []);
   if (!mounted || typeof document === 'undefined') return null;
   return createPortal(children, document.body);
+}
+
+// ===========================================================================
+// DASHBOARD WORKSPACE MODAL OVERLAY:
+// Constrains the backdrop to the dashboard area (below topbar, right of sidebar)
+// so the navigation sidebar and topbar remain fully visible and uncovered.
+// ===========================================================================
+function DashboardModalOverlay({
+  children,
+  onClose,
+  zIndex = 25,
+}: {
+  children: React.ReactNode;
+  onClose?: () => void;
+  zIndex?: number;
+}) {
+  const { isCollapsed, isMobile } = useSidebar();
+  const leftOffset = isMobile ? '0px' : isCollapsed ? '68px' : '250px';
+
+  return (
+    <ClientPortal>
+      <div
+        className="dashboard-modal-backdrop"
+        style={{
+          position: 'fixed',
+          top: '52px',
+          left: leftOffset,
+          right: 0,
+          bottom: 0,
+          backgroundColor: 'rgba(15, 23, 42, 0.55)',
+          backdropFilter: 'blur(4px)',
+          zIndex,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '16px',
+          transition: 'left 0.3s cubic-bezier(0.16, 1, 0.3, 1)',
+          overflow: 'hidden',
+        }}
+        onClick={(e) => {
+          if (e.target === e.currentTarget && onClose) onClose();
+        }}
+      >
+        {children}
+      </div>
+    </ClientPortal>
+  );
 }
 
 // ===========================================================================
@@ -187,42 +236,22 @@ export function AddEditModal({
       : 'Item';
 
   return (
-    <ClientPortal>
+    <DashboardModalOverlay onClose={onClose} zIndex={25}>
       <div
         style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          width: '100vw',
-          height: '100vh',
-          backgroundColor: 'rgba(15, 23, 42, 0.65)',
-          backdropFilter: 'blur(3px)',
-          zIndex: 99999,
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+          width: '100%',
+          maxWidth: '520px',
+          boxShadow: '0 20px 45px -10px rgba(15, 23, 42, 0.35)',
+          overflow: 'hidden',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '16px',
+          flexDirection: 'column',
+          maxHeight: 'calc(100vh - 52px - 32px)',
+          animation: 'modalScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose();
-        }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div
-          style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '12px',
-            width: '100%',
-            maxWidth: '520px',
-            boxShadow: '0 20px 45px -10px rgba(15, 23, 42, 0.35)',
-            overflow: 'hidden',
-            display: 'flex',
-            flexDirection: 'column',
-            maxHeight: '90vh',
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
         {/* Header */}
         <div
           style={{
@@ -459,9 +488,8 @@ export function AddEditModal({
           </div>
         </form>
       </div>
-    </div>
-  </ClientPortal>
-);
+    </DashboardModalOverlay>
+  );
 }
 
 // ===========================================================================
@@ -860,33 +888,12 @@ export function DetailDrawer({ item, onClose, activeCategory, onEditItem }: Deta
   };
 
   return (
-    <ClientPortal>
+    <DashboardModalOverlay onClose={onClose} zIndex={25}>
       <div
         style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          width: '100vw',
-          height: '100vh',
-          backgroundColor: 'rgba(15, 23, 42, 0.65)',
-          zIndex: 99999,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '16px',
-          backdropFilter: 'blur(4px)',
-        }}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose();
-        }}
-      >
-      <div
-        style={{
-          width: '92vw',
+          width: '100%',
           maxWidth: isRobot ? '1120px' : '680px',
-          maxHeight: '85vh',
+          maxHeight: 'calc(100vh - 52px - 32px)',
           backgroundColor: '#ffffff',
           borderRadius: '14px',
           boxShadow: '0 20px 45px -10px rgba(15, 23, 42, 0.3), 0 0 0 1px rgba(15, 23, 42, 0.08)',
@@ -894,6 +901,7 @@ export function DetailDrawer({ item, onClose, activeCategory, onEditItem }: Deta
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',
+          animation: 'modalScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
         onClick={(e) => e.stopPropagation()}
       >
@@ -1453,9 +1461,8 @@ export function DetailDrawer({ item, onClose, activeCategory, onEditItem }: Deta
           </div>
         </div>
       </div>
-    </div>
-  </ClientPortal>
-);
+    </DashboardModalOverlay>
+  );
 }
 
 // ===========================================================================
@@ -1485,42 +1492,22 @@ export function DeleteConfirmModal({ item, onClose, onConfirm }: DeleteConfirmMo
   if (!item) return null;
 
   return (
-    <ClientPortal>
+    <DashboardModalOverlay onClose={onClose} zIndex={25}>
       <div
         style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          width: '100vw',
-          height: '100vh',
-          backgroundColor: 'rgba(15, 23, 42, 0.65)',
-          backdropFilter: 'blur(3px)',
-          zIndex: 99999,
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+          width: '100%',
+          maxWidth: '400px',
+          padding: '20px',
+          boxShadow: '0 20px 45px -10px rgba(15, 23, 42, 0.35)',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '16px',
+          flexDirection: 'column',
+          gap: '14px',
+          animation: 'modalScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose();
-        }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div
-          style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '12px',
-            width: '100%',
-            maxWidth: '400px',
-            padding: '20px',
-            boxShadow: '0 20px 45px -10px rgba(15, 23, 42, 0.35)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '14px',
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div
             style={{
@@ -1588,9 +1575,8 @@ export function DeleteConfirmModal({ item, onClose, onConfirm }: DeleteConfirmMo
           </button>
         </div>
       </div>
-    </div>
-  </ClientPortal>
-);
+    </DashboardModalOverlay>
+  );
 }
 
 // ===========================================================================
@@ -1652,42 +1638,22 @@ export function ImportModal({ isOpen, onClose, activeCategory, onImportSuccess }
   };
 
   return (
-    <ClientPortal>
+    <DashboardModalOverlay onClose={onClose} zIndex={25}>
       <div
         style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          width: '100vw',
-          height: '100vh',
-          backgroundColor: 'rgba(15, 23, 42, 0.65)',
-          backdropFilter: 'blur(3px)',
-          zIndex: 99999,
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+          width: '100%',
+          maxWidth: '480px',
+          padding: '20px',
+          boxShadow: '0 20px 45px -10px rgba(15, 23, 42, 0.35)',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '16px',
+          flexDirection: 'column',
+          gap: '14px',
+          animation: 'modalScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose();
-        }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div
-          style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '12px',
-            width: '100%',
-            maxWidth: '480px',
-            padding: '20px',
-            boxShadow: '0 20px 45px -10px rgba(15, 23, 42, 0.35)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '14px',
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <div>
             <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a', margin: 0 }}>
@@ -1789,9 +1755,8 @@ export function ImportModal({ isOpen, onClose, activeCategory, onImportSuccess }
           </button>
         </div>
       </div>
-    </div>
-  </ClientPortal>
-);
+    </DashboardModalOverlay>
+  );
 }
 
 // ===========================================================================
@@ -1822,42 +1787,22 @@ export function MoreFiltersModal({ isOpen, onClose, filterState, onFilterChange 
   if (!isOpen) return null;
 
   return (
-    <ClientPortal>
+    <DashboardModalOverlay onClose={onClose} zIndex={25}>
       <div
         style={{
-          position: 'fixed',
-          top: 0,
-          left: 0,
-          right: 0,
-          bottom: 0,
-          width: '100vw',
-          height: '100vh',
-          backgroundColor: 'rgba(15, 23, 42, 0.65)',
-          backdropFilter: 'blur(3px)',
-          zIndex: 99999,
+          backgroundColor: '#ffffff',
+          borderRadius: '12px',
+          width: '100%',
+          maxWidth: '420px',
+          padding: '20px',
+          boxShadow: '0 20px 45px -10px rgba(15, 23, 42, 0.35)',
           display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          padding: '16px',
+          flexDirection: 'column',
+          gap: '14px',
+          animation: 'modalScaleIn 0.2s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) onClose();
-        }}
+        onClick={(e) => e.stopPropagation()}
       >
-        <div
-          style={{
-            backgroundColor: '#ffffff',
-            borderRadius: '12px',
-            width: '100%',
-            maxWidth: '420px',
-            padding: '20px',
-            boxShadow: '0 20px 45px -10px rgba(15, 23, 42, 0.35)',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '14px',
-          }}
-          onClick={(e) => e.stopPropagation()}
-        >
         <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
           <h3 style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a', margin: 0 }}>
             Advanced Filter Parameters
@@ -1937,7 +1882,6 @@ export function MoreFiltersModal({ isOpen, onClose, filterState, onFilterChange 
           </button>
         </div>
       </div>
-    </div>
-  </ClientPortal>
-);
+    </DashboardModalOverlay>
+  );
 }
