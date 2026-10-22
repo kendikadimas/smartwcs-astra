@@ -1188,3 +1188,960 @@ Map name
 }
 
 
+
+
+## C. Contoh respons Open API dan payload callback resmi (teks asli, disalin 2026-10-22)
+
+> Catatan pembacaan: beberapa contoh di dokumen PUDU punya salah ketik (komentar `//` di JSON, kunci `"robot_response_message:"` dan `"shop_id:"`, kurung kurawal berlebih di DeliveryTask, `callback_type` notifyRobotStatus tertulis `robotEmergencyRecover`). Saat dijadikan fixture tes, bersihkan salah ketik itu dan catat di laporan.
+
+```text
+ErrorWarning(Delayed10m)-robotErrorWarning
+{
+  "callback_type": "robotErrorWarning",
+  "data": {
+    "sn": "SV10111....",
+    "timestamp": 1699364274,
+    "error_type": "LostLocalization",
+    "error_level": "Error",
+    "error_detail": "",
+    "error_id": "test00001"
+  }
+}
+
+RealtimeError-robotErrorNotice
+{
+    "callback_type": "robotErrorNotice",
+    "data": {
+        "error_detail": "EmergencyKeyPressed",
+        "error_id": "",
+        "error_level": "Event",
+        "error_type": "EmergencyStop",
+        "extend_info": {
+            "battery": 58,
+            "floor": "",
+            "mac": "00:D6:CB:D5:28:01",
+            "map_name": "0#0#T600-pure-lidar-map-20250815",
+            "map_point": "",            
+            "sn": "826004C17060045",
+            "task_id": "1222222222222",
+            "task_type": "Delivery",
+            "position": {
+                  "x": -0.004843229,
+                  "y": 4.99104,
+                  "yaw": 1.3746479
+              },
+        },
+        "language": "",
+        "sn": "826004C17060045",
+        "timestamp": 1764325632 // service push timestamp, seconds
+    }
+}
+
+StoreBinding-robotBinding
+{
+  "callback_type": "robotBinding",
+  "data": {
+    "sn": "SV10111....",
+    "shop_id": 1001,
+    "timestamp": 1699364274
+  }
+}
+
+robotUnBinding-UnbindingStore
+{
+  "callback_type": "robotUnBinding",
+  "data": {
+    "sn": "SV10111....",
+    "timestamp": 1699364274
+  }
+}
+
+Activation-robotActivate
+{
+  "callback_type": "robotActivate",
+  "data": {
+    "sn": "SV10111....",
+    "timestamp": 1699364274
+  }
+}
+
+OnlineOffline-robotStatus
+{
+  "callback_type": "robotStatus",
+  "data": {
+    "sn": "SV10111....",
+    "run_status": "online",
+    "timestamp": 1699364274
+  }
+}
+
+EmergencyRecover-robotEmergencyRecover
+{
+  "callback_type": "robotEmergencyRecover",
+  "data": {
+    "sn":"OP21321dsffsd",
+    "mac":"AA:AA:AA:AA:AA:AA",
+    "timestamp": 1764325632 // current timestamp, seconds
+  }
+}
+
+RobotWorkStatusNotification-notifyRobotStatus
+{
+  "callback_type": "robotEmergencyRecover",
+  "data": {
+    "sn": "SN-PD202405000001",
+    "mac": "Robot001",
+    "timestamp": 1640995200,
+    "notify_timestamp": 1640995200000,
+    "battery": 85,
+    "is_charging": -1,
+    "move_state": "IDLE",
+    "charge_stage": "IDLE",
+    "remain_time": 0,
+    "run_state": "IDLE",
+    "charge_type": 2
+  }
+}
+
+MapElementsUpload_Update_Delete-mapElementChange
+{
+  "callback_type": "mapElementChange",
+  "data": {
+    "map_name": "map123",
+    "shop_id": 1001,
+    "timestamp": 1699364274
+  }
+}
+
+RobotPose-notifyRobotPose
+{
+   "callback_type": "notifyRobotPose",
+   "data": {
+     "x":1.234,
+     "y":2.345,
+     "yaw":32.34,
+      "sn":"OP21321dsffsd",
+      "mac":"AA:AA:AA:AA:AA:AA",
+      "timestamp": 1764325632, // current timestamp, seconds
+     "notify_timestamp" :1764325632000, // timestamp reported by the robot, milliseconds
+     "nearest_point": "table1"
+   }
+}
+
+RobotMoveState-notifyRobotMoveState
+{
+  "callback_type": "notifyRobotMoveState",
+  "data": {
+    "state":"IDLE",
+    "sn":"OP21321dsffsd",
+    "mac":"AA:AA:AA:AA:AA:AA",
+    "timestamp": 1764325632, // current timestamp, seconds
+     "notify_timestamp" :1764325632000 // timestamp reported by the robot, milliseconds
+  }
+}
+SwitchMapTask-notifySwitchMap
+{
+    "callback_type": "notifySwitchMap",
+    "data": {
+       "sn": "8260047101A0007",
+        "mac": "90:03:71:42:9A:9A",
+        "map_info": {
+            "map_name": "2#2#222"
+        },
+        "notify_timestamp": 1760624622839,
+        "remark": "success",        
+        "task_id": "1760624617357856",
+        "task_status": "COMPLETE",       
+        "timestamp": 1760624624
+    }
+}
+
+
+CallStatus-notifyCustomCall
+{
+  "callback_type": "notifyCustomCall",
+  "data": {
+    "task_id": "123",
+    "shop_id": 123,
+    "map_name":"map1",
+    "point":"point1",
+    "point_type":"table",
+    "queue":1,
+    "state":"QUEUING",
+    "sn":"PD1234567890123",
+    "robot_response_code":0,
+    "robot_response_message:":""
+   
+}
+
+DeliveryTask-notifyDeliveryTask
+{
+    "callback_type": "notifyDeliveryTask",
+    "data": {
+        "delivery_mode": "GENERAL",
+        "sn":"SV1111.....",
+        "mac":"mac",
+        "timestamp": 1699364274,
+        "notify_timestamp": 1699364274000,
+        "is_over_time":false,
+        "spent_time":100,
+        "task_id":"111111111",
+        "task_status":"ON_THE_WAY",
+        "trays": [
+            {
+                "destinations": [
+                    {
+                        "destination": "A1",
+                        "type": "REMOTE/MANUAL",
+                        "id": "task id; echoed when status sync occurs",
+                        "estimated_time": 60000,
+                        "spend_time": 80000,
+                        "status": "AWAIT/ON_THE_WAY/ARRIVED/CANCEL/COMPLETE",
+                        "timeout": false,
+                        "complete_type": "REMOTE",
+                        "map_info":{"map_name":"map name"}
+                    }
+                ]
+            },
+            {
+                "destinations": [
+                    {
+                        "destination": "A1",
+                        "type": "REMOTE/MANUAL",
+                        "id": "task id; echoed when status sync occurs",
+                        "estimated_time": 60000,
+                        "spend_time": 80000,
+                        "status": "AWAIT/ON_THE_WAY/ARRIVED/CANCEL/COMPLETE",
+                        "timeout": false,
+                        "complete_type": "REMOTE",
+                        "map_info":{"map_name":"map name"}
+                    }
+                ]
+            },
+            {
+                "destinations": [
+                    {
+                        "destination": "A1",
+                        "type": "REMOTE/MANUAL",
+                        "id": "task id; echoed when status sync occurs",
+                        "estimated_time": 60000,
+                        "spend_time": 80000,
+                        "status": "AWAIT/ON_THE_WAY/ARRIVED/CANCEL/COMPLETE",
+                        "timeout": false,
+                        "complete_type": "REMOTE",
+                        "map_info":{"map_name":"map name"}
+                    }
+                ]
+            }
+        ]
+    }
+}
+
+LiftingTask-notifyLiftingTask
+{
+    "callback_type": "notifyLiftingTask",
+    "data": {
+        "is_overtime": false,
+        "mac": "90:03:71:42:9A:9A",
+        "notify_timestamp": 1760630481083,
+        "progress": 0,
+        "ratio": "0/1",
+        "sn": "8260047101A0007",
+        "spend_time": 0,
+        "task_id": "eee38b4016b74b8bbadc5e0c9ce3ea08",
+        "task_status": "PAUSE",
+        "tasks": [
+            {
+                "desc_code": "",
+                "points": [
+                    {
+                        "point_attr": "LIFT_POINT",
+                        "point_name": "Lift in place",
+                        "point_status": "COMPLETE",
+                        "point_type": "LIFT_IN_PLACE"
+                    },
+                    {
+                        "map_info": {
+                            "map_code": "3#3#333",
+                            "map_name": "3#3#333"
+                        },
+                        "point_attr": "DROP_POINT",
+                        "point_name": "3-point-4",
+                        "point_status": "PAUSE",
+                        "point_type": "POINT"
+                    }
+                ],
+                "status": "PAUSE",
+                "timestamp": 1760630481076
+            }
+        ],
+        "timestamp": 1760630483
+    }
+}
+
+
+RobotPower-notifyRobotPower
+{
+    "callback_type": "notifyRobotPower",
+    "data": {
+        "charge_stage": "IDLE",        
+        "mac": "98:A1:4A:38:C4:6D",
+        "notify_timestamp": 1761705083466,
+        "power": 99,
+        "sn": "TS1732946965085",
+        "timestamp": 1761705082
+    }
+}
+
+LiftingStatus-notifyLiftingStatus
+{
+   "callback_type": "notifyLiftingStatus",
+    "data": {
+      "status": "RESET",
+      "mac": "90:03:71:42:9A:E0",
+      "sn": "8BROC20240902",
+      "notify_timestamp":1764325632001,// (since 1.5.1) timestamp reported by the robot for out-of-order handling, milliseconds
+      "timestamp": 1764325632 // service push timestamp, seconds
+    }
+}
+
+RechargeStatus-notifyRechargeStatus
+{
+    "callback_type": "notifyRechargeStatus",
+    "data": {
+        "mac": "98:A1:4A:38:C4:DA",
+        "map_name": "0#0#Flashbot-pure-lidar",
+        "notify_timestamp": 1760440430417,
+        "point": "Charging dock at finance office entrance",
+        "point_type": "ChargePile",
+        "sn": "OPG7jpSvFoA8cEdP",
+        "state": "COMPLETE",
+        "task_id": "07058bab9ef84625bcfc55d442c5766b",
+        "timestamp": 1760440431
+    }
+}
+
+GetStoreList
+{
+    "data": {
+        "count": 110,
+        "list": [
+            {
+                "company_id": "13947",
+                "company_name": "chixzdls_internal02 sub-agent",
+                "shop_id": "324100000",
+                "shop_name": "Shop-2023-10-08"
+            },
+            {
+                "company_id": "13947",
+                "company_name": "chixzdls_internal02 sub-agent",
+                "shop_id": "325300001",
+                "shop_name": "Flashbot & Many Gourds"
+            }
+        ]
+    },
+    "message": "SUCCESS",
+    "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717"
+}
+
+StoreRobotList
+{
+    "data": {
+        "count": 4,
+        "list": [
+            {
+                "mac": "20:50:E7:3E:61:78",
+                "shop_id": 324100000,
+                "shop_name": "Shop-2023-10-08",
+                "sn": "OP2023090702",
+                "product_code":"PuduBot",
+                "nickname":"robot1"
+            },
+            {
+                "mac": "B4:ED:D5:75:6E:E8",
+                "shop_id": 324100000,
+                "shop_name": "Shop-2023-10-08",
+                "sn": "8110A3802050003",
+                "product_code":"PuduBot",
+                "nickname":"robot2"
+            }
+        ]
+    },
+    "message": "success",
+    "trace_id": "YourApiAppKey_bd969310-9897-43c5-a37d-a4eab6825dbb"
+}
+
+StoreMapList
+{
+    "data": {
+        "count": 2,
+        "list": [
+            {
+                "map_name": "2#2#carpet"
+            },
+            {
+                "map_name": "3#10#map-yy"
+            }   
+        ]
+    },
+    "message": "SUCCESS",
+    "trace_id": "YourApiAppKey_bd969310-c98e-4182-a9bb-fa29b54bf07e"
+}
+
+AvailableMaps
+{
+  "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717",
+  "message": "SUCCESS",
+  "data": {
+    "list": [
+      {
+        "name": "-2#39#map-qqqq",
+        "floor": "-2",
+        "is_used":1
+      },
+      {
+        "name": "4#103#bbd0bbd031302ttt",
+        "floor": "4",
+        "is_used":2
+      }
+    ],
+    "shop_id":123
+  }
+}
+
+CurrentMap
+{
+  "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717",
+  "message": "SUCCESS",
+  "data": {
+    "name": "-1#0#map-1",
+    "floor": "0",
+    "elements": [
+      {
+        "type": "source",
+        "id": "7##return_point0B4EDD5756EE11698982688826",
+        "name": "return-point-1",
+        "mode": "return_point",
+        "group": "",
+        "vector": [
+          0.12725049045409734, 0.008827563986179064, 0.10761558616086728
+        ],
+        "width": 0,
+        "max_speed": 0
+      }
+    ],
+    "shop_id":123
+  }
+}
+
+GetMapDetailV2
+{
+    "data": {   
+        "map_code":"dfadfadfasdfdsf",
+        "element_list": [
+            {
+                "clean_path_list": [],
+                "id": "7##return_point0EC1D9EA2821F1691742592683",
+                "mode": "return_point",
+                "name": "return point 2",
+                "type": "source",
+                "vector_list": [
+                    -16.4842,
+                    22.78,
+                    0
+                ]
+            },
+            {
+                "clean_path_list": [],
+                "id": "30EC1D9EA2821F1694516595756",
+                "mode": "",
+                "name": "charger 0",
+                "type": "charging_pile",
+                "vector_list": [
+                    310.62335,
+                    -403.46823,
+                    -72.81601
+                ]
+            },
+            {
+                "clean_path_list": [],
+                "id": "190EC1D9EA2821F1694516595758",
+                "mode": "",
+                "name": "workstation 0",
+                "type": "chargeWorkStation",
+                "vector_list": [
+                    235.90141,
+                    -283.36914,
+                    1.4906257
+                ]
+            },
+            {
+                "clean_path_list": [
+                    {
+                        "x": -70.338,
+                        "y": -68.5,
+                        "z": 3.425
+                    },
+                    {
+                        "x": -70.338,
+                        "y": -68.5,
+                        "z": 3.425
+                    },
+                    {
+                        "x": -70.338,
+                        "y": -68.5,
+                        "z": 3.425
+                    },
+                    {
+                        "x": -70.338,
+                        "y": -20.5,
+                        "z": 1.025
+                    },
+                    {
+                        "x": -70.338,
+                        "y": -20.5,
+                        "z": 1.025
+                    },
+                    {
+                        "x": -64.338,
+                        "y": -20.5,
+                        "z": 1.025
+                    },
+                    {
+                        "x": -64.338,
+                        "y": -20.5,
+                        "z": 1.025
+                    },
+                    {
+                        "x": -64.338,
+                        "y": -68.5,
+                        "z": 3.425
+                    },
+                    {
+                        "x": -64.338,
+                        "y": -68.5,
+                        "z": 3.425
+                    },
+                    {
+                        "x": -58.337997,
+                        "y": -48.5,
+                        "z": 2.425
+                    },
+                    {
+                        "x": -58.337997,
+                        "y": -48.5,
+                        "z": 2.425
+                    },
+                    {
+                        "x": -58.337997,
+                        "y": -22.5,
+                        "z": 1.125
+                    }
+                ],
+                "id": "11691742592859EC1D9EA2821F1691742592865",
+                "mode": "",
+                "name": "2F 5G meeting room",
+                "type": "area",
+                "vector_list": [
+                    -59.216,
+                    -72.906,
+                    -54.851997,
+                    -18.366999,
+                    -75.35,
+                    -16.565199,
+                    -76.658,
+                    -72.686
+                ]
+            },
+            {
+                "clean_path_list": [],
+                "id": "862195055881176",
+                "mode": "",
+                "name": "elevator point 1",
+                "type": "elevator",
+                "vector_list": [
+                    -29.599554,
+                    12.126858,
+                    2.3441372
+                ]
+            },
+            {
+                "clean_path_list": [],
+                "id": "110EC1D9EA2821F1694516595765",
+                "mode": "",
+                "name": "elevator waiting point 1",
+                "type": "elev_waiter",
+                "vector_list": [
+                    -46.661556,
+                    11.453939,
+                    -29.448662
+                ]
+            }
+        ],
+        "height": 8,
+        "map_name": "2#4#2F_chixz-dustfree-20230811",
+        "origin_list": [
+            -332.8372,
+            -909,
+            0
+        ],
+        "resolution": 0.05,
+        "url": "https://pudu-file-host.oss-cn-beijing.aliyuncs.com/700074196847296512_temp_optemap.png",
+        "width": 6,
+        "zone_list": [
+            {
+                "id": "1180",
+                "type": "elevator_area",
+                "zone_node_list": [
+                    {
+                        "vector_list": [
+                            7.5357995,
+                            21.098001
+                        ]
+                    },
+                    {
+                        "vector_list": [
+                            -38.342,
+                            25.973999
+                        ]
+                    },
+                    {
+                        "vector_list": [
+                            -37.664,
+                            -9.702
+                        ]
+                    },
+                    {
+                        "vector_list": [
+                            6.431,
+                            -11.259
+                        ]
+                    }
+                ]
+            }
+        ]
+    },
+    "message": "SUCCESS",
+    "trace_id": "YourApiAppKey_bd969310-1208-40c3-9495-e21ebd4ac7db"
+}
+
+GetRealtimeMapPosition
+{
+    "message": "SUCCESS",
+    "data": {
+        "map_name": "2#4#2F_chixz-dustfree-20230811",
+        "floor": "2",
+        "position": {
+            "x": 0,
+            "y": -0,
+            "z": 0
+        }
+    },
+      "traceId": "YourApiAppKey_bd969310-1208-40c3-9495-e21ebd4ac7db"
+}
+
+GetCurrentMapPoints
+{
+  "trace_id":"1111111111111111111111",
+  "message": "SUCCESS",
+  "data": {
+    "total": 1,
+    "list": [
+      {
+        "name": "return point 1",
+        "x": 0.12725049045409734,
+        "y": 0.008827563986179064,
+        "z": 0.10761558616086728,
+        "type": "return_point"
+      }
+    ]
+  }
+}
+
+GetBoundRobotGroups
+{
+  "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717",
+  "message": "SUCCESS",
+  "data": {
+    "groups": [
+      {
+        "group_id": "UWlBrDb4NmPhiorpHMiir",
+        "group_name": "group-1",
+        "shop_id:": 121562,
+        "shop_name": "Shop"
+      }
+    ]
+  }
+}
+
+GetRobotsInGroup
+{
+  "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717",
+  "message": "SUCCESS",
+  "data": {
+    "robots": [
+      {
+        "mac": "00:00:15:EF:A4:30",
+        "sn": "0OP10164655230",
+        "robot_name": "robot",
+        "shop_id": 121562,
+        "shop_name": "Shop"
+      }
+    ]
+  }
+}
+
+GetRobotStatusV2
+{
+  "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717",
+  "message": "SUCCESS",
+  "data": {
+    "sn": "SN-PD202405000001",
+    "mac": "robot-001",
+    "timestamp": 1640995200,
+    "battery": 85,
+    "is_charging": -1,
+    "move_state": "IDLE",
+    "charge_stage": "IDLE",
+    "remain_time": 0,
+    "product_code": "PD-001",
+    "run_state": "IDLE",
+    "charge_type": 2
+  }
+}
+
+GetGroupRobotStatusV2
+{
+  "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717",
+  "message": "SUCCESS",
+  "data": [
+    {
+      "sn": "SN-PD202405000001",
+      "mac": "robot-001",
+      "timestamp": 1640995200,
+      "battery": 85,
+      "is_charging": -1,
+      "move_state": "IDLE",
+      "charge_stage": "IDLE",
+      "remain_time": 0,
+      "product_code": "PD-001",
+      "run_state": "IDLE",
+      "charge_type": 2
+    }
+  ]
+}
+
+InitiateCallTask
+{
+  "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717",
+  "message": "SUCCESS",
+  "data": {
+    "task_id": "CALL-202405201234567890",
+    "queue": 1,
+    "state": "CALLING",
+    "remark": "Call task created"
+  }
+}
+
+
+CancelCallTask
+{
+  "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717",
+  "message": "SUCCESS"
+}
+
+CompleteCallTask
+{
+  "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717",
+  "message": "SUCCESS",
+  "data": {
+    "next_call_result": {
+      "message": "SUCCESS",
+      "task_id": "CALL-202405201234567891"
+    }
+  }
+}
+
+GetCallList
+{
+  "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717",
+  "message": "SUCCESS",
+  "data": {
+    "total": 5,
+    "list": [
+      {
+        "task_id": "CALL-202405201234567890",
+        "shop_id": 1001,
+        "map_name": "Restaurant-1F",
+        "point": "TABLE-001",
+        "sn": "SN-PD202405000001",
+        "queue": 1,
+        "create_time": 1640995200,
+        "finish_time": 1640995800,
+        "status": "COMPLETE",
+        "remark": "call task",
+        "product_code": "PD-001"
+      }
+    ]
+  }
+}
+
+DeliveryTask
+{
+  "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717",
+  "message": "SUCCESS",
+  "data": {
+    "code": 0,
+    "message": "Delivery task created successfully",
+    "task_id": "TASK-202405201234567890",
+    "task_status":"ON_THE_WAY",
+    "queue_no":0
+  }
+  }
+}
+
+DeliveryCommands
+{
+  "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717",
+  "message": "SUCCESS",
+  "data": {
+    "code": 0,
+    "message": "Operation executed successfully",
+    "task_id": "TASK-202405201234567890"
+  }
+}
+
+Delivery Task List
+{
+  "message": "SUCCESS",
+  "data": {
+    "total": 1,
+    "list": [
+      {
+        "task_id": "delivery-001",
+        "type": "",
+        "delivery_sort": "AUTO",
+        "execute_task": true,
+        "sn": "SN-xxx",
+        "trays": [],
+        "task_status": "ON_THE_WAY",
+        "create_time": 1709123456,
+        "delivery_mode": "GENERAL"
+      }
+    ]
+  }
+}
+
+
+LiftingTask
+{
+  "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717",
+  "message": "SUCCESS",
+  "data": {
+    "task_id": "LIFTING-202405201234567890",
+    "code": 0,
+    "message": "Lifting task created successfully",
+    "task_status":"ON_THE_WAY",
+    "queue_no":0
+  }
+}
+
+LiftingCommands
+{
+  "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717",
+  "message": "SUCCESS",
+  "data": {
+    "code": 0,
+    "message": "Lifting action executed successfully"
+  }
+}
+
+Lifting Task List
+{
+  "message": "SUCCESS",
+  "data": {
+    "total": 1,
+    "list": [
+      {
+        "task_id": "lifting-001",
+        "type": "DEFAULT",
+        "progress": 50,
+        "task_status": "ON_THE_WAY",
+        "sn": "SN-xxx",
+        "tasks": [
+          {
+            "point_list": [],
+            "status": "ON_THE_WAY"
+          }
+        ],
+        "create_time": 1709123456,
+        "is_overtime": false,
+        "spend_time": 120
+      }
+    ]
+  }
+}
+
+OneKeyRechargeV2
+{
+  "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717",
+  "message": "SUCCESS",
+  "data": {
+    "desc": "Recharge task started",
+    "task_id": "RECHARGE-202405201234567890"
+  }
+}
+
+NotifyRobotReportPosition
+{
+  "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717",
+  "message": "SUCCESS"
+}
+
+SwitchMap
+{
+    "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717",
+    "message": "SUCCESS",
+    "data": {
+        "task_id": "1760617692540913",
+        "code": 0,
+        "message": "Sent successfully, please pay attention to the callback message[notifySwitchMap]"
+    }
+}
+
+
+
+```
+
+## D. NotifyRobotReportPosition (teks asli, disalin 2026-10-22)
+
+- Kategori: Control command > Map & Position. Updated Time: 2026-02-10 16:46:44.
+- Fungsi: memerintahkan robot melapor posisi dengan interval dan jumlah tertentu. Setelah sukses, posisi datang lewat callback `notifyRobotPose`.
+- Supported Models: FlashBot 2025, FlashBot Pro, FlashBot Max, FlashBot Ultra, BellaBot Pro, PuduT300, PuduT150, PuduT600, PuduT600Underride.
+- Prasyarat: robot online.
+- Path: `POST /open-platform-service/v1/position_command`, JSON.
+
+Body (Params):
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| sn | string | Y | Robot serial number |
+| payload | object | Y | Position report parameters |
+
+Params.payload:
+
+| Name | Type | Required | Description |
+| --- | --- | --- | --- |
+| interval | int32 | Y | Minimum interval (seconds), min 1 |
+| times | int32 | Y | Number of pushes, max 1000 |
+
+Response: `trace_id` (string), `message` (string).
+
+Contoh request:
+```json
+{ "sn": "SN-PD202405000001", "payload": { "interval": 5, "times": 100 } }
+```
+Contoh response:
+```json
+{ "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717", "message": "SUCCESS" }
+```
