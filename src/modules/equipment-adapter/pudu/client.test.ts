@@ -123,4 +123,90 @@ describe("PuduClient", () => {
     // benar-benar hanya ke server mock lokal.
     await expect(client.healthCheck()).resolves.toBeDefined();
   });
+
+  it("message 'success' huruf kecil (contoh resmi StoreRobotList) tetap dianggap sukses, bukan error bisnis", async () => {
+    const client = await setup(() => ({
+      status: 200,
+      body: { message: "success", data: { count: 1, list: [{ sn: "SN1" }] } },
+    }));
+    const result = await client.storeRobotList();
+    expect(result.message).toBe("success");
+    expect(result.data?.list[0].sn).toBe("SN1");
+  });
+});
+
+// Fase B (NotifyRobotReportPosition, PUDU_OFFICIAL_EXCERPT.md bagian D):
+// body resmi `{ sn, payload: { interval, times } }`, BUKAN `{ sn, interval,
+// times }` rata seperti versi sebelum bagian D didapat.
+describe("PuduClient.notifyRobotReportPosition", () => {
+  let close: (() => Promise<void>) | undefined;
+
+  afterEach(async () => {
+    await close?.();
+    close = undefined;
+  });
+
+  async function setup(handler: (req: MockRequest) => { status: number; body: unknown }) {
+    const server = await startMockPuduServer(handler);
+    close = server.close;
+    return new PuduClient({ baseUrl: server.url, apiAppKey: "k", apiAppSecret: "s", maxRetries: 0 });
+  }
+
+  it("body persis sama dengan contoh resmi bagian D", async () => {
+    let receivedBody: unknown;
+    const client = await setup((req) => {
+      receivedBody = req.body;
+      return { status: 200, body: { trace_id: "t1", message: "SUCCESS" } };
+    });
+
+    await client.notifyRobotReportPosition({ sn: "SN-PD202405000001", interval: 5, times: 100 });
+
+    expect(receivedBody).toEqual({ sn: "SN-PD202405000001", payload: { interval: 5, times: 100 } });
+  });
+
+  it("menolak interval 0 dan 0.5 tanpa memanggil jaringan", async () => {
+    let calls = 0;
+    const client = await setup(() => {
+      calls += 1;
+      return { status: 200, body: { message: "SUCCESS" } };
+    });
+
+    expect(() => client.notifyRobotReportPosition({ sn: "SN1", interval: 0, times: 10 })).toThrow();
+    expect(() => client.notifyRobotReportPosition({ sn: "SN1", interval: 0.5, times: 10 })).toThrow();
+    expect(calls).toBe(0);
+  });
+
+  it("menolak times 0 dan 1001 tanpa memanggil jaringan", async () => {
+    let calls = 0;
+    const client = await setup(() => {
+      calls += 1;
+      return { status: 200, body: { message: "SUCCESS" } };
+    });
+
+    expect(() => client.notifyRobotReportPosition({ sn: "SN1", interval: 1, times: 0 })).toThrow();
+    expect(() => client.notifyRobotReportPosition({ sn: "SN1", interval: 1, times: 1001 })).toThrow();
+    expect(calls).toBe(0);
+  });
+
+  it("menolak sn kosong tanpa memanggil jaringan", async () => {
+    let calls = 0;
+    const client = await setup(() => {
+      calls += 1;
+      return { status: 200, body: { message: "SUCCESS" } };
+    });
+
+    expect(() => client.notifyRobotReportPosition({ sn: "", interval: 1, times: 10 })).toThrow();
+    expect(calls).toBe(0);
+  });
+
+  it("menerima respons {trace_id, message:SUCCESS}", async () => {
+    const client = await setup(() => ({ status: 200, body: { trace_id: "t1", message: "SUCCESS" } }));
+    const result = await client.notifyRobotReportPosition({ sn: "SN1", interval: 2, times: 600 });
+    expect(result.message).toBe("SUCCESS");
+  });
+
+  it("message selain SUCCESS menjadi PuduApiError", async () => {
+    const client = await setup(() => ({ status: 200, body: { message: "CLOUD_OPEN_ROBOT_OFFLINE" } }));
+    await expect(client.notifyRobotReportPosition({ sn: "SN1", interval: 2, times: 600 })).rejects.toThrow(PuduApiError);
+  });
 });

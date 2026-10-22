@@ -128,7 +128,13 @@ export class PuduClient {
         if (typeof envelope.message !== "string") {
           throw new PuduApiError(`PUDU API ${method} ${path}: respons tidak berisi field 'message'`, res.status);
         }
-        if (envelope.message !== "SUCCESS") {
+        // Bagian C PUDU_OFFICIAL_EXCERPT.md: contoh respons resmi
+        // StoreRobotList memakai "success" huruf kecil, bukan "SUCCESS" --
+        // dokumen resmi sendiri tidak konsisten soal huruf besar/kecil.
+        // Dibandingkan tidak peka huruf besar/kecil supaya respons sukses
+        // asli tidak keliru dianggap error bisnis (ditemukan saat
+        // mencocokkan client.ts ke contoh bagian C, di luar 5 poin awal).
+        if (envelope.message.toUpperCase() !== "SUCCESS") {
           // Error bisnis (HTTP 2xx tapi message bukan SUCCESS, lihat
           // PUDU_OFFICIAL_EXCERPT.md bagian A) -- retry cuma untuk kode
           // yang dianggap transien, sisanya gagal permanen untuk request
@@ -313,14 +319,27 @@ export class PuduClient {
     });
   }
 
-  // Katalog #29, NotifyRobotReportPosition -- BELUM diverifikasi dokumen
-  // resmi (tidak ada di excerpt). Field dari PUDU_INTEGRATION.md Lampiran
-  // #29. Tanpa ini PUDU tidak akan pernah mengirim callback notifyRobotPose
-  // (lihat PUDU_INTEGRATION.md bagian 5 langkah 6) -- dipanggil ulang
-  // berkala dari worker (Fase E) sebelum interval x times habis.
+  /**
+   * Katalog #29, NotifyRobotReportPosition -- DIKONFIRMASI
+   * PUDU_OFFICIAL_EXCERPT.md bagian D. Tanpa ini PUDU tidak akan pernah
+   * mengirim callback notifyRobotPose. Body resmi: `{ sn, payload:
+   * { interval, times } }` (BUKAN `{ sn, interval, times }` rata seperti
+   * versi sebelumnya -- bug ditemukan setelah bagian D didapat). Validasi
+   * sebelum kirim (tanpa memanggil jaringan untuk input tidak valid):
+   * `interval` bulat >= 1 detik, `times` bulat 1..1000, `sn` tidak kosong.
+   */
   notifyRobotReportPosition(payload: { sn: string; interval: number; times: number }) {
+    if (!payload.sn) {
+      throw new Error("notifyRobotReportPosition: sn tidak boleh kosong");
+    }
+    if (!Number.isInteger(payload.interval) || payload.interval < 1) {
+      throw new Error(`notifyRobotReportPosition: interval harus bilangan bulat >= 1 (dapat ${payload.interval})`);
+    }
+    if (!Number.isInteger(payload.times) || payload.times < 1 || payload.times > 1000) {
+      throw new Error(`notifyRobotReportPosition: times harus bilangan bulat 1-1000 (dapat ${payload.times})`);
+    }
     return this.request<PuduEnvelope>("POST", "/open-platform-service/v1/position_command", {
-      body: { sn: payload.sn, interval: payload.interval, times: payload.times },
+      body: { sn: payload.sn, payload: { interval: payload.interval, times: payload.times } },
     });
   }
 
@@ -393,6 +412,10 @@ export class PuduClient {
   // Belum diverifikasi dokumen resmi (DeliveryTask -- API inisiasi -- tidak
   // ada di excerpt; yang ada cuma callback notifyDeliveryTask). Field dari
   // PUDU_INTEGRATION.md Lampiran #5, dibungkus envelope.
+  // Field request BELUM diverifikasi dokumen resmi (DeliveryTask -- API
+  // inisiasi -- tidak ada halaman API di bagian B, cuma contoh respons di
+  // bagian C). Tipe `data.code` DIPERBAIKI ke number (contoh resmi: `0`,
+  // bukan string) -- ditemukan saat mencocokkan ke bagian C.
   deliveryTask(payload: {
     sn: string;
     delivery_sort?: string;
@@ -400,7 +423,7 @@ export class PuduClient {
     trays: Array<{ destinations: Array<{ destination: string; type?: string }> }>;
   }) {
     return this.request<
-      PuduEnvelope<{ code?: string; message?: string; task_id?: string; task_status?: string; queue_no?: number }>
+      PuduEnvelope<{ code?: number; message?: string; task_id?: string; task_status?: string; queue_no?: number }>
     >("POST", "/open-platform-service/v1/delivery_task", { body: payload });
   }
 }
