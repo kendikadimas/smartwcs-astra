@@ -117,7 +117,6 @@ export function ConveyorsTable({
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '5px',
                           padding: '2px 8px',
                           borderRadius: '10px',
                           fontSize: '11px',
@@ -126,14 +125,6 @@ export function ConveyorsTable({
                           color: statusColor,
                         }}
                       >
-                        <span
-                          style={{
-                            width: '6px',
-                            height: '6px',
-                            borderRadius: '50%',
-                            backgroundColor: statusColor,
-                          }}
-                        />
                         {c.status}
                       </span>
                     </td>

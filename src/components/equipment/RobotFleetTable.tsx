@@ -200,7 +200,6 @@ export function RobotFleetTable({
                         style={{
                           display: 'inline-flex',
                           alignItems: 'center',
-                          gap: '5px',
                           padding: '2px 8px',
                           borderRadius: '12px',
                           fontSize: '11px',
@@ -210,14 +209,6 @@ export function RobotFleetTable({
                           color: stateColor,
                         }}
                       >
-                        <span
-                          style={{
-                            width: '6px',
-                            height: '6px',
-                            borderRadius: '50%',
-                            backgroundColor: stateColor,
-                          }}
-                        />
                         {robot.runState}
                       </span>
                       <span style={{ fontSize: '10.5px', color: '#64748b', paddingLeft: '4px' }}>
