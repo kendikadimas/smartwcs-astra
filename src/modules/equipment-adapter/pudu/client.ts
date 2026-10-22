@@ -1,5 +1,13 @@
 import { logger } from "../../../lib/logger";
 import { buildPathAndParameters, signRequest } from "./signing";
+import {
+  storeMapListDataSchema,
+  availableMapsDataSchema,
+  currentMapDataSchema,
+  getMapDetailV2DataSchema,
+  getCurrentMapPointsDataSchema,
+  parseMapData,
+} from "./map-schemas";
 
 export interface PuduClientConfig {
   baseUrl: string;
@@ -343,70 +351,82 @@ export class PuduClient {
     });
   }
 
-  // Katalog #30, StoreMapList -- BELUM diverifikasi dokumen resmi. Field
-  // dari PUDU_INTEGRATION.md Lampiran #30.
-  storeMapList(params: { shop_id?: string } = {}) {
-    return this.request<PuduEnvelope<{ list: Array<{ map_name: string }> }>>(
-      "GET",
-      "/data-open-platform-service/v1/api/maps",
-      { query: params },
-    );
+  /**
+   * Katalog #30, StoreMapList -- data DIKONFIRMASI PUDU_OFFICIAL_EXCERPT.md
+   * bagian C. `data` diparse `storeMapListDataSchema` (map-schemas.ts) --
+   * bentuk yang tidak cocok melempar error jelas (dicatat raw ke log),
+   * BUKAN diam-diam menghasilkan list kosong.
+   */
+  async storeMapList(params: { shop_id?: string } = {}) {
+    const envelope = await this.request<PuduEnvelope<unknown>>("GET", "/data-open-platform-service/v1/api/maps", {
+      query: params,
+    });
+    return {
+      ...envelope,
+      data: envelope.data === undefined ? undefined : parseMapData(storeMapListDataSchema, envelope.data, "StoreMapList"),
+    };
   }
 
-  // Katalog #33, GetMapDetailV2 -- BELUM diverifikasi dokumen resmi. Field
-  // dari PUDU_INTEGRATION.md Lampiran #33. Sumber utama sinkronisasi peta
-  // di syncResources() (sync.ts) -- sudah mencakup metadata peta DAN
-  // element_list dalam satu panggilan, jadi CurrentMap/GetCurrentMapPoints
-  // (di bawah) tidak dipanggil ganda untuk data yang sama di syncResources().
-  getMapDetailV2(params: { map_name: string }) {
-    return this.request<
-      PuduEnvelope<{
-        map_name: string;
-        url?: string;
-        zone_list?: unknown[];
-        map_code?: string;
-        width?: number;
-        height?: number;
-        resolution?: number;
-        origin_list?: [number, number, number];
-        element_list?: Array<{
-          id: string;
-          name: string;
-          type: string;
-          mode?: string;
-          vector_list?: number[];
-          clean_path_list?: unknown;
-          group?: unknown;
-          width?: number;
-          max_speed?: number;
-        }>;
-      }>
-    >("GET", "/map-service/v1/open/map", { query: params });
+  /**
+   * Katalog #31, AvailableMaps -- data DIKONFIRMASI PUDU_OFFICIAL_EXCERPT.md
+   * bagian C. `is_used` (1 atau 2) disimpan MENTAH oleh pemanggil -- arti
+   * persisnya belum dijelaskan dokumen resmi, jangan ditafsirkan di sini.
+   */
+  async availableMaps(params: { sn: string }) {
+    const envelope = await this.request<PuduEnvelope<unknown>>("GET", "/map-service/v1/open/list", { query: params });
+    return {
+      ...envelope,
+      data: envelope.data === undefined ? undefined : parseMapData(availableMapsDataSchema, envelope.data, "AvailableMaps"),
+    };
   }
 
-  // Katalog #32, CurrentMap -- BELUM diverifikasi dokumen resmi. Field dari
-  // PUDU_INTEGRATION.md Lampiran #32. Disiapkan sesuai instruksi task, TIDAK
-  // dipanggil dari syncResources() (GetMapDetailV2 sudah mencakup element
-  // list yang sama/lebih lengkap) -- hindari panggilan API ganda untuk data
-  // yang sama, keputusan sendiri, dicatat di laporan akhir.
-  currentMap(params: { sn: string }) {
-    return this.request<
-      PuduEnvelope<{
-        name: string;
-        floor?: string;
-        shop_id?: string;
-        elements?: Array<{ type: string; id: string; name: string; mode?: string; group?: unknown; vector?: number[]; width?: number; max_speed?: number }>;
-      }>
-    >("GET", "/map-service/v1/open/current", { query: params });
+  /**
+   * Katalog #33, GetMapDetailV2 -- data DIKONFIRMASI PUDU_OFFICIAL_EXCERPT.md
+   * bagian C (kunci koordinat `vector_list`, BUKAN `vector`). Sumber utama
+   * sinkronisasi peta di syncResources() (sync.ts) -- sudah mencakup
+   * metadata peta DAN element_list dalam satu panggilan, jadi CurrentMap/
+   * GetCurrentMapPoints (di bawah) tidak dipanggil ganda untuk data yang
+   * sama di syncResources().
+   */
+  async getMapDetailV2(params: { map_name: string }) {
+    const envelope = await this.request<PuduEnvelope<unknown>>("GET", "/map-service/v1/open/map", { query: params });
+    return {
+      ...envelope,
+      data: envelope.data === undefined ? undefined : parseMapData(getMapDetailV2DataSchema, envelope.data, "GetMapDetailV2"),
+    };
   }
 
-  // Katalog #35, GetCurrentMapPoints -- BELUM diverifikasi dokumen resmi.
-  // Field dari PUDU_INTEGRATION.md Lampiran #35. Disiapkan sesuai instruksi
-  // task, TIDAK dipanggil dari syncResources() (lihat catatan currentMap()).
-  getCurrentMapPoints(params: { map_name?: string } = {}) {
-    return this.request<
-      PuduEnvelope<{ total: number; list: Array<{ name: string; type?: string; x?: number; y?: number; z?: number }> }>
-    >("GET", "/map-service/v1/open/point", { query: params });
+  /**
+   * Katalog #32, CurrentMap -- data DIKONFIRMASI PUDU_OFFICIAL_EXCERPT.md
+   * bagian C (kunci koordinat `vector`, BUKAN `vector_list` -- lihat
+   * GetMapDetailV2 di atas, DUA kunci berbeda untuk data yang serupa).
+   * Disiapkan sesuai instruksi task, TIDAK dipanggil dari syncResources()
+   * (GetMapDetailV2 sudah mencakup element list yang sama/lebih lengkap) --
+   * hindari panggilan API ganda untuk data yang sama, keputusan sendiri,
+   * dicatat di laporan akhir.
+   */
+  async currentMap(params: { sn: string }) {
+    const envelope = await this.request<PuduEnvelope<unknown>>("GET", "/map-service/v1/open/current", { query: params });
+    return {
+      ...envelope,
+      data: envelope.data === undefined ? undefined : parseMapData(currentMapDataSchema, envelope.data, "CurrentMap"),
+    };
+  }
+
+  /**
+   * Katalog #35, GetCurrentMapPoints -- data DIKONFIRMASI
+   * PUDU_OFFICIAL_EXCERPT.md bagian C (x/y/z eksplisit per titik, beda dari
+   * CurrentMap/GetMapDetailV2 yang menaruh koordinat dalam array
+   * vector/vector_list). Disiapkan sesuai instruksi task, TIDAK dipanggil
+   * dari syncResources() (lihat catatan currentMap()).
+   */
+  async getCurrentMapPoints(params: { map_name?: string } = {}) {
+    const envelope = await this.request<PuduEnvelope<unknown>>("GET", "/map-service/v1/open/point", { query: params });
+    return {
+      ...envelope,
+      data:
+        envelope.data === undefined ? undefined : parseMapData(getCurrentMapPointsDataSchema, envelope.data, "GetCurrentMapPoints"),
+    };
   }
 
   // Belum diverifikasi dokumen resmi (DeliveryTask -- API inisiasi -- tidak

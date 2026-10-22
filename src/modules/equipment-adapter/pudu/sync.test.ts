@@ -62,7 +62,7 @@ describe("sync-shops / sync-robots / sync-groups (paginasi)", () => {
 
 const mapsTestDb = hasTestDatabase() ? createTestDb() : null;
 
-describe.skipIf(!hasTestDatabase())("syncMaps (Fase E, belum diverifikasi dokumen resmi)", () => {
+describe.skipIf(!hasTestDatabase())("syncMaps (data dikonfirmasi PUDU_OFFICIAL_EXCERPT.md bagian C)", () => {
   const testDb = mapsTestDb!;
   let close: (() => Promise<void>) | undefined;
 
@@ -142,5 +142,80 @@ describe.skipIf(!hasTestDatabase())("syncMaps (Fase E, belum diverifikasi dokume
     expect(element.isActive).toBe(false);
     expect(element.deletedAt).not.toBeNull();
     // Masih ada barisnya (soft delete), bukan DELETE -- FK PuduTaskStop tetap utuh.
+  });
+
+  // Fase C.2: respons GetMapDetailV2 yang tidak cocok skema TIDAK boleh
+  // diam-diam menghasilkan data kosong -- dilewati, peta lain tetap disync.
+  it("peta dengan respons GetMapDetailV2 tidak cocok skema dilewati, peta lain tetap tersinkron", async () => {
+    const shop = await testDb.puduShop.create({ data: { shopId: "shop-3" } });
+    const server = await startMockPuduServer((req) => {
+      if (req.path === "/data-open-platform-service/v1/api/maps") {
+        return {
+          status: 200,
+          body: { message: "SUCCESS", data: { list: [{ map_name: "Peta-Rusak" }, { map_name: "Peta-Baik" }] } },
+        };
+      }
+      if (req.query.get("map_name") === "Peta-Rusak") {
+        // map_name hilang dari data -- tidak cocok getMapDetailV2DataSchema (wajib string)
+        return { status: 200, body: { message: "SUCCESS", data: { element_list: [] } } };
+      }
+      return { status: 200, body: { message: "SUCCESS", data: { map_name: "Peta-Baik", element_list: [] } } };
+    });
+    close = server.close;
+    const client = new PuduClient({ baseUrl: server.url, apiAppKey: "k", apiAppSecret: "s" });
+
+    const result = await syncMaps(testDb, client, shop.puduShopId, "shop-3");
+
+    expect(result.mapsSkipped).toBe(1);
+    expect(result.mapsSynced).toBe(1);
+    const goodMap = await testDb.puduMap.findUnique({
+      where: { puduShopId_mapName: { puduShopId: shop.puduShopId, mapName: "Peta-Baik" } },
+    });
+    expect(goodMap).not.toBeNull();
+    const badMap = await testDb.puduMap.findUnique({
+      where: { puduShopId_mapName: { puduShopId: shop.puduShopId, mapName: "Peta-Rusak" } },
+    });
+    expect(badMap).toBeNull();
+  });
+
+  // Fase C.3/C.4: vector_list dengan lebih dari 3 angka (area/polygon pada
+  // contoh resmi GetMapDetailV2) -- x/y/z diisi dari 3 angka pertama saja,
+  // array LENGKAP tetap tersimpan mentah di geometry (tidak ada info hilang).
+  it("elemen area (vector_list 8 angka) -- x/y/z dari 3 pertama, array lengkap di geometry", async () => {
+    const shop = await testDb.puduShop.create({ data: { shopId: "shop-4" } });
+    const server = await startMockPuduServer((req) => {
+      if (req.path === "/data-open-platform-service/v1/api/maps") {
+        return { status: 200, body: { message: "SUCCESS", data: { list: [{ map_name: "Gudang-Area" }] } } };
+      }
+      return {
+        status: 200,
+        body: {
+          message: "SUCCESS",
+          data: {
+            map_name: "Gudang-Area",
+            element_list: [
+              {
+                id: "AREA-1",
+                name: "2F meeting room",
+                type: "area",
+                mode: "",
+                vector_list: [-59.216, -72.906, -54.851997, -18.366999, -75.35, -16.565199, -76.658, -72.686],
+              },
+            ],
+          },
+        },
+      };
+    });
+    close = server.close;
+    const client = new PuduClient({ baseUrl: server.url, apiAppKey: "k", apiAppSecret: "s" });
+
+    await syncMaps(testDb, client, shop.puduShopId, "shop-4");
+
+    const element = await testDb.puduMapElement.findFirstOrThrow({ where: { vendorElementId: "AREA-1" } });
+    expect(Number(element.x)).toBeCloseTo(-59.216);
+    expect(Number(element.y)).toBeCloseTo(-72.906);
+    expect(Number(element.z)).toBeCloseTo(-54.851997);
+    const geometry = element.geometry as { vector_list: number[] };
+    expect(geometry.vector_list).toHaveLength(8); // array lengkap, bukan cuma 3 angka pertama
   });
 });

@@ -1,5 +1,7 @@
 import type { PrismaClient, Prisma } from "../../../generated/prisma/client";
 import type { PuduClient } from "./client";
+import { extractXYZFromVector } from "./map-schemas";
+import { logger } from "../../../lib/logger";
 
 // syncShops/syncRobots/syncGroups: murni-terhadap-klien, menangani paginasi
 // (limit/offset) sampai `list` kosong, mengembalikan array lengkap, belum
@@ -53,28 +55,44 @@ export async function syncGroups(client: PuduClient, shopId: string, opts: { pag
 }
 
 /**
- * Fase E: StoreMapList (enumerasi nama peta per shop) + GetMapDetailV2
- * (detail + element_list per peta) -- BELUM diverifikasi dokumen resmi
- * (lihat client.ts). Upsert PuduMap (kunci puduShopId+mapName) dan
- * PuduMapElement (kunci puduMapId+vendorElementId); elemen yang ada di DB
- * tapi tidak lagi muncul di element_list di-soft-delete (isActive=false,
- * deletedAt) sesuai ERD.md -- elemen peta TIDAK PERNAH di-DELETE.
+ * Fase E/C: StoreMapList (enumerasi nama peta per shop) + GetMapDetailV2
+ * (detail + element_list per peta) -- data DIKONFIRMASI
+ * PUDU_OFFICIAL_EXCERPT.md bagian C (lihat client.ts + map-schemas.ts).
+ * Upsert PuduMap (kunci puduShopId+mapName) dan PuduMapElement (kunci
+ * puduMapId+vendorElementId); elemen yang ada di DB tapi tidak lagi
+ * muncul di element_list di-soft-delete (isActive=false, deletedAt)
+ * sesuai ERD.md -- elemen peta TIDAK PERNAH di-DELETE.
+ *
+ * Satu peta yang respons GetMapDetailV2-nya tidak cocok skema (lihat
+ * map-schemas.ts `parseMapData`) DILEWATI (log warning, lanjut ke peta
+ * berikutnya) -- bukan menggagalkan seluruh sinkronisasi shop ini.
  */
 export async function syncMaps(
   db: PrismaClient,
   client: PuduClient,
   puduShopId: string,
   shopIdForQuery: string,
-): Promise<{ mapsSynced: number; elementsSynced: number }> {
+): Promise<{ mapsSynced: number; elementsSynced: number; mapsSkipped: number }> {
   const mapList = await client.storeMapList({ shop_id: shopIdForQuery });
   const mapNames = mapList.data?.list ?? [];
 
   let mapsSynced = 0;
   let elementsSynced = 0;
+  let mapsSkipped = 0;
 
   for (const { map_name: mapName } of mapNames) {
-    const detail = await client.getMapDetailV2({ map_name: mapName });
-    const data = detail.data;
+    let data: Awaited<ReturnType<PuduClient["getMapDetailV2"]>>["data"];
+    try {
+      const detail = await client.getMapDetailV2({ map_name: mapName });
+      data = detail.data;
+    } catch (err) {
+      logger.warn(
+        { mapName, errMessage: err instanceof Error ? err.message : String(err) },
+        "GetMapDetailV2 gagal/tidak cocok skema, lewati peta ini",
+      );
+      mapsSkipped += 1;
+      continue;
+    }
     if (!data) continue;
 
     const map = await db.puduMap.upsert({
@@ -112,32 +130,22 @@ export async function syncMaps(
     const seenVendorIds = new Set<string>();
     for (const el of elements) {
       seenVendorIds.add(el.id);
+      // extractXYZFromVector: satu tempat yang membaca koordinat dari
+      // vector_list (GetMapDetailV2) -- arti 3 angka pertama belum
+      // dikonfirmasi dokumen resmi, lihat map-schemas.ts. Array LENGKAP
+      // (bisa >3 angka untuk area/polygon) tetap disimpan mentah di geometry.
+      const { x, y, z } = extractXYZFromVector(el.vector_list);
+      const geometry = {
+        vector_list: el.vector_list,
+        clean_path_list: el.clean_path_list,
+        group: el.group,
+        width: el.width,
+        max_speed: el.max_speed,
+      } as Prisma.InputJsonValue;
       await db.puduMapElement.upsert({
         where: { puduMapId_vendorElementId: { puduMapId: map.puduMapId, vendorElementId: el.id } },
-        update: {
-          name: el.name,
-          elementType: el.type,
-          pointType: el.mode,
-          x: el.vector_list?.[0],
-          y: el.vector_list?.[1],
-          z: el.vector_list?.[2],
-          geometry: { vector_list: el.vector_list, clean_path_list: el.clean_path_list, group: el.group, width: el.width, max_speed: el.max_speed } as Prisma.InputJsonValue,
-          isActive: true,
-          deletedAt: null,
-          syncedAt: new Date(),
-        },
-        create: {
-          puduMapId: map.puduMapId,
-          vendorElementId: el.id,
-          name: el.name,
-          elementType: el.type,
-          pointType: el.mode,
-          x: el.vector_list?.[0],
-          y: el.vector_list?.[1],
-          z: el.vector_list?.[2],
-          geometry: { vector_list: el.vector_list, clean_path_list: el.clean_path_list, group: el.group, width: el.width, max_speed: el.max_speed } as Prisma.InputJsonValue,
-          syncedAt: new Date(),
-        },
+        update: { name: el.name, elementType: el.type, pointType: el.mode, x, y, z, geometry, isActive: true, deletedAt: null, syncedAt: new Date() },
+        create: { puduMapId: map.puduMapId, vendorElementId: el.id, name: el.name, elementType: el.type, pointType: el.mode, x, y, z, geometry, syncedAt: new Date() },
       });
       elementsSynced += 1;
     }
@@ -150,5 +158,5 @@ export async function syncMaps(
     });
   }
 
-  return { mapsSynced, elementsSynced };
+  return { mapsSynced, elementsSynced, mapsSkipped };
 }
