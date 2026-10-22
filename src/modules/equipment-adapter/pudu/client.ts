@@ -17,6 +17,9 @@ export class PuduApiError extends Error {
   constructor(
     message: string,
     public readonly status?: number,
+    /** `message` dari envelope respons PUDU (mis. "CLOUD_OPEN_ROBOT_OFFLINE"), kosong untuk kegagalan transport/HTTP murni. */
+    public readonly code?: string,
+    public readonly traceId?: string,
   ) {
     super(message);
     this.name = "PuduApiError";
@@ -28,10 +31,31 @@ interface RequestOptions {
   body?: unknown;
 }
 
+/**
+ * PUDU_OFFICIAL_EXCERPT.md bagian A: envelope respons Open API selalu
+ * `{ trace_id, message, data }`, `message` = "SUCCESS" kalau sukses, kode
+ * error kalau tidak. Beberapa endpoint (mis. CancelCallTask) tidak punya
+ * `data` sama sekali -- field itu opsional.
+ */
+export interface PuduEnvelope<T = unknown> {
+  trace_id?: string;
+  message: string;
+  data?: T;
+}
+
+// Kode error bisnis yang dianggap transien (worth di-retry) -- sisanya
+// (PARAM_ERROR, CLOUD_OPEN_ROBOT_OFFLINE, dst.) adalah kegagalan permanen
+// untuk request yang sama, retry tidak akan mengubah hasil.
+const RETRYABLE_BUSINESS_CODES = new Set(["CLOUD_OPEN_WAIT", "CLOUD_OPEN_TIMEOUT", "SYSTEM_ERROR"]);
+
 export class PuduClient {
   constructor(private readonly config: PuduClientConfig) {}
 
-  private async request<T>(method: "GET" | "POST", path: string, opts: RequestOptions = {}): Promise<T> {
+  private async request<T extends PuduEnvelope>(
+    method: "GET" | "POST",
+    path: string,
+    opts: RequestOptions = {},
+  ): Promise<T> {
     const pathAndParameters = buildPathAndParameters(path, opts.query);
     const url = new URL(this.config.baseUrl + path);
     if (opts.query) {
@@ -73,13 +97,60 @@ export class PuduClient {
         });
         clearTimeout(timeoutId);
         logger.info({ method, path, status: res.status, attempt }, "pudu client request");
+
         if (!res.ok) {
           const text = await res.text();
+          if (res.status === 401) {
+            // PUDU_OFFICIAL_EXCERPT.md bagian A: "gateway membalas 401 dan
+            // menyertakan StringToSign milik server di header respons" --
+            // nama header PERSIS tidak disebut dokumen, jadi log semua
+            // header respons (tanpa Authorization request kita sendiri,
+            // yang berisi signature bukan secret, tapi tetap tidak perlu
+            // dilog ulang) untuk debugging manual.
+            const responseHeaders: Record<string, string> = {};
+            for (const [key, value] of res.headers.entries()) responseHeaders[key] = value;
+            logger.warn(
+              { method, path, responseHeaders },
+              "pudu client 401 -- cek header respons untuk StringToSign server (nama header belum dikonfirmasi dokumen)",
+            );
+          }
           throw new PuduApiError(`PUDU API ${method} ${path} gagal: HTTP ${res.status} ${text}`, res.status);
         }
-        return (await res.json()) as T;
+
+        const text = await res.text();
+        let json: unknown;
+        try {
+          json = text ? JSON.parse(text) : {};
+        } catch {
+          throw new PuduApiError(`PUDU API ${method} ${path}: respons bukan JSON valid`, res.status);
+        }
+        const envelope = json as Partial<PuduEnvelope>;
+        if (typeof envelope.message !== "string") {
+          throw new PuduApiError(`PUDU API ${method} ${path}: respons tidak berisi field 'message'`, res.status);
+        }
+        if (envelope.message !== "SUCCESS") {
+          // Error bisnis (HTTP 2xx tapi message bukan SUCCESS, lihat
+          // PUDU_OFFICIAL_EXCERPT.md bagian A) -- retry cuma untuk kode
+          // yang dianggap transien, sisanya gagal permanen untuk request
+          // yang sama.
+          const businessErr = new PuduApiError(
+            `PUDU API ${method} ${path} gagal: ${envelope.message}`,
+            res.status,
+            envelope.message,
+            envelope.trace_id,
+          );
+          if (!RETRYABLE_BUSINESS_CODES.has(envelope.message)) {
+            throw businessErr; // dilempar langsung, TIDAK lewat retry loop
+          }
+          throw businessErr; // tetap dilempar, tapi ditangkap di bawah dan diretry
+        }
+
+        return envelope as T;
       } catch (err) {
         clearTimeout(timeoutId);
+        if (err instanceof PuduApiError && err.code && !RETRYABLE_BUSINESS_CODES.has(err.code)) {
+          throw err; // error bisnis permanen -- jangan buang waktu retry
+        }
         lastErr = err;
         logger.warn(
           { method, path, attempt, errMessage: err instanceof Error ? err.message : String(err) },
@@ -90,54 +161,63 @@ export class PuduClient {
     throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
   }
 
-  /** Uji signature pertama kali, sesuai PUDU_INTEGRATION.md bagian 3 poin 4. */
+  /** Uji signature pertama kali, sesuai PUDU_OFFICIAL_EXCERPT.md bagian A poin 4. Tidak punya `data` resmi -- dites via `message === "SUCCESS"` saja. */
   healthCheck() {
-    return this.request<unknown>("GET", "/data-open-platform-service/v1/api/healthCheck");
+    return this.request<PuduEnvelope>("GET", "/data-open-platform-service/v1/api/healthCheck");
   }
 
+  // Field data.list/data.count BELUM diverifikasi dokumen resmi (GetStoreList
+  // tidak ada di excerpt) -- dipertahankan dari PUDU_INTEGRATION.md Lampiran
+  // #44, cuma dibungkus ulang ke bentuk envelope {trace_id, message, data}
+  // yang DIKONFIRMASI resmi (bagian A) untuk semua endpoint Open API.
   getStoreList(params: { limit?: number; offset?: number } = {}) {
-    return this.request<{
-      count: number;
-      trace_id?: string;
-      list: Array<{ shop_id: string; shop_name?: string; company_id?: string; company_name?: string }>;
-    }>("GET", "/data-open-platform-service/v1/api/shop", { query: params });
+    return this.request<
+      PuduEnvelope<{
+        count: number;
+        list: Array<{ shop_id: string; shop_name?: string; company_id?: string; company_name?: string }>;
+      }>
+    >("GET", "/data-open-platform-service/v1/api/shop", { query: params });
   }
 
+  // Belum diverifikasi dokumen resmi (StoreRobotList tidak ada di excerpt) --
+  // field dari PUDU_INTEGRATION.md Lampiran #45, dibungkus envelope.
   storeRobotList(params: { limit?: number; offset?: number; shop_id?: string } = {}) {
-    return this.request<{
-      count: number;
-      trace_id?: string;
-      list: Array<{
-        sn: string;
-        mac?: string;
-        shop_id?: string;
-        shop_name?: string;
-        product_code?: string;
-        nickname?: string;
-        first_active_time?: string | number;
-      }>;
-    }>("GET", "/data-open-platform-service/v1/api/robot", { query: params });
+    return this.request<
+      PuduEnvelope<{
+        count: number;
+        list: Array<{
+          sn: string;
+          mac?: string;
+          shop_id?: string;
+          shop_name?: string;
+          product_code?: string;
+          nickname?: string;
+          first_active_time?: string | number;
+        }>;
+      }>
+    >("GET", "/data-open-platform-service/v1/api/robot", { query: params });
   }
 
+  // Belum diverifikasi dokumen resmi (GetBoundRobotGroups tidak ada di
+  // excerpt) -- field dari PUDU_INTEGRATION.md Lampiran #46, dibungkus envelope.
   getBoundRobotGroups(params: { limit?: number; offset?: number; shop_id?: string; device?: string } = {}) {
-    return this.request<{
-      trace_id?: string;
-      groups: Array<{ group_id: string; group_name?: string; shop_id?: string; shop_name?: string }>;
-    }>("GET", "/open-platform-service/v1/robot/group/list", { query: params });
+    return this.request<
+      PuduEnvelope<{ groups: Array<{ group_id: string; group_name?: string; shop_id?: string; shop_name?: string }> }>
+    >("GET", "/open-platform-service/v1/robot/group/list", { query: params });
   }
 
+  // Belum diverifikasi dokumen resmi (GetRobotsInGroup tidak ada di excerpt)
+  // -- field dari PUDU_INTEGRATION.md Lampiran #47, dibungkus envelope.
   getRobotsInGroup(params: { group_id: string; limit?: number; offset?: number }) {
-    return this.request<{
-      trace_id?: string;
-      robots: Array<{ sn: string; mac?: string; robot_name?: string; shop_id?: string; shop_name?: string }>;
-    }>("GET", "/open-platform-service/v1/robot/list_by_device_and_group", { query: params });
+    return this.request<
+      PuduEnvelope<{ robots: Array<{ sn: string; mac?: string; robot_name?: string; shop_id?: string; shop_name?: string }> }>
+    >("GET", "/open-platform-service/v1/robot/list_by_device_and_group", { query: params });
   }
 
+  /** Field data.* DIKONFIRMASI PUDU_OFFICIAL_EXCERPT.md (GetRobotStatusV2) persis, termasuk charge_type int32 (1=kabel, 2=dock). */
   getRobotStatusV2(params: { sn?: string; mac?: string }) {
-    return this.request<{
-      trace_id?: string;
-      message?: string;
-      data: {
+    return this.request<
+      PuduEnvelope<{
         sn: string;
         mac?: string;
         timestamp?: number;
@@ -148,49 +228,102 @@ export class PuduClient {
         remain_time?: number;
         product_code?: string;
         run_state?: string;
-        charge_type?: string;
-      };
-    }>("GET", "/open-platform-service/v2/status/get_by_sn", { query: params });
+        charge_type?: number;
+      }>
+    >("GET", "/open-platform-service/v2/status/get_by_sn", { query: params });
   }
 
+  /** Field request & data.* DIKONFIRMASI PUDU_OFFICIAL_EXCERPT.md (InitiateCallTask). Bentuk payload lengkap (map_name/point_type wajib, dst.) diperbaiki di Fase C. */
   initiateCallTask(payload: {
-    sn: string;
-    shop_id?: string;
-    map_name?: string;
+    sn?: string;
+    shop_id?: number;
+    map_name: string;
     point: string;
-    point_type?: string;
+    point_type: string;
     call_mode?: string;
-    priority?: number;
+    mode_data?: unknown;
     do_not_queue?: boolean;
     robot_group_ids?: string[];
-    remark?: string;
+    filter_category_ids?: string[];
+    priority?: number;
   }) {
-    return this.request<{ trace_id?: string; message?: string; task_id?: string; queue?: number; state?: string }>(
+    return this.request<PuduEnvelope<{ task_id: string; queue?: number; state: string; remark?: string }>>(
       "POST",
       "/open-platform-service/v1/custom_call",
       { body: payload },
     );
   }
 
-  /** Katalog API #2, CancelCallTask -- dibutuhkan kontrak adapter cancel(). */
-  cancelCallTask(payload: { task_id: string; sn: string; is_auto_back?: boolean }) {
-    return this.request<{ trace_id?: string; message?: string }>(
+  /** Katalog API #2, CancelCallTask -- DIKONFIRMASI PUDU_OFFICIAL_EXCERPT.md. Tidak punya `data`. */
+  cancelCallTask(payload: { task_id?: string; sn?: string; is_auto_back?: boolean }) {
+    return this.request<PuduEnvelope>("POST", "/open-platform-service/v1/custom_call/cancel", { body: payload });
+  }
+
+  /** Katalog API #3, CompleteCallTask -- DIKONFIRMASI PUDU_OFFICIAL_EXCERPT.md. */
+  completeCallTask(payload: {
+    task_id: string;
+    next_call_task?: {
+      shop_id: number;
+      map_name: string;
+      point: string;
+      point_type: string;
+      call_mode?: string;
+      mode_data?: unknown;
+    };
+  }) {
+    return this.request<PuduEnvelope<{ next_call_result?: { message: string; task_id: string } }>>(
       "POST",
-      "/open-platform-service/v1/custom_call/cancel",
+      "/open-platform-service/v1/custom_call/complete",
       { body: payload },
     );
   }
 
+  /** Katalog API #4, GetCallList -- DIKONFIRMASI PUDU_OFFICIAL_EXCERPT.md. Dipakai rekonsiliasi (Fase E). */
+  getCallList(params: { sn?: string; task_id?: string; shop_id?: number; status?: string[]; offset?: number; limit?: number }) {
+    return this.request<
+      PuduEnvelope<{
+        total: number;
+        list: Array<{
+          task_id: string;
+          shop_id?: number;
+          map_name?: string;
+          point?: string;
+          sn?: string;
+          queue?: number;
+          create_time?: number;
+          finish_time?: number;
+          status: string;
+          remark?: string;
+          product_code?: string;
+        }>;
+      }>
+    >("GET", "/open-platform-service/v1/call/list", {
+      query: {
+        sn: params.sn,
+        task_id: params.task_id,
+        shop_id: params.shop_id,
+        offset: params.offset,
+        limit: params.limit,
+        // Array<string> -- PUDU_INTEGRATION.md tidak merinci cara encode query
+        // array; dipakai konvensi umum "digabung koma" (dipakai juga untuk
+        // nilai array di PathAndParameters signing, bagian A) -- belum
+        // diverifikasi dokumen resmi untuk endpoint ini secara spesifik.
+        status: params.status?.join(","),
+      },
+    });
+  }
+
+  // Belum diverifikasi dokumen resmi (DeliveryTask -- API inisiasi -- tidak
+  // ada di excerpt; yang ada cuma callback notifyDeliveryTask). Field dari
+  // PUDU_INTEGRATION.md Lampiran #5, dibungkus envelope.
   deliveryTask(payload: {
     sn: string;
     delivery_sort?: string;
     execute_task?: unknown;
     trays: Array<{ destinations: Array<{ destination: string; type?: string }> }>;
   }) {
-    return this.request<{
-      trace_id?: string;
-      message?: string;
-      data?: { code?: string; message?: string; task_id?: string; task_status?: string; queue_no?: number };
-    }>("POST", "/open-platform-service/v1/delivery_task", { body: payload });
+    return this.request<
+      PuduEnvelope<{ code?: string; message?: string; task_id?: string; task_status?: string; queue_no?: number }>
+    >("POST", "/open-platform-service/v1/delivery_task", { body: payload });
   }
 }

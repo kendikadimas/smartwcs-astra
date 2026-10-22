@@ -16,14 +16,17 @@ describe("sync-shops / sync-robots / sync-groups (paginasi)", () => {
     const server = await startMockPuduServer((req) => {
       const limit = Number(req.query.get("limit") ?? 2);
       const offset = Number(req.query.get("offset") ?? 0);
-      return { status: 200, body: { count: allShops.length, list: allShops.slice(offset, offset + limit) } };
+      return {
+        status: 200,
+        body: { message: "SUCCESS", data: { count: allShops.length, list: allShops.slice(offset, offset + limit) } },
+      };
     });
     close = server.close;
     const client = new PuduClient({ baseUrl: server.url, apiAppKey: "k", apiAppSecret: "s" });
 
     const result = await syncShops(client, { pageSize: 2 });
     expect(result).toHaveLength(5);
-    expect(result.map((s) => s.shop_id)).toEqual(["S0", "S1", "S2", "S3", "S4"]);
+    expect(result.map((s: { shop_id: string }) => s.shop_id)).toEqual(["S0", "S1", "S2", "S3", "S4"]);
   });
 
   it("syncRobots mengirim shop_id dan berhenti saat halaman kosong", async () => {
@@ -31,7 +34,7 @@ describe("sync-shops / sync-robots / sync-groups (paginasi)", () => {
     const server = await startMockPuduServer((req) => {
       calls += 1;
       expect(req.query.get("shop_id")).toBe("1001");
-      return { status: 200, body: { count: 0, list: [] } };
+      return { status: 200, body: { message: "SUCCESS", data: { count: 0, list: [] } } };
     });
     close = server.close;
     const client = new PuduClient({ baseUrl: server.url, apiAppKey: "k", apiAppSecret: "s" });
@@ -46,12 +49,12 @@ describe("sync-shops / sync-robots / sync-groups (paginasi)", () => {
     const server = await startMockPuduServer((req) => {
       const limit = Number(req.query.get("limit") ?? 2);
       const offset = Number(req.query.get("offset") ?? 0);
-      return { status: 200, body: { groups: allGroups.slice(offset, offset + limit) } };
+      return { status: 200, body: { message: "SUCCESS", data: { groups: allGroups.slice(offset, offset + limit) } } };
     });
     close = server.close;
     const client = new PuduClient({ baseUrl: server.url, apiAppKey: "k", apiAppSecret: "s" });
 
     const result = await syncGroups(client, "1001", { pageSize: 2 });
-    expect(result.map((g) => g.group_id)).toEqual(["G0", "G1", "G2"]);
+    expect(result.map((g: { group_id: string }) => g.group_id)).toEqual(["G0", "G1", "G2"]);
   });
 });

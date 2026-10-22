@@ -3,16 +3,16 @@ import { createHash, createHmac } from "node:crypto";
 export type HmacAlgorithm = "hmac-sha1" | "hmac-sha256";
 
 /**
- * Format persis Content-MD5 BELUM TERVERIFIKASI (PUDU_INTEGRATION.md bagian
- * 3 & 9: "contoh JS dan Java di docs PUDU berbeda cara encode"). Implementasi
- * ini pakai konvensi header HTTP Content-MD5 paling umum: base64(MD5(body)).
- * WAJIB diverifikasi lewat healthCheck sebelum dipakai ke endpoint lain --
- * respons 401 PUDU menyertakan StringToSign versi server untuk dibandingkan
- * (lihat client.ts `healthCheck()`). Dipisah jadi fungsi sendiri supaya
- * mudah diganti kalau hasil verifikasi tidak cocok.
+ * PUDU_OFFICIAL_EXCERPT.md bagian A: "Content-MD5 = Base64( hex( MD5(body
+ * UTF-8) ) )" -- base64 dari STRING HEX digest, bukan base64 dari bytes
+ * digest mentah. Implementasi sebelumnya (base64(digest biner)) salah
+ * formula. Tetap diverifikasi lewat healthCheck sebelum dipakai ke endpoint
+ * lain -- respons 401 PUDU menyertakan StringToSign versi server untuk
+ * dibandingkan (lihat client.ts `healthCheck()`/`request()`).
  */
 export function computeContentMd5(body: string): string {
-  return createHash("md5").update(body, "utf8").digest("base64");
+  const hexDigest = createHash("md5").update(body, "utf8").digest("hex");
+  return Buffer.from(hexDigest, "utf8").toString("base64");
 }
 
 interface SigningStringInput {
@@ -25,13 +25,26 @@ interface SigningStringInput {
 }
 
 /**
- * Enam bagian dipisah "\n" sesuai PUDU_INTEGRATION.md bagian 3:
- * Headers, HTTPMethod, Accept, Content-Type, Content-MD5, PathAndParameters.
- * Headers sendiri multi-baris ("key: value\n" per baris, key diurutkan
- * leksikografis). Catatan keterbatasan: dokumentasi PUDU tidak memberi
- * contoh signing string lengkap untuk dicocokkan, jadi format gabungan
- * persis (terutama newline di sekitar blok Headers) belum terverifikasi --
- * lihat laporan akhir, pertanyaan terbuka.
+ * Enam bagian sesuai PUDU_OFFICIAL_EXCERPT.md bagian A: Headers, HTTPMethod,
+ * Accept, Content-Type, Content-MD5, PathAndParameters. Blok Headers
+ * sendiri multi-baris ("key: value\n" per baris, key diurutkan
+ * leksikografis) dan baris header TERAKHIR langsung diikuti HTTPMethod
+ * TANPA baris kosong di antaranya -- contoh resmi (bagian A, request form):
+ *   source: apigw test
+ *   x-date: Thu, 11 Mar 2021 08:29:58 GMT
+ *   POST
+ *   application/json
+ *   application/x-www-form-urlencoded
+ *
+ *   /?p=test
+ * (baris "x-date: ...GMT" diikuti langsung "POST", bukan baris kosong).
+ * Versi sebelumnya menyisipkan baris kosong ekstra di situ -- diperbaiki.
+ * Jumlah baris kosong tepat antara Content-Type dan PathAndParameters
+ * (contoh resmi menunjukkan 2 baris kosong, tapi teks dokumen hasil
+ * scraping web ambigu soal ini) BELUM bisa diverifikasi byte-persis --
+ * dipakai 1 baris kosong (dari Content-MD5 kosong) sesuai pembacaan
+ * paling literal "6 bagian dipisah \n"; lihat laporan akhir, pertanyaan
+ * terbuka.
  */
 export function buildSigningString(input: SigningStringInput): string {
   const headerLines = Object.keys(input.signedHeaders)
@@ -39,14 +52,16 @@ export function buildSigningString(input: SigningStringInput): string {
     .map((key) => `${key}: ${input.signedHeaders[key]}\n`)
     .join("");
 
-  return [
-    headerLines,
-    input.method.toUpperCase(),
-    input.accept,
-    input.contentType,
-    input.contentMd5,
-    input.pathAndParameters,
-  ].join("\n");
+  return (
+    headerLines +
+    [
+      input.method.toUpperCase(),
+      input.accept,
+      input.contentType,
+      input.contentMd5,
+      input.pathAndParameters,
+    ].join("\n")
+  );
 }
 
 export interface SignRequestParams {
