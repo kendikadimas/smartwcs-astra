@@ -1,0 +1,11 @@
+{
+  "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717",
+  "message": "SUCCESS",
+  "data": {
+    "code": 0,
+    "message": "Delivery task created successfully",
+    "task_id": "TASK-202405201234567890",
+    "task_status": "ON_THE_WAY",
+    "queue_no": 0
+  }
+}

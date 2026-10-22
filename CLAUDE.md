@@ -32,7 +32,8 @@ PUDU sebagai pilot.
 | `docs/ADR.md` | Keputusan stack teknologi (Next.js) + justifikasi + risiko, termasuk Section 7.1 (PUDU Cloud API butuh internet) | Revisi 2026-10-19 | Sebelum setup apapun |
 | `docs/ERD.md` | Data model v3.1: 46 tabel (inti + ERP usulan + 11 tabel adapter PUDU), constraint, index | **Revisi 2026-10-21 (v3.1)** | Sebelum menyentuh `prisma/schema.prisma` |
 | `prisma/schema.prisma` | Implementasi ERD v3 (Prisma 7). **Sumber kebenaran schema** — harus selalu sinkron dengan `ERD.md` | **Baru 2026-10-19** | Sebelum query/migration apa pun |
-| `docs/PUDU_INTEGRATION.md` | Integrasi PUDU Cloud API: base URL, autentikasi HMAC, alur callback, scope T600, pemetaan status & field ke tabel | **Baru 2026-10-19** | Sebelum menulis kode di `src/modules/equipment-adapter/pudu` |
+| `docs/pudu-official/PUDU_OFFICIAL_EXCERPT.md` | Kutipan LANGSUNG dari situs dokumentasi resmi PUDU (10 API/callback: InitiateCallTask, CancelCallTask, CompleteCallTask, GetCallList, notifyCustomCall, GetRobotStatusV2, robotStatus, notifyRobotStatus, notifyRobotPose, notifyDeliveryTask) | **Baru 2026-10-22** | **Sumber kebenaran tertinggi** untuk 10 nama di atas — baca SEBELUM `PUDU_INTEGRATION.md` kalau keduanya beda |
+| `docs/PUDU_INTEGRATION.md` | Integrasi PUDU Cloud API: base URL, autentikasi HMAC, alur callback, scope T600, pemetaan status & field ke tabel | Revisi 2026-10-22 | Sebelum menulis kode di `src/modules/equipment-adapter/pudu` — untuk API/callback di luar 10 nama yang dicakup excerpt di atas, dokumen ini masih satu-satunya acuan |
 | `docs/ADAPTER_CONTRACT.md` | Kontrak netral vendor (`EquipmentAdapter`): operasi, tipe hasil netral, cara registri memilih adapter, langkah menambah vendor baru | **Baru 2026-10-21** | Sebelum menyentuh `src/modules/equipment-adapter/*` (kontrak/registri) atau menambah adapter vendor baru |
 | `docs/TASK_STATE_MACHINE.md` | Status Task/Mission yang benar-benar dipakai kode, pemetaan status PUDU, dan bagian "Belum diputuskan" (retryCount, validasi transisi, dll) | **Baru 2026-10-21** | Sebelum mengubah `apply-status-change.ts`/`status-map.ts` atau menambah endpoint transisi status Task |
 | `docs/API_SPECIFICATION.md` | Ringkasan modul + endpoint, termasuk 4 modul baru | Revisi 2026-10-05 | Referensi cepat endpoint |
@@ -114,7 +115,7 @@ Material Request.
 Maintenance/Engineer, System Integrator (baku) + Operator Produksi, Operator
 Box/Packaging, Operator Delivery (baru, role/RBAC-nya belum diformalkan).
 
-## Status implementasi (per 2026-10-21)
+## Status implementasi (per 2026-10-22)
 
 - **Infra:** Next.js 16 + custom server (`server.ts`, Socket.IO di path `/ws`),
   Prisma 7 dengan `@prisma/adapter-pg`, PostgreSQL 18 di `docker-compose.yml`.
@@ -126,13 +127,19 @@ Box/Packaging, Operator Delivery (baru, role/RBAC-nya belum diformalkan).
   Dispatch sudah jadi, **sengaja masih memakai data mock** (`src/data/mock*.ts`).
   Halaman lain masih `PlaceholderPage`. Tahap ini memang UI statis — jangan
   sambungkan UI ke database atau PUDU kecuali diminta.
-- **Backend:** callback PUDU, worker, klien HMAC, kontrak adapter netral
+- **Backend:** callback PUDU, worker (termasuk sinkronisasi peta, refresh
+  laporan posisi, rekonsiliasi task CALL -- lihat `docs/PUDU_INTEGRATION.md`
+  bagian 8), klien HMAC yang field/envelope-nya sudah dicocokkan ke
+  `docs/pudu-official/PUDU_OFFICIAL_EXCERPT.md` untuk 10 API/callback (lihat
+  CHANGELOG 2026-10-22), kontrak adapter netral
   (`src/modules/equipment-adapter/{contract,types,registry}.ts`, lihat
   `docs/ADAPTER_CONTRACT.md`), API Task + CRUD master data, Event & Alarm
   (FR-08), dan Monitoring (FR-09, lihat `docs/TASK_STATE_MACHINE.md` untuk
-  state machine Task/Mission) sudah ada. Auth, `pg-boss`, WebSocket live,
-  dan dispatch nyata dari UI/API ke robot belum (perlu persetujuan
-  terpisah).
+  state machine Task/Mission) sudah ada. `dispatch()`/`cancel()` adapter
+  PUDU sudah mengikuti aturan resmi (cek `run_state`, resolve
+  `map_name`/`point_type`) tapi **belum ada pemanggil nyata** dari
+  UI/API -- Auth, `pg-boss`, WebSocket live, dan dispatch nyata dari UI/API
+  ke robot belum (perlu persetujuan terpisah).
 - **Endpoint API yang sudah ada:** `/api/tasks` (+`/{id}`), `/api/robots`
   (+`/{id}`, `/{id}/pose-history`), `/api/equipment` (+`/{id}`),
   `/api/locations` (+`/{id}`), `/api/zones` (+`/{id}`), `/api/materials`

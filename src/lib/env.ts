@@ -27,6 +27,35 @@ const envSchema = z.object({
   // baris IntegrationLog berstatus FAILED berhenti di-retry otomatis.
   PUDU_WORKER_MAX_ATTEMPTS: z.coerce.number().int().positive().default(5),
   PUDU_WORKER_POLL_INTERVAL_MS: z.coerce.number().int().positive().default(2000),
+
+  // Dispatch (pudu/index.ts): PuduRobotState dianggap basi kalau lebih tua
+  // dari ini -- dipicu getRobotStatusV2 dulu sebelum cek run_state. Nilai
+  // default keputusan sendiri (tidak ada rujukan dokumen resmi), lihat
+  // laporan akhir.
+  PUDU_ROBOT_STATE_STALE_MS: z.coerce.number().int().positive().default(60_000),
+
+  // Fase E -- worker: kirim ulang NotifyRobotReportPosition untuk robot
+  // online sebelum interval x times habis, dan jarak antar siklus
+  // sinkronisasi penuh (shop/robot/peta lewat syncResources()). Batas
+  // interval (bulat >= 1 detik) dan times (bulat, maks 1000) DIKONFIRMASI
+  // PUDU_OFFICIAL_EXCERPT.md bagian D -- `.int().positive()` sudah
+  // menjamin bilangan bulat >= 1 (sejak Fase E task sebelumnya; diverifikasi
+  // ulang di task ini, TIDAK perlu diubah). Nilai DEFAULT (2 detik, 600x)
+  // tetap keputusan sendiri -- dokumen resmi hanya memberi batas, bukan
+  // rekomendasi nilai.
+  PUDU_POSE_REPORT_INTERVAL_SECONDS: z.coerce.number().int().positive().default(2),
+  PUDU_POSE_REPORT_TIMES: z.coerce.number().int().positive().max(1000).default(600),
+  PUDU_POSE_REPORT_REFRESH_MS: z.coerce.number().int().positive().default(10 * 60_000),
+  PUDU_SYNC_INTERVAL_MS: z.coerce.number().int().positive().default(5 * 60_000),
+
+  // Fase E -- rekonsiliasi task CALL yang tidak kunjung dapat callback
+  // status final: CHECK_AFTER_MS = sudah berapa lama sejak dibuat sebelum
+  // dicek ulang lewat GetCallList; TIMEOUT_MS = batas sebelum WCS menyerah
+  // dan menandai FAILED/TASK_TIMEOUT sendiri -- PUDU_OFFICIAL_EXCERPT.md
+  // InitiateCallTask poin 1: PUDU sendiri menggagalkan task otomatis 30
+  // menit sejak dibuat, jadi default TIMEOUT_MS sedikit di atas itu.
+  PUDU_TASK_RECONCILE_CHECK_AFTER_MS: z.coerce.number().int().positive().default(3 * 60_000),
+  PUDU_TASK_RECONCILE_TIMEOUT_MS: z.coerce.number().int().positive().default(35 * 60_000),
 });
 
 function parseEnv() {

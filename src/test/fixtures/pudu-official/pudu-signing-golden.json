@@ -1,0 +1,83 @@
+{
+  "_sumber": "Dihitung dengan logika penandatanganan dari contoh kode JavaScript resmi PUDU (halaman Authentication Access). Kunci/tanggal tetap, bukan kredensial nyata.",
+  "cases": [
+    {
+      "name": "POST body JSON (healthCheck resmi)",
+      "method": "POST",
+      "path": "/pudu-entry/data-open-platform-service/v1/api/healthCheck",
+      "query": null,
+      "body": {
+        "b": "2",
+        "a": "###Special Character Test",
+        "c": "3"
+      },
+      "fixedDate": "2021-03-11T08:29:58.000Z",
+      "xDate": "Thu, 11 Mar 2021 08:29:58 GMT",
+      "apiAppKey": "TEST_KEY",
+      "apiAppSecret": "TEST_SECRET",
+      "expected": {
+        "signingString": "x-date: Thu, 11 Mar 2021 08:29:58 GMT\nPOST\napplication/json\napplication/json\nZDM1YjdhNzFhMmMyYTQzMTVkYjAwN2QxNGEyNmNjNmM=\n/pudu-entry/data-open-platform-service/v1/api/healthCheck",
+        "contentMd5": "ZDM1YjdhNzFhMmMyYTQzMTVkYjAwN2QxNGEyNmNjNmM=",
+        "signature": "VWzaqpoeqVEFx6I6zKGON1uqpxw=",
+        "authorization": "hmac id=\"TEST_KEY\", algorithm=\"hmac-sha1\", headers=\"x-date\", signature=\"VWzaqpoeqVEFx6I6zKGON1uqpxw=\""
+      }
+    },
+    {
+      "name": "POST body kosong",
+      "method": "POST",
+      "path": "/pudu-entry/data-open-platform-service/v1/api/healthCheck",
+      "query": null,
+      "body": {},
+      "fixedDate": "2021-03-11T08:29:58.000Z",
+      "xDate": "Thu, 11 Mar 2021 08:29:58 GMT",
+      "apiAppKey": "TEST_KEY",
+      "apiAppSecret": "TEST_SECRET",
+      "expected": {
+        "signingString": "x-date: Thu, 11 Mar 2021 08:29:58 GMT\nPOST\napplication/json\napplication/json\nOTk5MTRiOTMyYmQzN2E1MGI5ODNjNWU3YzkwYWU5M2I=\n/pudu-entry/data-open-platform-service/v1/api/healthCheck",
+        "contentMd5": "OTk5MTRiOTMyYmQzN2E1MGI5ODNjNWU3YzkwYWU5M2I=",
+        "signature": "JNQjSQzBE6UzVn1GkZeFl6mX6DU=",
+        "authorization": "hmac id=\"TEST_KEY\", algorithm=\"hmac-sha1\", headers=\"x-date\", signature=\"JNQjSQzBE6UzVn1GkZeFl6mX6DU=\""
+      }
+    },
+    {
+      "name": "GET query: nilai kosong dan karakter khusus",
+      "method": "GET",
+      "path": "/pudu-entry/data-open-platform-service/v1/api/healthCheck",
+      "query": {
+        "b": "",
+        "a": "###Special Character Test",
+        "c": "3"
+      },
+      "body": null,
+      "fixedDate": "2021-03-11T08:29:58.000Z",
+      "xDate": "Thu, 11 Mar 2021 08:29:58 GMT",
+      "apiAppKey": "TEST_KEY",
+      "apiAppSecret": "TEST_SECRET",
+      "expected": {
+        "signingString": "x-date: Thu, 11 Mar 2021 08:29:58 GMT\nGET\napplication/json\napplication/json\n\n/pudu-entry/data-open-platform-service/v1/api/healthCheck?a=###Special Character Test&b&c=3",
+        "contentMd5": "",
+        "signature": "NdQWvrS4pV5OcyGzF/rHRuY52Mg=",
+        "authorization": "hmac id=\"TEST_KEY\", algorithm=\"hmac-sha1\", headers=\"x-date\", signature=\"NdQWvrS4pV5OcyGzF/rHRuY52Mg=\"",
+        "urlQueryString": "a=%23%23%23Special%20Character%20Test&b&c=3"
+      }
+    },
+    {
+      "name": "GET tanpa query",
+      "method": "GET",
+      "path": "/pudu-entry/data-open-platform-service/v1/api/healthCheck",
+      "query": {},
+      "body": null,
+      "fixedDate": "2021-03-11T08:29:58.000Z",
+      "xDate": "Thu, 11 Mar 2021 08:29:58 GMT",
+      "apiAppKey": "TEST_KEY",
+      "apiAppSecret": "TEST_SECRET",
+      "expected": {
+        "signingString": "x-date: Thu, 11 Mar 2021 08:29:58 GMT\nGET\napplication/json\napplication/json\n\n/pudu-entry/data-open-platform-service/v1/api/healthCheck",
+        "contentMd5": "",
+        "signature": "qfHfWUqcys0nMrq4PLWsK0IXnUg=",
+        "authorization": "hmac id=\"TEST_KEY\", algorithm=\"hmac-sha1\", headers=\"x-date\", signature=\"qfHfWUqcys0nMrq4PLWsK0IXnUg=\"",
+        "urlQueryString": ""
+      }
+    }
+  ]
+}

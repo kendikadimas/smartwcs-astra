@@ -1,0 +1,27 @@
+{
+  "callback_type": "robotErrorNotice",
+  "data": {
+    "error_detail": "EmergencyKeyPressed",
+    "error_id": "",
+    "error_level": "Event",
+    "error_type": "EmergencyStop",
+    "extend_info": {
+      "battery": 58,
+      "floor": "",
+      "mac": "00:D6:CB:D5:28:01",
+      "map_name": "0#0#T600-pure-lidar-map-20250815",
+      "map_point": "",
+      "sn": "826004C17060045",
+      "task_id": "1222222222222",
+      "task_type": "Delivery",
+      "position": {
+        "x": -0.004843229,
+        "y": 4.99104,
+        "yaw": 1.3746479
+      }
+    },
+    "language": "",
+    "sn": "826004C17060045",
+    "timestamp": 1764325632
+  }
+}

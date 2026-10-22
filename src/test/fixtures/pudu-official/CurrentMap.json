@@ -1,0 +1,21 @@
+{
+  "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717",
+  "message": "SUCCESS",
+  "data": {
+    "name": "-1#0#map-1",
+    "floor": "0",
+    "elements": [
+      {
+        "type": "source",
+        "id": "7##return_point0B4EDD5756EE11698982688826",
+        "name": "return-point-1",
+        "mode": "return_point",
+        "group": "",
+        "vector": [0.12725049045409734, 0.008827563986179064, 0.10761558616086728],
+        "width": 0,
+        "max_speed": 0
+      }
+    ],
+    "shop_id": 123
+  }
+}

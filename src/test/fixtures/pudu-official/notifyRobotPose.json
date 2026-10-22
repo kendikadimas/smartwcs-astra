@@ -1,0 +1,13 @@
+{
+  "callback_type": "notifyRobotPose",
+  "data": {
+    "x": 1.234,
+    "y": 2.345,
+    "yaw": 32.34,
+    "sn": "OP21321dsffsd",
+    "mac": "AA:AA:AA:AA:AA:AA",
+    "timestamp": 1764325632,
+    "notify_timestamp": 1764325632000,
+    "nearest_point": "table1"
+  }
+}

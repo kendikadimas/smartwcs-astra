@@ -1,0 +1,61 @@
+{
+  "callback_type": "notifyDeliveryTask",
+  "data": {
+    "delivery_mode": "GENERAL",
+    "sn": "SV1111.....",
+    "mac": "mac",
+    "timestamp": 1699364274,
+    "notify_timestamp": 1699364274000,
+    "is_over_time": false,
+    "spent_time": 100,
+    "task_id": "111111111",
+    "task_status": "ON_THE_WAY",
+    "trays": [
+      {
+        "destinations": [
+          {
+            "destination": "A1",
+            "type": "REMOTE",
+            "id": "task id; echoed when status sync occurs",
+            "estimated_time": 60000,
+            "spend_time": 80000,
+            "status": "ON_THE_WAY",
+            "timeout": false,
+            "complete_type": "REMOTE",
+            "map_info": { "map_name": "map name" }
+          }
+        ]
+      },
+      {
+        "destinations": [
+          {
+            "destination": "A1",
+            "type": "REMOTE",
+            "id": "task id; echoed when status sync occurs",
+            "estimated_time": 60000,
+            "spend_time": 80000,
+            "status": "ON_THE_WAY",
+            "timeout": false,
+            "complete_type": "REMOTE",
+            "map_info": { "map_name": "map name" }
+          }
+        ]
+      },
+      {
+        "destinations": [
+          {
+            "destination": "A1",
+            "type": "REMOTE",
+            "id": "task id; echoed when status sync occurs",
+            "estimated_time": 60000,
+            "spend_time": 80000,
+            "status": "ON_THE_WAY",
+            "timeout": false,
+            "complete_type": "REMOTE",
+            "map_info": { "map_name": "map name" }
+          }
+        ]
+      }
+    ]
+  }
+}

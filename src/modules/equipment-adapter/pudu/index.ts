@@ -15,9 +15,16 @@ import type {
 import { verifyCallbackCode } from "./callback-auth";
 import { handleNotifyRobotPose, notifyRobotPoseSchema } from "./pose";
 import { parsers } from "./parsers";
-import { PuduClient } from "./client";
-import { syncShops, syncRobots } from "./sync";
-import { mapPuduStatus } from "./status-map";
+import { PuduClient, PuduApiError } from "./client";
+import { db } from "../../../lib/db";
+import { syncShops, syncRobots, syncMaps } from "./sync";
+import { refreshPoseReporting } from "./pose-report";
+import { reconcileStalledCallTasks } from "./reconcile";
+import { IgnoredMessageTypeError } from "../worker-core";
+import { recordEvent } from "../../event/record-event";
+import { PUDU_INTEGRATION_ID } from "./integration";
+import { mapCallStatus, mapDeliveryStatus } from "./status-map";
+import { DispatchRejectedError, mapPuduErrorToFailureCode } from "./error-map";
 
 // Envelope minimal callback PUDU (PUDU_INTEGRATION.md bagian 4):
 // { "callback_type": "...", "data": { ... } }.
@@ -32,33 +39,130 @@ function getPuduClient(): PuduClient {
   return new PuduClient({ baseUrl: env.PUDU_BASE_URL, apiAppKey: env.PUDU_API_APP_KEY, apiAppSecret: env.PUDU_API_APP_SECRET });
 }
 
+/**
+ * PUDU_OFFICIAL_EXCERPT.md InitiateCallTask poin 1: run_state menentukan
+ * apakah robot bisa dipanggil -- OFFLINE/DISABLE ditolak sebelum memanggil
+ * PUDU sama sekali, BUSY tetap dikirim (PUDU yang mengantre), IDLE jalan
+ * langsung. State basi (lebih tua dari PUDU_ROBOT_STATE_STALE_MS, atau
+ * belum pernah ada) dibarui dulu lewat GetRobotStatusV2 -- kalau panggilan
+ * itu sendiri gagal, dispatch tetap lanjut pakai data lama apa adanya
+ * (robot yang benar-benar tidak bisa dihubungi akan tertangkap sendiri
+ * oleh error InitiateCallTask di bawah).
+ */
+async function resolveFreshRunState(
+  client: PuduClient,
+  sn: string,
+  cached: { runState: string | null; updatedAt: Date | null } | null,
+): Promise<string | null> {
+  const staleMs = env.PUDU_ROBOT_STATE_STALE_MS;
+  const isStale = !cached?.updatedAt || Date.now() - cached.updatedAt.getTime() > staleMs;
+  if (!isStale) return cached?.runState ?? null;
+
+  try {
+    const res = await client.getRobotStatusV2({ sn });
+    return res.data?.run_state ?? cached?.runState ?? null;
+  } catch (err) {
+    logger.warn({ sn, errMessage: err instanceof Error ? err.message : String(err) }, "gagal getRobotStatusV2 sebelum dispatch, pakai state lama");
+    return cached?.runState ?? null;
+  }
+}
+
 async function dispatch(tx: Prisma.TransactionClient, command: DispatchCommand): Promise<DispatchResult> {
-  const puduRobot = await tx.puduRobot.findUnique({ where: { robotId: command.robotId } });
+  const puduRobot = await tx.puduRobot.findUnique({
+    where: { robotId: command.robotId },
+    include: { puduRobotState: true },
+  });
   if (!puduRobot) {
     throw new Error(`Robot ${command.robotId} belum terdaftar sebagai PuduRobot`);
   }
 
   const client = getPuduClient();
+  const state = puduRobot.puduRobotState;
+  const runState = await resolveFreshRunState(client, puduRobot.sn, state ? { runState: state.runState, updatedAt: state.updatedAt } : null);
+
+  if (runState === "OFFLINE" || runState === "DISABLE") {
+    throw new DispatchRejectedError(`Robot ${puduRobot.sn} run_state=${runState}, tidak bisa dipanggil`, "NO_RESOURCE_AVAILABLE");
+  }
+  // runState === "BUSY" tetap lanjut (PUDU mengantre, lihat excerpt) --
+  // tidak ada cara mengirim do_not_queue=true dari DispatchCommand (tidak
+  // ada field itu di kontrak, types.ts tidak diubah di task ini).
+
   let vendorTaskId: string | undefined;
   let rawState: string | undefined;
 
-  if (command.kind === "CALL") {
-    if (!command.targetPoint) throw new Error("targetPoint wajib untuk dispatch kind CALL");
-    const response = await client.initiateCallTask({
-      sn: puduRobot.sn,
-      point: command.targetPoint,
-      priority: command.priority,
-    });
-    vendorTaskId = response.task_id;
-    rawState = response.state;
-  } else {
-    if (!command.destinations?.length) throw new Error("destinations wajib untuk dispatch kind DELIVERY");
-    const response = await client.deliveryTask({
-      sn: puduRobot.sn,
-      trays: [{ destinations: command.destinations.map((d) => ({ destination: d.point, type: d.type })) }],
-    });
-    vendorTaskId = response.data?.task_id;
-    rawState = response.data?.task_status;
+  try {
+    if (command.kind === "CALL") {
+      if (!command.targetPoint) throw new Error("targetPoint wajib untuk dispatch kind CALL");
+      if (!state?.currentPuduMapId) {
+        throw new DispatchRejectedError(
+          `Robot ${puduRobot.sn} belum punya peta aktif (currentPuduMapId kosong), tidak bisa resolve map_name`,
+          "NO_RESOURCE_AVAILABLE",
+        );
+      }
+      const element = await tx.puduMapElement.findFirst({
+        where: { puduMapId: state.currentPuduMapId, name: command.targetPoint, isActive: true },
+      });
+      if (!element) {
+        throw new DispatchRejectedError(
+          `Titik "${command.targetPoint}" tidak ditemukan di peta aktif robot ${puduRobot.sn}`,
+          "NO_RESOURCE_AVAILABLE",
+        );
+      }
+      // point_type WAJIB diisi PUDU ("Point type, e.g., table") -- JANGAN
+      // kirim string kosong untuk field wajib, hampir pasti ditolak PUDU.
+      // Sumber nilai ini sekarang adalah `mode` elemen peta (contoh resmi:
+      // "return_point", "" kosong untuk charging_pile/area/elevator) --
+      // BELUM terverifikasi sebagai nilai yang PUDU minta untuk titik
+      // gudang biasa (dokumen resmi cuma memberi contoh "table" untuk
+      // InitiateCallTask, tidak menjelaskan daftar nilai lengkap, dan tidak
+      // membuktikan `mode` == `point_type`; ada juga `type` elemen peta,
+      // mis. "source"/"charging_pile"/"chargeWorkStation" -- dokumen tidak
+      // bilang mana yang dipakai PUDU untuk parameter ini). Lihat
+      // PUDU_INTEGRATION.md untuk pertanyaan terbuka ini. Kalau `mode`
+      // kosong/null, dispatch DITOLAK di sini -- bukan menebak nilai.
+      if (!element.pointType) {
+        throw new DispatchRejectedError(
+          `point_type titik "${command.targetPoint}" tidak diketahui; belum ada di data peta (robot ${puduRobot.sn})`,
+          "NO_RESOURCE_AVAILABLE",
+        );
+      }
+      const map = await tx.puduMap.findUnique({ where: { puduMapId: state.currentPuduMapId } });
+
+      // priority WCS -> PUDU: 1-5 valid (1 tertinggi), di luar rentang
+      // tidak dikirim supaya PUDU memakai default 5 (excerpt InitiateCallTask).
+      const priority =
+        command.priority !== undefined && command.priority >= 1 && command.priority <= 5 ? command.priority : undefined;
+
+      const response = await client.initiateCallTask({
+        sn: puduRobot.sn,
+        map_name: map!.mapName,
+        point: command.targetPoint,
+        point_type: element.pointType,
+        priority,
+      });
+      vendorTaskId = response.data?.task_id;
+      rawState = response.data?.state;
+    } else {
+      if (!command.destinations?.length) throw new Error("destinations wajib untuk dispatch kind DELIVERY");
+      // DeliveryTask (API inisiasi) BELUM diverifikasi dokumen resmi --
+      // field dari PUDU_INTEGRATION.md Lampiran #5 (lihat client.ts).
+      const response = await client.deliveryTask({
+        sn: puduRobot.sn,
+        trays: [{ destinations: command.destinations.map((d) => ({ destination: d.point, type: d.type })) }],
+      });
+      vendorTaskId = response.data?.task_id;
+      rawState = response.data?.task_status;
+    }
+  } catch (err) {
+    if (err instanceof DispatchRejectedError) throw err;
+    if (err instanceof PuduApiError) {
+      throw new DispatchRejectedError(
+        `PUDU menolak dispatch: ${err.code ?? err.message}`,
+        mapPuduErrorToFailureCode(err.code),
+        err.code,
+      );
+    }
+    throw err;
   }
 
   if (!vendorTaskId) {
@@ -77,7 +181,8 @@ async function dispatch(tx: Prisma.TransactionClient, command: DispatchCommand):
     },
   });
 
-  const mapped = mapPuduStatus(rawState ?? "QUEUEING");
+  const mapped =
+    command.kind === "CALL" ? mapCallStatus(rawState ?? "QUEUEING") : mapDeliveryStatus(rawState ?? "ON_THE_WAY");
   return { externalTaskId: vendorTaskId, status: mapped.recognized ? mapped.taskStatus : "DISPATCHED" };
 }
 
@@ -89,26 +194,109 @@ async function cancel(tx: Prisma.TransactionClient, missionRef: MissionRef): Pro
   if (!puduTask) return; // tidak ada task PUDU untuk mission ini
 
   const client = getPuduClient();
-  await client.cancelCallTask({ task_id: puduTask.vendorTaskId, sn: puduTask.puduRobot.sn });
+  try {
+    // Catatan: InitiateCallTask dan CancelCallTask WAJIB memakai ApiAppKey
+    // yang sama (excerpt CancelCallTask poin 3), kalau tidak PUDU membalas
+    // CLOUD_OPEN_TASK_BELONG_ERROR. WCS hari ini cuma punya satu ApiAppKey
+    // per deployment (satu baris Integration PUDU, lihat integration.ts),
+    // jadi tidak ada aksi kode yang perlu diambil -- dicatat sebagai mode
+    // gagal yang mungkin terjadi kalau asumsi itu berubah.
+    await client.cancelCallTask({ task_id: puduTask.vendorTaskId, sn: puduTask.puduRobot.sn });
+  } catch (err) {
+    if (err instanceof PuduApiError) {
+      throw new DispatchRejectedError(
+        `PUDU menolak cancel: ${err.code ?? err.message}`,
+        mapPuduErrorToFailureCode(err.code),
+        err.code,
+      );
+    }
+    throw err;
+  }
   await tx.puduTask.update({ where: { puduTaskId: puduTask.puduTaskId }, data: { status: "CANCEL" } });
 }
 
+/**
+ * Satu-satunya operasi kontrak tanpa parameter yang cocok dijadwalkan
+ * berkala dari worker.ts tanpa mengimpor folder pudu/ langsung (lihat
+ * ADAPTER_CONTRACT.md Section 2) -- jadi dipakai sebagai "titik masuk
+ * pemeliharaan periodik" PUDU: sync shop/robot/peta (tugas aslinya),
+ * refresh NotifyRobotReportPosition, DAN rekonsiliasi task CALL yang
+ * nyangkut (Fase E). `SyncResourcesResult` tidak punya field untuk
+ * pose-report/rekonsiliasi -- hasilnya cuma dilog, bukan dikembalikan
+ * (kontrak types.ts tidak diubah). Keputusan sendiri, dicatat di laporan
+ * akhir: membungkus 3 tugas berbeda jadi satu panggilan karena cuma
+ * operasi ini yang tersedia di kontrak untuk dipanggil tanpa argumen.
+ */
 async function syncResources(): Promise<SyncResourcesResult> {
   const client = getPuduClient();
   const shops = await syncShops(client);
   const robots: SyncResourcesResult["robots"] = [];
+  let mapsSynced = 0;
+  let elementsSynced = 0;
+
   for (const shop of shops) {
     const shopRobots = await syncRobots(client, shop.shop_id);
     for (const r of shopRobots) robots.push({ serialNumber: r.sn, name: r.nickname });
+
+    const puduShop = await db.puduShop.upsert({
+      where: { shopId: shop.shop_id },
+      update: { shopName: shop.shop_name, companyId: shop.company_id, companyName: shop.company_name, syncedAt: new Date() },
+      create: { shopId: shop.shop_id, shopName: shop.shop_name, companyId: shop.company_id, companyName: shop.company_name, syncedAt: new Date() },
+    });
+    try {
+      const mapResult = await syncMaps(db, client, puduShop.puduShopId, shop.shop_id);
+      mapsSynced += mapResult.mapsSynced;
+      elementsSynced += mapResult.elementsSynced;
+    } catch (err) {
+      logger.warn({ shopId: shop.shop_id, errMessage: err instanceof Error ? err.message : String(err) }, "gagal sync peta");
+    }
   }
-  return { robots, locationsSynced: shops.length };
+
+  try {
+    const poseResult = await refreshPoseReporting(db, client);
+    logger.info(poseResult, "syncResources: refresh pose reporting");
+  } catch (err) {
+    logger.warn({ errMessage: err instanceof Error ? err.message : String(err) }, "gagal refresh pose reporting");
+  }
+
+  try {
+    const reconcileResult = await reconcileStalledCallTasks(db, client);
+    logger.info(reconcileResult, "syncResources: rekonsiliasi task CALL");
+  } catch (err) {
+    logger.warn({ errMessage: err instanceof Error ? err.message : String(err) }, "gagal rekonsiliasi task");
+  }
+
+  return { robots, locationsSynced: mapsSynced + elementsSynced };
 }
 
 async function handleInbound(tx: Prisma.TransactionClient, message: InboundMessage): Promise<InboundResult> {
   if (message.kind === "queued") {
     const parser = parsers[message.messageType];
     if (!parser) {
-      throw new Error(`Tidak ada parser untuk callback_type "${message.messageType}"`);
+      // Fase F: callback_type tanpa parser (termasuk yang SENGAJA tidak
+      // dikerjakan -- traffic control area, lifting/transport,
+      // robotEmergencyRecover) tidak lagi dilempar sebagai Error biasa,
+      // yang akan membuat worker-core.ts retry selamanya dan tidak pernah
+      // SUCCESS untuk pesan yang memang tidak akan pernah punya parser.
+      // Satu Event INFO per callback_type (dedup lewat externalErrorId),
+      // BUKAN per pesan -- supaya tidak membanjiri Event kalau callback
+      // ini sering masuk.
+      // Event.sourceId berkolom UUID (@db.Uuid) -- bukan teks bebas seperti
+      // dikira sebelumnya (lihat ERD.md), jadi TIDAK bisa diisi messageType
+      // mentah. Dipakai PUDU_INTEGRATION_ID (UUID baris Integration PUDU
+      // yang sudah ada) sebagai sourceId; nama callback_type-nya sendiri
+      // ada di `message` dan `externalErrorId` (dedup).
+      await recordEvent(tx, {
+        eventType: "PUDU_UNSUPPORTED_CALLBACK",
+        sourceType: "INTEGRATION",
+        sourceId: PUDU_INTEGRATION_ID,
+        severity: "INFO",
+        message: `callback_type "${message.messageType}" belum/tidak didukung, diabaikan`,
+        externalErrorId: `unsupported-callback:${message.messageType}`,
+        integrationLogId: message.integrationLogId,
+        occurredAt: message.occurredAt,
+      });
+      throw new IgnoredMessageTypeError(`callback_type "${message.messageType}" tidak punya parser (diabaikan)`);
     }
     await parser({ tx, integrationLogId: message.integrationLogId, occurredAt: message.occurredAt, data: message.data });
     return { kind: "processed" };

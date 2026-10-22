@@ -250,6 +250,47 @@ describe.skipIf(!hasTestDatabase())("worker PUDU: processPendingLogs", () => {
     expect(task.puduMapId).not.toBeNull();
   });
 
+  // Fase F.2: notifyRobotMoveState/notifyRobotPower/notifyRechargeStatus --
+  // belum diverifikasi dokumen resmi (tidak ada di excerpt), field dari
+  // PUDU_INTEGRATION.md Lampiran #20/#25/#27.
+  it("notifyRobotMoveState: moveState di-upsert ke PuduRobotState", async () => {
+    await enqueue("notifyRobotMoveState", { sn: "SYN0014", state: "MOVING", notify_timestamp: 1700001000000 });
+    const result = await run();
+
+    expect(result.succeeded).toBe(1);
+    const puduRobot = await testDb!.puduRobot.findUniqueOrThrow({ where: { sn: "SYN0014" } });
+    const state = await testDb!.puduRobotState.findUniqueOrThrow({ where: { puduRobotId: puduRobot.puduRobotId } });
+    expect(state.moveState).toBe("MOVING");
+  });
+
+  it("notifyRobotPower: power -> battery, charge_stage di-upsert ke PuduRobotState", async () => {
+    await enqueue("notifyRobotPower", { sn: "SYN0015", power: 55, charge_stage: "CHARGING", notify_timestamp: 1700001100000 });
+    const result = await run();
+
+    expect(result.succeeded).toBe(1);
+    const puduRobot = await testDb!.puduRobot.findUniqueOrThrow({ where: { sn: "SYN0015" } });
+    const state = await testDb!.puduRobotState.findUniqueOrThrow({ where: { puduRobotId: puduRobot.puduRobotId } });
+    expect(state.battery).toBe(55);
+    expect(state.chargeStage).toBe("CHARGING");
+  });
+
+  it("notifyRechargeStatus: upsert PuduTask kind RECHARGE, status mentah tersimpan (taskKind OTHER -> tidak dipetakan ke Task.status)", async () => {
+    await enqueue("notifyRechargeStatus", {
+      sn: "SYN0016",
+      task_id: "SYNTASK-RECHARGE-1",
+      state: "ARRIVED",
+      point: "DOCK-1",
+      point_type: "charging_pile",
+      notify_timestamp: 1700001200000,
+    });
+    const result = await run();
+
+    expect(result.succeeded).toBe(1);
+    const task = await testDb!.puduTask.findUniqueOrThrow({ where: { vendorTaskId: "SYNTASK-RECHARGE-1" } });
+    expect(task.taskKind).toBe("RECHARGE");
+    expect(task.status).toBe("ARRIVED"); // status mentah tetap tersimpan
+  });
+
   it("notifyRobotPose sebagai jaring pengaman: tidak error walau sn belum dikenal (biasanya ditangani Fase 1, tidak lewat antrean)", async () => {
     await enqueue("notifyRobotPose", { sn: "SYN0011-BELUM-ADA", x: 1, y: 2, notify_timestamp: 1700001000000 });
     const result = await run();
@@ -271,44 +312,42 @@ describe.skipIf(!hasTestDatabase())("worker PUDU: processPendingLogs", () => {
     expect(shops).toHaveLength(1);
   });
 
-  it("retry: callback_type tanpa parser ditandai FAILED dengan attempts bertambah dan nextAttemptAt di masa depan", async () => {
+  // Fase F: callback_type tanpa parser TIDAK LAGI retry selamanya (dulu
+  // FAILED+attempts bertambah tanpa batas kalau memang tidak akan pernah
+  // ada parsernya, mis. traffic control area yang sengaja tidak
+  // dikerjakan) -- sekali IGNORED, selesai, tidak diproses ulang.
+  it("callback_type tanpa parser: ditandai IGNORED sekali, bukan FAILED-dengan-retry", async () => {
     const log = await enqueue("tidakAdaParserUntukIni", { apa: "saja" });
-    const before = Date.now();
     const result = await run();
 
-    expect(result.failed).toBe(1);
+    expect(result.succeeded).toBe(1); // bukan kegagalan
+    expect(result.failed).toBe(0);
     const updated = await testDb!.integrationLog.findUniqueOrThrow({ where: { logId: log.logId } });
-    expect(updated.status).toBe("FAILED");
-    expect(updated.attempts).toBe(1);
-    expect(updated.errorMessage).toContain("Tidak ada parser");
-    expect(updated.nextAttemptAt!.getTime()).toBeGreaterThan(before);
+    expect(updated.status).toBe("IGNORED");
+    expect(updated.attempts).toBe(0); // tidak dihitung sebagai percobaan gagal
+    expect(updated.errorMessage).toContain("tidak punya parser");
+    expect(updated.processedAt).not.toBeNull();
+
+    // Satu Event INFO dicatat (dedup per callback_type, bukan per pesan).
+    const events = await testDb!.event.findMany({ where: { eventType: "PUDU_UNSUPPORTED_CALLBACK" } });
+    expect(events).toHaveLength(1);
   });
 
-  it("FAILED tidak diproses ulang sebelum nextAttemptAt", async () => {
+  it("IGNORED tidak diproses ulang (sudah final, bukan status PENDING/FAILED yang di-retry worker)", async () => {
     await enqueue("tidakAdaParserUntukIni", { apa: "saja" });
     await run();
     const result = await run();
     expect(result.processed).toBe(0);
   });
 
-  it("berhenti retry setelah maxAttempts tercapai", async () => {
-    const log = await enqueue("tidakAdaParserUntukIni", { apa: "saja" });
-    for (let i = 0; i < 5; i++) {
-      await testDb!.integrationLog.update({
-        where: { logId: log.logId },
-        data: { nextAttemptAt: new Date(Date.now() - 1000) },
-      });
-      await processPendingLogs(testDb!, { integrationId, adapter: puduAdapter, maxAttempts: 3, batchSize: 1 });
-    }
-    const updated = await testDb!.integrationLog.findUniqueOrThrow({ where: { logId: log.logId } });
-    expect(updated.attempts).toBe(3);
+  it("dua callback_type tak dikenal yang SAMA cuma mencatat satu Event (dedup), bukan dua", async () => {
+    await enqueue("tidakAdaParserUntukIni", { apa: "saja" }, "trace-a");
+    await run();
+    await enqueue("tidakAdaParserUntukIni", { lain: "lagi" }, "trace-b");
+    await run();
 
-    await testDb!.integrationLog.update({
-      where: { logId: log.logId },
-      data: { nextAttemptAt: new Date(Date.now() - 1000) },
-    });
-    const result = await processPendingLogs(testDb!, { integrationId, adapter: puduAdapter, maxAttempts: 3, batchSize: 1 });
-    expect(result.processed).toBe(0);
+    const events = await testDb!.event.findMany({ where: { eventType: "PUDU_UNSUPPORTED_CALLBACK" } });
+    expect(events).toHaveLength(1);
   });
 
   it("dua worker berjalan bersamaan tidak memproses baris yang sama (FOR UPDATE SKIP LOCKED)", async () => {

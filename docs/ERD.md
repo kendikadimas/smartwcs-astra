@@ -372,9 +372,9 @@ Detail khas vendor PUDU yang tidak boleh masuk tabel inti. Data PUDU yang sudah 
 | PuduRobotState | runState | VARCHAR | nullable; OFFLINE / DISABLE / BUSY / IDLE; Sumber: notifyRobotStatus, GetRobotStatusV2 |
 | PuduRobotState | moveState | VARCHAR | nullable; IDLE / MOVING / STUCK / APPROACHING / ARRIVE / PAUSE / AVOID; Sumber: notifyRobotMoveState |
 | PuduRobotState | chargeStage | VARCHAR | nullable; Sumber: notifyRobotPower, notifyRobotStatus |
-| PuduRobotState | chargeType | VARCHAR | nullable; Sumber: GetRobotStatusV2.charge_type, notifyRobotStatus.charge_type |
-| PuduRobotState | isCharging | INT | nullable; nilai mentah PUDU (contoh -1). Arti nilai belum diverifikasi; Sumber: GetRobotStatusV2.is_charging, notifyRobotStatus.is_charging |
-| PuduRobotState | remainTime | INT | nullable; nilai mentah PUDU. Arti dan satuan belum diverifikasi; Sumber: GetRobotStatusV2.remain_time, notifyRobotStatus.remain_time |
+| PuduRobotState | chargeType | VARCHAR | nullable; **[2026-10-22] int32 di PUDU (1=kabel, 2=dock), dikonfirmasi PUDU_OFFICIAL_EXCERPT.md** -- disimpan sebagai string di kolom ini (tidak diubah ke INT, tidak ada migrasi di `fix/pudu-sesuai-dokumen-resmi`); Sumber: GetRobotStatusV2.charge_type, notifyRobotStatus.charge_type |
+| PuduRobotState | isCharging | INT | nullable; nilai mentah PUDU. **[2026-10-22] Arti TERKONFIRMASI PUDU_OFFICIAL_EXCERPT.md: 1 = charging, -1 = tidak charging** (lihat `/api/monitoring/fleet` yang sudah menerjemahkannya ke boolean `isCharging` di respons API, kolom DB ini tetap mentah); Sumber: GetRobotStatusV2.is_charging, notifyRobotStatus.is_charging |
+| PuduRobotState | remainTime | INT | nullable; nilai mentah PUDU. **[2026-10-22] Satuan MASIH kontradiktif** -- excerpt GetRobotStatusV2: menit (T300 saja); excerpt notifyRobotStatus: detik (P1 saja); T600 (robot pilot WCS) tidak disebut di excerpt manapun, jadi satuan untuk T600 belum diketahui; Sumber: GetRobotStatusV2.remain_time, notifyRobotStatus.remain_time |
 | PuduRobotState | battery | INT | nullable; 0-100; Sumber: notifyRobotPower.power, GetRobotStatusV2.battery |
 | PuduRobotState | currentPuduMapId | UUID | FK -> PuduMap; nullable; peta aktif; Sumber: AvailableMaps.is_used, GetRealtimeMapPosition.name |
 | PuduRobotState | x | DECIMAL(14,4) | nullable; Sumber: notifyRobotPose.x |
@@ -441,10 +441,10 @@ Detail khas vendor PUDU yang tidak boleh masuk tabel inti. Data PUDU yang sudah 
 | PuduMapElement | name | VARCHAR | task menyebut titik lewat nama, jadi diberi index (puduMapId, name); Sumber: CurrentMap.elements[].name, GetMapDetailV2.element_list[].name, GetCurrentMapPoints.list[].name |
 | PuduMapElement | elementType | VARCHAR | type dari PUDU (source, charging_pile, area, elevator, ...); teks bebas; Sumber: CurrentMap.elements[].type, GetMapDetailV2.element_list[].type |
 | PuduMapElement | pointType | VARCHAR | nullable; mode dari PUDU (contoh return_point); Sumber: CurrentMap.elements[].mode, GetMapDetailV2.element_list[].mode, GetCurrentMapPoints.list[].type |
-| PuduMapElement | x | DECIMAL(14,4) | nullable; untuk titik: vector_list[0] / vector[0]; Sumber: GetCurrentMapPoints.list[].x |
-| PuduMapElement | y | DECIMAL(14,4) | nullable; Sumber: GetCurrentMapPoints.list[].y |
-| PuduMapElement | z | DECIMAL(14,4) | nullable; Sumber: GetCurrentMapPoints.list[].z |
-| PuduMapElement | geometry | JSONB | nullable; vector_list (polygon area), clean_path_list, group, width, max_speed; Sumber: GetMapDetailV2.element_list[], CurrentMap.elements[] |
+| PuduMapElement | x | DECIMAL(14,4) | nullable; untuk titik: vector_list[0] / vector[0]. **[2026-10-22] Arti 3 angka pertama ini BELUM dikonfirmasi dokumen resmi** (bisa x/y/yaw atau sesuatu yang lain -- contoh resmi elemen "area" punya 8 angka, bukan 3, jadi bukan pola titik tunggal yang pasti); Sumber: GetCurrentMapPoints.list[].x |
+| PuduMapElement | y | DECIMAL(14,4) | nullable; sama seperti x di atas; Sumber: GetCurrentMapPoints.list[].y |
+| PuduMapElement | z | DECIMAL(14,4) | nullable; sama seperti x di atas; Sumber: GetCurrentMapPoints.list[].z |
+| PuduMapElement | geometry | JSONB | nullable; array LENGKAP vector_list/vector (bisa >3 angka untuk polygon area, dikonfirmasi contoh resmi GetMapDetailV2: 8 angka), clean_path_list (array objek {x,y,z} pada contoh resmi, bukan array angka), group, width, max_speed; Sumber: GetMapDetailV2.element_list[], CurrentMap.elements[] |
 | PuduMapElement | nodeId | UUID | FK -> Node; nullable; diisi admin saat memetakan titik; Sumber: Input admin |
 | PuduMapElement | isActive | BOOLEAN | default true; false kalau elemen hilang saat sync (tidak dihapus agar FK tetap utuh) |
 | PuduMapElement | deletedAt | TIMESTAMPTZ | nullable; kapan elemen hilang dari peta PUDU |
@@ -469,7 +469,7 @@ Detail khas vendor PUDU yang tidak boleh masuk tabel inti. Data PUDU yang sudah 
 | PuduTask | completeType | VARCHAR | nullable; Sumber: notifyDeliveryTask.complete_type |
 | PuduTask | remark | VARCHAR | nullable; Sumber: remark |
 | PuduTask | isOverTime | BOOLEAN | nullable; Sumber: notifyDeliveryTask.is_over_time |
-| PuduTask | spentTime | INT | nullable; nilai mentah PUDU (contoh 100). Satuan belum diverifikasi; Sumber: notifyDeliveryTask.spent_time |
+| PuduTask | spentTime | INT | nullable; nilai mentah PUDU (contoh 100). **[2026-10-22] Satuan MASIH belum diverifikasi** -- ini field level-task (`spent_time`), BEDA dari `estimated_time`/`spend_time` per-destinasi di `PuduTaskStop` yang sudah terkonfirmasi milidetik; Sumber: notifyDeliveryTask.spent_time |
 | PuduTask | robotResponseCode | VARCHAR | nullable; Sumber: notifyCustomCall.robot_response_code |
 | PuduTask | robotResponseMessage | VARCHAR | nullable; Sumber: notifyCustomCall.robot_response_message |
 | PuduTask | requestPayload | JSONB | nullable; body yang dikirim WCS (do_not_queue, robot_group_ids, execute_task, dll) |
@@ -489,8 +489,8 @@ Detail khas vendor PUDU yang tidak boleh masuk tabel inti. Data PUDU yang sudah 
 | PuduTaskStop | vendorStopId | VARCHAR | nullable; id destinasi dari PUDU (dikembalikan saat sinkronisasi status); Sumber: destinations[].id |
 | PuduTaskStop | destType | VARCHAR | nullable; REMOTE / MANUAL; Sumber: destinations[].type |
 | PuduTaskStop | status | VARCHAR | nullable; status per destinasi; Sumber: destinations[].status |
-| PuduTaskStop | estimatedTime | INT | nullable; nilai mentah PUDU (contoh 60000). Satuan belum diverifikasi; Sumber: destinations[].estimated_time |
-| PuduTaskStop | spendTime | INT | nullable; nilai mentah PUDU (contoh 80000). Satuan belum diverifikasi; Sumber: destinations[].spend_time |
+| PuduTaskStop | estimatedTime | INT | nullable; nilai mentah PUDU (contoh 60000). **[2026-10-22] Satuan TERKONFIRMASI PUDU_OFFICIAL_EXCERPT.md: milidetik**; Sumber: destinations[].estimated_time |
+| PuduTaskStop | spendTime | INT | nullable; nilai mentah PUDU (contoh 80000). **[2026-10-22] Satuan TERKONFIRMASI PUDU_OFFICIAL_EXCERPT.md: milidetik**; Sumber: destinations[].spend_time |
 | PuduTaskStop | isTimeout | BOOLEAN | nullable; Sumber: destinations[].timeout |
 | PuduTaskStop | completeType | VARCHAR | nullable; Sumber: destinations[].complete_type |
 | PuduTaskStop | arrivedAt | TIMESTAMPTZ | nullable; dihitung WCS dari perubahan status |

@@ -115,6 +115,45 @@ async function handleRobotActivate(ctx: CallbackContext) {
   });
 }
 
+// Fase E.4: robotEmergencyRecover (#16) -- DIKONFIRMASI
+// PUDU_OFFICIAL_EXCERPT.md bagian C (fixture robotEmergencyRecover.json,
+// BUKAN contoh notifyRobotStatus yang callback_type-nya tertulis salah di
+// dokumen -- lihat src/test/fixtures/pudu-official/README.md). Field
+// sn/mac/timestamp, toleran field tambahan (.passthrough()).
+const robotEmergencyRecoverSchema = z
+  .object({
+    sn: z.string().min(1),
+    mac: z.string().optional(),
+    timestamp: z.union([z.string(), z.number()]).optional(),
+  })
+  .passthrough();
+
+async function handleRobotEmergencyRecover(ctx: CallbackContext) {
+  const parsed = robotEmergencyRecoverSchema.parse(ctx.data);
+  const puduRobot = await resolveOrCreatePuduRobot(ctx.tx, parsed.sn, { mac: parsed.mac });
+  const recoveredAt = toDate(parsed.timestamp) ?? ctx.occurredAt;
+
+  await ctx.tx.puduRobotState.upsert({
+    where: { puduRobotId: puduRobot.puduRobotId },
+    update: { emergencyRecoveredAt: recoveredAt },
+    create: { puduRobotId: puduRobot.puduRobotId, emergencyRecoveredAt: recoveredAt },
+  });
+
+  // Tutup alarm emergency terkait, kalau ada ("boleh", bukan "harus" --
+  // tidak ada kode produksi mana pun yang pernah MEMBUAT baris Alarm
+  // hari ini, lihat TASK_STATE_MACHINE.md soal Mission untuk situasi
+  // serupa, jadi ini biasanya no-op; disiapkan untuk saat Alarm memang
+  // ada). Dicocokkan lewat Event.errorCode="EmergencyStop" (nilai dari
+  // contoh resmi robotErrorNotice) pada robot yang sama, status belum CLEARED.
+  await ctx.tx.alarm.updateMany({
+    where: {
+      status: { in: ["ACTIVE", "ACKNOWLEDGED"] },
+      event: { sourceType: "ROBOT", sourceId: puduRobot.robotId, errorCode: "EmergencyStop" },
+    },
+    data: { status: "CLEARED", clearedAt: recoveredAt, clearedBy: null },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // 4-6. robotStatus / notifyRobotStatus / notifyRobotPose (#15, #17, #19)
 // ---------------------------------------------------------------------------
@@ -157,7 +196,12 @@ async function handleNotifyRobotStatus(ctx: CallbackContext) {
       run_state: z.string().optional(),
       is_charging: z.coerce.number().optional(),
       remain_time: z.coerce.number().optional(),
-      charge_type: z.string().optional(),
+      // PUDU_OFFICIAL_EXCERPT.md: charge_type int32 (1=kabel, 2=dock), BUKAN
+      // string -- z.string() lama gagal parse payload resmi (contoh
+      // charge_type: 2, angka). PuduRobotState.chargeType kolomnya String?
+      // (tidak diubah -- aturan keras tidak boleh migrasi), jadi tetap
+      // dikonversi ke string di sini.
+      charge_type: z.union([z.string(), z.number()]).transform(String).optional(),
       notify_timestamp: z.union([z.string(), z.number()]).optional(),
     })
     .passthrough()
@@ -191,18 +235,130 @@ async function handleNotifyRobotPoseInWorker(ctx: CallbackContext) {
 }
 
 // ---------------------------------------------------------------------------
+// Fase F.2: notifyRobotMoveState / notifyRobotPower (#20, #25) -- BELUM
+// diverifikasi dokumen resmi (tidak ada di excerpt). Field dari
+// PUDU_INTEGRATION.md Lampiran #20/#25, kolom tujuan sudah ada di
+// PuduRobotState (moveState, battery, chargeStage) -- dipakai parser
+// sesuai instruksi Fase F ("kalau ada kolom yang cocok, buat parser").
+// ---------------------------------------------------------------------------
+
+async function handleNotifyRobotMoveState(ctx: CallbackContext) {
+  const parsed = z
+    .object({
+      sn: z.string().min(1),
+      mac: z.string().optional(),
+      state: z.string().optional(),
+      notify_timestamp: z.union([z.string(), z.number()]).optional(),
+    })
+    .passthrough()
+    .parse(ctx.data);
+  const puduRobot = await resolveOrCreatePuduRobot(ctx.tx, parsed.sn, { mac: parsed.mac });
+  const recordedAt = toDate(parsed.notify_timestamp, "ms") ?? ctx.occurredAt;
+  await upsertStateAndLogIfChanged(ctx.tx, puduRobot.puduRobotId, { moveState: parsed.state }, "notifyRobotMoveState", recordedAt, ctx.integrationLogId);
+}
+
+async function handleNotifyRobotPower(ctx: CallbackContext) {
+  const parsed = z
+    .object({
+      sn: z.string().min(1),
+      mac: z.string().optional(),
+      power: z.coerce.number().optional(),
+      charge_stage: z.string().optional(),
+      notify_timestamp: z.union([z.string(), z.number()]).optional(),
+    })
+    .passthrough()
+    .parse(ctx.data);
+  const puduRobot = await resolveOrCreatePuduRobot(ctx.tx, parsed.sn, { mac: parsed.mac });
+  const recordedAt = toDate(parsed.notify_timestamp, "ms") ?? ctx.occurredAt;
+  await upsertStateAndLogIfChanged(
+    ctx.tx,
+    puduRobot.puduRobotId,
+    { battery: parsed.power, chargeStage: parsed.charge_stage },
+    "notifyRobotPower",
+    recordedAt,
+    ctx.integrationLogId,
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Fase F.2: notifyRechargeStatus (#27) -- BELUM diverifikasi dokumen resmi.
+// Field dari PUDU_INTEGRATION.md Lampiran #27 -- mirip notifySwitchMap
+// (menyentuh PuduTask, bukan PuduRobotState), taskKind "RECHARGE" tidak
+// punya kosakata status resmi (tidak di excerpt, tidak di CALL/DELIVERY) --
+// applyPuduTaskStatus taskKind "OTHER" (selalu recognized=false, status
+// mentah tetap tersimpan di PuduTask.status).
+// ---------------------------------------------------------------------------
+
+async function handleNotifyRechargeStatus(ctx: CallbackContext) {
+  const parsed = z
+    .object({
+      sn: z.string().min(1),
+      mac: z.string().optional(),
+      task_id: z.string().min(1),
+      state: z.string().min(1),
+      point: z.string().optional(),
+      point_type: z.string().optional(),
+      map_info: z.object({ map_name: z.string().optional() }).passthrough().optional(),
+      map_name: z.string().optional(),
+      notify_timestamp: z.union([z.string(), z.number()]).optional(),
+    })
+    .passthrough()
+    .parse(ctx.data);
+  const puduRobot = await resolveOrCreatePuduRobot(ctx.tx, parsed.sn, { mac: parsed.mac });
+
+  const mapName = parsed.map_info?.map_name ?? parsed.map_name;
+  let puduMapId: string | undefined;
+  if (mapName && puduRobot.puduShopId) {
+    const map = await ctx.tx.puduMap.findUnique({ where: { puduShopId_mapName: { puduShopId: puduRobot.puduShopId, mapName } } });
+    puduMapId = map?.puduMapId;
+  }
+
+  const lastNotifiedAt = toDate(parsed.notify_timestamp, "ms") ?? ctx.occurredAt;
+  const puduTask = await ctx.tx.puduTask.upsert({
+    where: { vendorTaskId: parsed.task_id },
+    update: { status: parsed.state, targetPoint: parsed.point, pointType: parsed.point_type, puduMapId, lastNotifiedAt },
+    create: {
+      puduRobotId: puduRobot.puduRobotId,
+      vendorTaskId: parsed.task_id,
+      taskKind: "RECHARGE",
+      status: parsed.state,
+      targetPoint: parsed.point,
+      pointType: parsed.point_type,
+      puduMapId,
+      lastNotifiedAt,
+    },
+  });
+
+  await applyPuduTaskStatus(ctx.tx, {
+    rawStatus: parsed.state,
+    taskKind: "OTHER",
+    robotId: puduRobot.robotId,
+    missionId: puduTask.missionId,
+    integrationLogId: ctx.integrationLogId,
+    occurredAt: ctx.occurredAt,
+  });
+}
+
+// ---------------------------------------------------------------------------
 // 7-8. notifyCustomCall / notifyDeliveryTask (#21, #22)
 // ---------------------------------------------------------------------------
 
+// PUDU_OFFICIAL_EXCERPT.md CallStatus-notifyCustomCall: robot_response_code
+// int32 (bukan string -- bug ditemukan saat verifikasi; z.string() lama
+// akan gagal parse payload resmi, contoh: robot_response_code=0), field
+// pesannya robot_response_message (bukan "message"). Disimpan sebagai
+// string di kolom yang ada (PuduTask.robotResponseCode String?).
 async function handleNotifyCustomCall(ctx: CallbackContext) {
   const parsed = z
     .object({
       task_id: z.string().min(1),
       state: z.string().min(1),
       sn: z.string().min(1),
+      shop_id: z.union([z.string(), z.number()]).optional(),
+      map_name: z.string().optional(),
       queue: z.coerce.number().optional(),
-      robot_response_code: z.string().optional(),
-      message: z.string().optional(),
+      robot_response_code: z.union([z.string(), z.number()]).transform(String).optional(),
+      robot_response_message: z.string().optional(),
       point: z.string().optional(),
       point_type: z.string().optional(),
     })
@@ -210,15 +366,24 @@ async function handleNotifyCustomCall(ctx: CallbackContext) {
     .parse(ctx.data);
   const puduRobot = await resolveOrCreatePuduRobot(ctx.tx, parsed.sn);
 
+  let puduMapId: string | undefined;
+  if (parsed.map_name && puduRobot.puduShopId) {
+    const map = await ctx.tx.puduMap.findUnique({
+      where: { puduShopId_mapName: { puduShopId: puduRobot.puduShopId, mapName: parsed.map_name } },
+    });
+    puduMapId = map?.puduMapId;
+  }
+
   const puduTask = await ctx.tx.puduTask.upsert({
     where: { vendorTaskId: parsed.task_id },
     update: {
       status: parsed.state,
       queueNo: parsed.queue,
       robotResponseCode: parsed.robot_response_code,
-      robotResponseMessage: parsed.message,
+      robotResponseMessage: parsed.robot_response_message,
       targetPoint: parsed.point,
       pointType: parsed.point_type,
+      puduMapId,
       lastNotifiedAt: ctx.occurredAt,
     },
     create: {
@@ -228,15 +393,17 @@ async function handleNotifyCustomCall(ctx: CallbackContext) {
       status: parsed.state,
       queueNo: parsed.queue,
       robotResponseCode: parsed.robot_response_code,
-      robotResponseMessage: parsed.message,
+      robotResponseMessage: parsed.robot_response_message,
       targetPoint: parsed.point,
       pointType: parsed.point_type,
+      puduMapId,
       lastNotifiedAt: ctx.occurredAt,
     },
   });
 
   await applyPuduTaskStatus(ctx.tx, {
     rawStatus: parsed.state,
+    taskKind: "CALL",
     robotId: puduRobot.robotId,
     missionId: puduTask.missionId,
     integrationLogId: ctx.integrationLogId,
@@ -259,11 +426,14 @@ const puduTaskStopSchema = z
 
 const traySchema = z.object({ destinations: z.array(puduTaskStopSchema).default([]) }).passthrough();
 
+// PUDU_OFFICIAL_EXCERPT.md DeliveryTask-notifyDeliveryTask: "task_status ...
+// low version machines will not report this field" -- dibuat opsional
+// (sebelumnya wajib, akan gagal parse payload dari robot versi lama).
 async function handleNotifyDeliveryTask(ctx: CallbackContext) {
   const parsed = z
     .object({
       task_id: z.string().min(1),
-      task_status: z.string().min(1),
+      task_status: z.string().optional(),
       sn: z.string().min(1),
       mac: z.string().optional(),
       delivery_mode: z.string().optional(),
@@ -278,6 +448,8 @@ async function handleNotifyDeliveryTask(ctx: CallbackContext) {
   const puduTask = await ctx.tx.puduTask.upsert({
     where: { vendorTaskId: parsed.task_id },
     update: {
+      // undefined -> Prisma tidak menulis kolom ini (tidak menimpa status
+      // lama dengan kosong) kalau robot versi lama tidak mengirim task_status.
       status: parsed.task_status,
       deliveryMode: parsed.delivery_mode,
       isOverTime: parsed.is_over_time,
@@ -288,7 +460,10 @@ async function handleNotifyDeliveryTask(ctx: CallbackContext) {
       puduRobotId: puduRobot.puduRobotId,
       vendorTaskId: parsed.task_id,
       taskKind: "DELIVERY",
-      status: parsed.task_status,
+      // PuduTask.status wajib (bukan nullable) -- "UNKNOWN" dipakai HANYA
+      // kalau baris ini belum pernah ada sebelumnya DAN robot versi lama
+      // tidak pernah mengirim task_status sama sekali (kasus langka).
+      status: parsed.task_status ?? "UNKNOWN",
       deliveryMode: parsed.delivery_mode,
       isOverTime: parsed.is_over_time,
       spentTime: parsed.spent_time,
@@ -320,13 +495,19 @@ async function handleNotifyDeliveryTask(ctx: CallbackContext) {
     }
   }
 
-  await applyPuduTaskStatus(ctx.tx, {
-    rawStatus: parsed.task_status,
-    robotId: puduRobot.robotId,
-    missionId: puduTask.missionId,
-    integrationLogId: ctx.integrationLogId,
-    occurredAt: ctx.occurredAt,
-  });
+  // task_status opsional (robot versi lama) -- kalau tidak ada, jangan
+  // ubah status Task/Mission sama sekali (sudah tersimpan destinasinya di
+  // atas, itu cukup).
+  if (parsed.task_status) {
+    await applyPuduTaskStatus(ctx.tx, {
+      rawStatus: parsed.task_status,
+      taskKind: "DELIVERY",
+      robotId: puduRobot.robotId,
+      missionId: puduTask.missionId,
+      integrationLogId: ctx.integrationLogId,
+      occurredAt: ctx.occurredAt,
+    });
+  }
 }
 
 // ---------------------------------------------------------------------------
@@ -481,8 +662,14 @@ async function handleNotifySwitchMap(ctx: CallbackContext) {
     },
   });
 
+  // taskKind "OTHER": kosakata task_status SwitchMap (kode 7000x,
+  // PUDU_INTEGRATION.md bagian 6) tidak ada di tabel CALL/DELIVERY manapun
+  // -- sebelum dipecah, status ini keliru dicocokkan ke tabel gabungan.
+  // Selalu recognized=false sampai ada tabel khusus SwitchMap (di luar
+  // scope task ini, belum ada dokumen resmi untuk kosakata persisnya).
   await applyPuduTaskStatus(ctx.tx, {
     rawStatus: parsed.task_status,
+    taskKind: "OTHER",
     robotId: puduRobot.robotId,
     missionId: puduTask.missionId,
     integrationLogId: ctx.integrationLogId,
@@ -496,6 +683,7 @@ export const parsers: Record<string, ParserFn> = {
   robotBinding: handleRobotBinding,
   robotUnBinding: handleRobotUnBinding,
   robotActivate: handleRobotActivate,
+  robotEmergencyRecover: handleRobotEmergencyRecover,
   robotStatus: handleRobotStatus,
   notifyRobotStatus: handleNotifyRobotStatus,
   notifyRobotPose: handleNotifyRobotPoseInWorker,
@@ -505,4 +693,7 @@ export const parsers: Record<string, ParserFn> = {
   robotErrorNotice: handleRobotErrorNotice,
   mapElementChange: handleMapElementChange,
   notifySwitchMap: handleNotifySwitchMap,
+  notifyRobotMoveState: handleNotifyRobotMoveState,
+  notifyRobotPower: handleNotifyRobotPower,
+  notifyRechargeStatus: handleNotifyRechargeStatus,
 };

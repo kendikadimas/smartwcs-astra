@@ -1,0 +1,21 @@
+{
+  "data": {
+    "count": 110,
+    "list": [
+      {
+        "company_id": "13947",
+        "company_name": "chixzdls_internal02 sub-agent",
+        "shop_id": "324100000",
+        "shop_name": "Shop-2023-10-08"
+      },
+      {
+        "company_id": "13947",
+        "company_name": "chixzdls_internal02 sub-agent",
+        "shop_id": "325300001",
+        "shop_name": "Flashbot & Many Gourds"
+      }
+    ]
+  },
+  "message": "SUCCESS",
+  "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717"
+}

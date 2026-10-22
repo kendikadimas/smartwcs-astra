@@ -1,0 +1,11 @@
+{
+  "callback_type": "notifyRobotPower",
+  "data": {
+    "charge_stage": "IDLE",
+    "mac": "98:A1:4A:38:C4:6D",
+    "notify_timestamp": 1761705083466,
+    "power": 99,
+    "sn": "TS1732946965085",
+    "timestamp": 1761705082
+  }
+}

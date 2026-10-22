@@ -1,0 +1,11 @@
+{
+  "data": {
+    "count": 2,
+    "list": [
+      { "map_name": "2#2#carpet" },
+      { "map_name": "3#10#map-yy" }
+    ]
+  },
+  "message": "SUCCESS",
+  "trace_id": "YourApiAppKey_bd969310-c98e-4182-a9bb-fa29b54bf07e"
+}

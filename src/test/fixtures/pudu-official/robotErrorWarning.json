@@ -1,0 +1,11 @@
+{
+  "callback_type": "robotErrorWarning",
+  "data": {
+    "sn": "SV10111....",
+    "timestamp": 1699364274,
+    "error_type": "LostLocalization",
+    "error_level": "Error",
+    "error_detail": "",
+    "error_id": "test00001"
+  }
+}

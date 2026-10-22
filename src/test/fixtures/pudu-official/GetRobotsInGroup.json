@@ -1,0 +1,15 @@
+{
+  "trace_id": "YourApiAppKey_405eb004-7f09-4d86-bff1-4657cdec2717",
+  "message": "SUCCESS",
+  "data": {
+    "robots": [
+      {
+        "mac": "00:00:15:EF:A4:30",
+        "sn": "0OP10164655230",
+        "robot_name": "robot",
+        "shop_id": 121562,
+        "shop_name": "Shop"
+      }
+    ]
+  }
+}
