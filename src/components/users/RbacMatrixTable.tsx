@@ -87,28 +87,12 @@ export function RbacMatrixTable() {
           gap: '8px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div
-            style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '6px',
-              backgroundColor: '#eff6ff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#0284c7',
-            }}
-          >
-            <ShieldCheck size={16} />
+        <div>
+          <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
+            Role-Based Access Control (RBAC) Permissions Matrix
           </div>
-          <div>
-            <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
-              Role-Based Access Control (RBAC) Permissions Matrix
-            </div>
-            <div style={{ fontSize: '11px', color: '#64748b' }}>
-              Granular functional access policy defined in <code>docs/RBAC.md</code> across 5 standard and 3 proposed roles
-            </div>
+          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+            Granular functional access policy defined in <code>docs/RBAC.md</code> across 5 standard and 3 proposed roles
           </div>
         </div>
 

@@ -52,11 +52,13 @@ export function ConveyorsTable({
             justifyContent: 'space-between',
           }}
         >
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Layers size={16} style={{ color: '#00529C' }} />
-            <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
-              Roller &amp; Belt Conveyor Lines (PLC Modbus / OPC UA)
-            </span>
+          <div>
+            <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
+              Roller &amp; Belt Conveyor Lines
+            </div>
+            <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+              PLC Modbus / OPC UA telemetry &amp; live roller status
+            </div>
           </div>
           <span style={{ fontSize: '11px', color: '#64748b' }}>
             {conveyors.filter((c) => c.status === 'Operating').length} / {conveyors.length} operating
@@ -209,10 +211,14 @@ export function ConveyorsTable({
               gap: '8px',
             }}
           >
-            <ArrowUpDown size={15} style={{ color: '#00529C' }} />
-            <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
-              Vertical Pallet Lifts (AS/RS Mezzanine)
-            </span>
+            <div>
+              <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
+                Vertical Pallet Lifts
+              </div>
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                AS/RS Mezzanine vertical transfer
+              </div>
+            </div>
           </div>
 
           <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>
@@ -297,10 +303,14 @@ export function ConveyorsTable({
               gap: '8px',
             }}
           >
-            <Cpu size={15} style={{ color: '#00529C' }} />
-            <span style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
-              Automatic Transfer Stations (Inbound &amp; FGW)
-            </span>
+            <div>
+              <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
+                Automatic Transfer Stations
+              </div>
+              <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+                Inbound &amp; FGW transfer buffers
+              </div>
+            </div>
           </div>
 
           <div style={{ padding: '14px', display: 'flex', flexDirection: 'column', gap: '10px' }}>

@@ -97,28 +97,12 @@ export function IntegrationLogTable({
           gap: '10px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div
-            style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '6px',
-              backgroundColor: '#eff6ff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#0284c7',
-            }}
-          >
-            <Code2 size={16} />
+        <div>
+          <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
+            Integration Message Logs
           </div>
-          <div>
-            <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
-              Integration Message Logs (<code>IntegrationLog</code>)
-            </div>
-            <div style={{ fontSize: '11px', color: '#64748b' }}>
-              Idempotent audit trail of inbound webhook callbacks and outbound vendor commands
-            </div>
+          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+            Idempotent audit trail of inbound webhook callbacks and outbound vendor commands
           </div>
         </div>
 

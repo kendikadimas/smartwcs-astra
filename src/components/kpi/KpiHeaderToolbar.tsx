@@ -74,10 +74,17 @@ export function KpiHeaderToolbar({
               className="select-input"
               style={{
                 appearance: 'none',
-                paddingRight: '28px',
+                paddingLeft: '12px',
+                paddingRight: '30px',
                 fontWeight: 600,
                 backgroundColor: '#ffffff',
+                border: '1px solid #cbd5e1',
+                borderRadius: '6px',
+                height: '34px',
+                fontSize: '12px',
+                color: '#1e293b',
                 minWidth: '220px',
+                cursor: 'pointer',
               }}
             >
               <option value="Main Warehouse · Bekasi">Main Warehouse · Bekasi</option>
@@ -120,38 +127,52 @@ export function KpiHeaderToolbar({
       <div
         className="panel"
         style={{
-          padding: '10px 14px',
+          padding: '10px 16px',
           display: 'flex',
+          flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',
-          gap: '12px',
+          gap: '14px',
           backgroundColor: '#ffffff',
+          borderRadius: '8px',
+          border: '1px solid #e2e8f0',
         }}
       >
         {/* Left: Time Range Pills */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '5px', marginRight: '6px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>
-            <Calendar size={13} />
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flexWrap: 'wrap' }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#64748b', fontSize: '12px', fontWeight: 600 }}>
+            <Calendar size={14} color="#64748b" />
             <span>Period:</span>
           </div>
-          <div style={{ display: 'flex', backgroundColor: '#f1f5f9', padding: '3px', borderRadius: '6px', gap: '2px' }}>
+          <div
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              backgroundColor: '#f1f5f9',
+              padding: '3px',
+              borderRadius: '7px',
+              gap: '2px',
+              border: '1px solid #e2e8f0',
+            }}
+          >
             {timeRanges.map((tr) => {
               const active = filters.timeRange === tr.value;
               return (
                 <button
                   key={tr.value}
+                  type="button"
                   onClick={() => onFilterChange({ ...filters, timeRange: tr.value })}
                   style={{
-                    padding: '4px 10px',
-                    fontSize: '11.5px',
+                    padding: '5px 12px',
+                    fontSize: '12px',
                     fontWeight: active ? 600 : 500,
-                    borderRadius: '4px',
+                    borderRadius: '5px',
                     border: 'none',
                     cursor: 'pointer',
                     backgroundColor: active ? '#ffffff' : 'transparent',
                     color: active ? '#0f172a' : '#64748b',
-                    boxShadow: active ? '0 1px 2px rgba(15, 23, 42, 0.08)' : 'none',
+                    boxShadow: active ? '0 1px 3px rgba(15, 23, 42, 0.08)' : 'none',
                     transition: 'all 0.15s ease',
                   }}
                 >
@@ -163,21 +184,34 @@ export function KpiHeaderToolbar({
         </div>
 
         {/* Right: Shift & Zone Dropdowns */}
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', flexWrap: 'wrap' }}>
           {/* Shift Selector */}
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <Clock size={13} style={{ position: 'absolute', left: '10px', color: '#64748b', pointerEvents: 'none' }} />
+            <Clock
+              size={13}
+              style={{
+                position: 'absolute',
+                left: '10px',
+                color: '#64748b',
+                pointerEvents: 'none',
+              }}
+            />
             <select
               value={filters.shift}
               onChange={(e) => onFilterChange({ ...filters, shift: e.target.value as KpiShift })}
               className="select-input"
               style={{
                 appearance: 'none',
-                paddingLeft: '28px',
-                paddingRight: '26px',
+                paddingLeft: '30px',
+                paddingRight: '28px',
                 fontSize: '12px',
-                height: '32px',
-                backgroundColor: '#f8fafc',
+                fontWeight: 500,
+                height: '34px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #cbd5e1',
+                borderRadius: '6px',
+                color: '#1e293b',
+                cursor: 'pointer',
               }}
             >
               {shifts.map((s) => (
@@ -186,23 +220,44 @@ export function KpiHeaderToolbar({
                 </option>
               ))}
             </select>
-            <ChevronDown size={13} style={{ position: 'absolute', right: '9px', color: '#64748b', pointerEvents: 'none' }} />
+            <ChevronDown
+              size={13}
+              style={{
+                position: 'absolute',
+                right: '9px',
+                color: '#64748b',
+                pointerEvents: 'none',
+              }}
+            />
           </div>
 
           {/* Zone Selector */}
           <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
-            <Layers size={13} style={{ position: 'absolute', left: '10px', color: '#64748b', pointerEvents: 'none' }} />
+            <Layers
+              size={13}
+              style={{
+                position: 'absolute',
+                left: '10px',
+                color: '#64748b',
+                pointerEvents: 'none',
+              }}
+            />
             <select
               value={filters.zone}
               onChange={(e) => onFilterChange({ ...filters, zone: e.target.value as KpiZone })}
               className="select-input"
               style={{
                 appearance: 'none',
-                paddingLeft: '28px',
-                paddingRight: '26px',
+                paddingLeft: '30px',
+                paddingRight: '28px',
                 fontSize: '12px',
-                height: '32px',
-                backgroundColor: '#f8fafc',
+                fontWeight: 500,
+                height: '34px',
+                backgroundColor: '#ffffff',
+                border: '1px solid #cbd5e1',
+                borderRadius: '6px',
+                color: '#1e293b',
+                cursor: 'pointer',
               }}
             >
               {zones.map((z) => (
@@ -211,8 +266,41 @@ export function KpiHeaderToolbar({
                 </option>
               ))}
             </select>
-            <ChevronDown size={13} style={{ position: 'absolute', right: '9px', color: '#64748b', pointerEvents: 'none' }} />
+            <ChevronDown
+              size={13}
+              style={{
+                position: 'absolute',
+                right: '9px',
+                color: '#64748b',
+                pointerEvents: 'none',
+              }}
+            />
           </div>
+
+          {/* Quick Reset if filtered */}
+          {(filters.timeRange !== 'today' || filters.shift !== 'all' || filters.zone !== 'all') && (
+            <button
+              type="button"
+              onClick={() => onFilterChange({ ...filters, timeRange: 'today', shift: 'all', zone: 'all' })}
+              style={{
+                border: '1px solid #fecaca',
+                background: '#fff1f2',
+                color: '#e11d48',
+                fontSize: '11.5px',
+                fontWeight: 600,
+                cursor: 'pointer',
+                padding: '0 10px',
+                height: '34px',
+                borderRadius: '6px',
+                display: 'inline-flex',
+                alignItems: 'center',
+                transition: 'all 0.15s ease',
+              }}
+              title="Reset to default filters"
+            >
+              Reset Filters
+            </button>
+          )}
         </div>
       </div>
     </div>

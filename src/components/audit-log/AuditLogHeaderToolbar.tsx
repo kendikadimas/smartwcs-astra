@@ -47,6 +47,7 @@ export function AuditLogHeaderToolbar({
         style={{
           padding: '10px 14px',
           display: 'flex',
+          flexDirection: 'row',
           alignItems: 'center',
           justifyContent: 'space-between',
           flexWrap: 'wrap',

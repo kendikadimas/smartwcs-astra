@@ -66,6 +66,32 @@ export function RobotFleetTable({
         boxShadow: 'var(--shadow-xs)',
       }}
     >
+      {/* Panel Header Inside Card */}
+      <div
+        className="panel-header"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 18px',
+          borderBottom: '1px solid #f1f5f9',
+          flexWrap: 'wrap',
+          gap: '8px',
+        }}
+      >
+        <div>
+          <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
+            Active AMR / AGV Fleet
+          </div>
+          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+            {robots.length} units online / registered · {robots.filter((r) => r.runState === 'Working').length} working · {robots.filter((r) => r.runState === 'Idle').length} idle
+          </div>
+        </div>
+        <div style={{ fontSize: '11px', color: '#64748b' }}>
+          PUDU Robotics Open Cloud Protocol
+        </div>
+      </div>
+
       <div className="data-table-wrapper" style={{ overflowX: 'auto' }}>
         <table className="data-table" style={{ width: '100%', minWidth: '940px' }}>
           <thead>

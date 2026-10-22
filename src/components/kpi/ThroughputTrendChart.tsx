@@ -43,28 +43,12 @@ export function ThroughputTrendChart({ timeRange }: ThroughputTrendChartProps) {
           gap: '8px',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div
-            style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '6px',
-              backgroundColor: '#eff6ff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#0284c7',
-            }}
-          >
-            <BarChart2 size={16} />
+        <div>
+          <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
+            Throughput &amp; Task Completion Trends
           </div>
-          <div>
-            <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
-              Throughput &amp; Task Completion Trends
-            </div>
-            <div style={{ fontSize: '11px', color: '#64748b' }}>
-              Execution output vs target thresholds across operating shifts
-            </div>
+          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+            Execution output vs target thresholds across operating shifts
           </div>
         </div>
 

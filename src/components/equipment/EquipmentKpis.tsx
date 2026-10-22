@@ -87,18 +87,6 @@ export function EquipmentKpis({ metrics }: EquipmentKpisProps) {
               <div className="gradient-card-icon-wrap">
                 <Icon size={16} />
               </div>
-              <span
-                style={{
-                  fontSize: '10.5px',
-                  fontWeight: 600,
-                  color: 'rgba(255, 255, 255, 0.9)',
-                  backgroundColor: 'rgba(255, 255, 255, 0.15)',
-                  padding: '1.5px 7px',
-                  borderRadius: '12px',
-                }}
-              >
-                {card.pill}
-              </span>
             </div>
 
             {/* Card Body */}

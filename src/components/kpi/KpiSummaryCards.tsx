@@ -110,23 +110,8 @@ export function KpiSummaryCards({ metrics }: KpiSummaryCardsProps) {
 
             {/* Body */}
             <div className="gradient-card-body">
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '2px' }}>
+              <div style={{ marginBottom: '2px' }}>
                 <div className="gradient-card-title">{card.title}</div>
-                {card.tag && (
-                  <span
-                    style={{
-                      fontSize: '9px',
-                      fontWeight: 700,
-                      letterSpacing: '0.04em',
-                      backgroundColor: 'rgba(255, 255, 255, 0.22)',
-                      padding: '1px 5px',
-                      borderRadius: '4px',
-                      textTransform: 'uppercase',
-                    }}
-                  >
-                    {card.tag}
-                  </span>
-                )}
               </div>
               <div className="gradient-card-value">
                 {card.value}

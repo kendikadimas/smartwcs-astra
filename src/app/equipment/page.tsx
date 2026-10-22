@@ -26,9 +26,6 @@ import {
   AlertCircle,
   Sparkles,
   X,
-  Bot,
-  Layers,
-  Zap,
 } from 'lucide-react';
 
 interface ToastState {
@@ -307,49 +304,17 @@ export default function EquipmentPage() {
         {/* Row 3: Dynamic Category Content */}
         {filterState.tab === 'all' && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
-            {/* AMR Fleet Section */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                <Bot size={16} style={{ color: '#00529C' }} />
-                <h2 style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', margin: 0 }}>
-                  Active AMR / AGV Fleet
-                </h2>
-                <span style={{ fontSize: '11px', color: '#64748b' }}>
-                  ({filteredRobots.length} units online / registered)
-                </span>
-              </div>
-              <RobotFleetTable
-                robots={filteredRobots}
-                onSelectRobot={(robot) => setSelectedRobot(robot)}
-                onSendToDock={handleSendToDock}
-              />
-            </div>
-
-            {/* Conveyors & Lifts Section */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                <Layers size={16} style={{ color: '#00529C' }} />
-                <h2 style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', margin: 0 }}>
-                  Conveyors, Vertical Lifts &amp; Transfer Stations
-                </h2>
-              </div>
-              <ConveyorsTable
-                conveyors={filteredConveyors}
-                lifters={lifters}
-                transferStations={transferStations}
-              />
-            </div>
-
-            {/* Charging Stations Section */}
-            <div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-                <Zap size={16} style={{ color: '#d97706' }} />
-                <h2 style={{ fontSize: '14px', fontWeight: 700, color: '#0f172a', margin: 0 }}>
-                  Automatic Charging Stations
-                </h2>
-              </div>
-              <ChargingStationsPanel stations={chargingStations} />
-            </div>
+            <RobotFleetTable
+              robots={filteredRobots}
+              onSelectRobot={(robot) => setSelectedRobot(robot)}
+              onSendToDock={handleSendToDock}
+            />
+            <ConveyorsTable
+              conveyors={filteredConveyors}
+              lifters={lifters}
+              transferStations={transferStations}
+            />
+            <ChargingStationsPanel stations={chargingStations} />
           </div>
         )}
 

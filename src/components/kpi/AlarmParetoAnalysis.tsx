@@ -22,28 +22,12 @@ export function AlarmParetoAnalysis() {
           borderBottom: '1px solid #f1f5f9',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div
-            style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '6px',
-              backgroundColor: '#fff1f2',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#e11d48',
-            }}
-          >
-            <AlertOctagon size={16} />
+        <div>
+          <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
+            Alarm &amp; Incident Pareto Analysis
           </div>
-          <div>
-            <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
-              Alarm &amp; Incident Pareto Analysis
-            </div>
-            <div style={{ fontSize: '11px', color: '#64748b' }}>
-              Root cause frequency distribution &amp; 80/20 cumulative impact rule
-            </div>
+          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+            Root cause frequency distribution &amp; 80/20 cumulative impact rule
           </div>
         </div>
 

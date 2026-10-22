@@ -18,66 +18,86 @@ interface ChargingStationsPanelProps {
 export function ChargingStationsPanel({ stations }: ChargingStationsPanelProps) {
   return (
     <div
+      className="panel"
       style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fit, minmax(350px, 1fr))',
-        gap: '16px',
+        backgroundColor: '#ffffff',
+        border: '1px solid var(--border-subtle)',
+        borderRadius: 'var(--radius-xl)',
+        overflow: 'hidden',
+        boxShadow: 'var(--shadow-xs)',
       }}
     >
-      {stations.map((st) => {
-        const availableDocks = st.dockCount - st.occupiedCount;
-        const isFull = availableDocks === 0;
+      {/* Panel Header Inside Card */}
+      <div
+        className="panel-header"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '12px 18px',
+          borderBottom: '1px solid #f1f5f9',
+          flexWrap: 'wrap',
+          gap: '8px',
+        }}
+      >
+        <div>
+          <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
+            Automatic Charging Stations
+          </div>
+          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+            {stations.length} charging hubs · {stations.reduce((acc, s) => acc + s.dockCount, 0)} total docking bays
+          </div>
+        </div>
+        <div style={{ fontSize: '11px', color: '#64748b' }}>
+          Autonomous PUDU Fast-Charging Protocol
+        </div>
+      </div>
 
-        return (
-          <div
-            key={st.id}
-            className="panel"
-            style={{
-              backgroundColor: '#ffffff',
-              border: '1px solid var(--border-subtle)',
-              borderRadius: 'var(--radius-xl)',
-              overflow: 'hidden',
-              boxShadow: 'var(--shadow-xs)',
-              display: 'flex',
-              flexDirection: 'column',
-            }}
-          >
-            {/* Header */}
-            <div
-              style={{
-                padding: '14px 18px',
-                borderBottom: '1px solid var(--border-subtle)',
-                backgroundColor: '#fafbfc',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-              }}
-            >
-              <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+      <div style={{ padding: '16px' }}>
+        <div
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))',
+            gap: '16px',
+          }}
+        >
+          {stations.map((st) => {
+            const availableDocks = st.dockCount - st.occupiedCount;
+            const isFull = availableDocks === 0;
+
+            return (
+              <div
+                key={st.id}
+                className="panel"
+                style={{
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: 'var(--radius-lg)',
+                  overflow: 'hidden',
+                  boxShadow: 'none',
+                  display: 'flex',
+                  flexDirection: 'column',
+                }}
+              >
+                {/* Header */}
                 <div
                   style={{
-                    width: '32px',
-                    height: '32px',
-                    borderRadius: '8px',
-                    backgroundColor: '#fffbeb',
-                    border: '1px solid #fde68a',
-                    color: '#d97706',
+                    padding: '12px 16px',
+                    borderBottom: '1px solid #f1f5f9',
+                    backgroundColor: '#fafbfc',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'center',
+                    justifyContent: 'space-between',
                   }}
                 >
-                  <Zap size={16} />
-                </div>
-                <div>
-                  <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
-                    {st.name}
+                  <div>
+                    <div style={{ fontSize: '13px', fontWeight: 700, color: '#0f172a' }}>
+                      {st.name}
+                    </div>
+                    <div style={{ fontSize: '11px', color: '#64748b', fontFamily: 'monospace', marginTop: '1px' }}>
+                      {st.code} · {st.zone}
+                    </div>
                   </div>
-                  <div style={{ fontSize: '11px', color: '#64748b', fontFamily: 'monospace' }}>
-                    {st.code} · {st.zone}
-                  </div>
-                </div>
-              </div>
 
               <span
                 style={{
@@ -185,6 +205,8 @@ export function ChargingStationsPanel({ stations }: ChargingStationsPanelProps) 
           </div>
         );
       })}
+        </div>
+      </div>
     </div>
   );
 }

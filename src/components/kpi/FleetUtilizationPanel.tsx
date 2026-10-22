@@ -36,43 +36,14 @@ export function FleetUtilizationPanel() {
           borderBottom: '1px solid #f1f5f9',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div
-            style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '6px',
-              backgroundColor: '#f5f3ff',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#7c3aed',
-            }}
-          >
-            <Bot size={16} />
+        <div>
+          <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
+            Fleet Time Allocation &amp; Productivity
           </div>
-          <div>
-            <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
-              Fleet Time Allocation &amp; Productivity
-            </div>
-            <div style={{ fontSize: '11px', color: '#64748b' }}>
-              Status distribution derived from AMR state logs
-            </div>
+          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+            Status distribution derived from AMR state logs
           </div>
         </div>
-
-        <span
-          style={{
-            fontSize: '11px',
-            fontWeight: 600,
-            color: '#15803d',
-            backgroundColor: '#dcfce7',
-            padding: '2px 8px',
-            borderRadius: '9999px',
-          }}
-        >
-          8/8 AMRs Active
-        </span>
       </div>
 
       {/* Aggregate Overview Bar */}

@@ -21,43 +21,14 @@ export function CycleTimeBreakdown() {
           borderBottom: '1px solid #f1f5f9',
         }}
       >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div
-            style={{
-              width: '28px',
-              height: '28px',
-              borderRadius: '6px',
-              backgroundColor: '#ecfdf5',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#059669',
-            }}
-          >
-            <Timer size={16} />
+        <div>
+          <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
+            Cycle Time &amp; SLA Compliance
           </div>
-          <div>
-            <div style={{ fontSize: '13.5px', fontWeight: 700, color: '#0f172a' }}>
-              Cycle Time &amp; SLA Compliance
-            </div>
-            <div style={{ fontSize: '11px', color: '#64748b' }}>
-              Average duration vs P95 worst-case latency per task category
-            </div>
+          <div style={{ fontSize: '11px', color: '#64748b', marginTop: '2px' }}>
+            Average duration vs P95 worst-case latency per task category
           </div>
         </div>
-
-        <span
-          style={{
-            fontSize: '11px',
-            fontWeight: 600,
-            color: '#059669',
-            backgroundColor: '#d1fae5',
-            padding: '2px 8px',
-            borderRadius: '9999px',
-          }}
-        >
-          97.3% SLA Compliant
-        </span>
       </div>
 
       {/* Legend & Threshold explanation */}
