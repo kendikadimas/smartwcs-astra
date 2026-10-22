@@ -15,10 +15,15 @@ import { requireAuth } from "@/lib/auth";
  * RobotStatus (tabel netral) tidak pernah ditulis kode produksi mana pun
  * hari ini, jadi selalu kosong; PuduRobotState satu-satunya sumber nyata.
  *
- * `isChargingRaw`/`remainTimeRaw` dikembalikan APA ADANYA tanpa label
- * satuan atau diterjemahkan jadi boolean "charging" -- artinya belum
- * terverifikasi (lihat PUDU_INTEGRATION.md bagian 9), jadi tidak dipakai
- * untuk hitungan ringkasan "charging".
+ * Fase F (perbaikan "sesuai dokumen resmi"): `isCharging` sekarang boolean
+ * (PUDU_OFFICIAL_EXCERPT.md: is_charging 1=charging, -1=tidak -- sudah
+ * terkonfirmasi, tidak lagi perlu dikembalikan mentah). `remainTimeRaw`
+ * TETAP mentah tanpa label -- excerpt sendiri kontradiktif soal satuannya
+ * per model (GetRobotStatusV2: menit, T300 saja; notifyRobotStatus: detik,
+ * P1 saja) dan TIDAK menyebut T600 (robot pilot WCS) sama sekali, jadi
+ * makna persisnya untuk T600 masih belum diketahui. `runState` dikirim
+ * apa adanya (OFFLINE/DISABLE/BUSY/IDLE) -- vocabulary itu sendiri sudah
+ * netral/umum menurut dokumen resmi, bukan istilah internal PUDU.
  */
 export async function GET(request: Request) {
   await requireAuth(request);
@@ -37,7 +42,8 @@ export async function GET(request: Request) {
     online: s.online,
     battery: s.battery,
     currentTaskId: s.currentPuduTask?.mission?.taskId ?? null,
-    isChargingRaw: s.isCharging,
+    runState: s.runState,
+    isCharging: s.isCharging === null ? null : s.isCharging === 1,
     remainTimeRaw: s.remainTime,
     position: { x: s.x, y: s.y, mapId: s.currentPuduMapId, recordedAt: s.lastPoseAt },
     updatedAt: s.updatedAt,
@@ -48,6 +54,7 @@ export async function GET(request: Request) {
     online: items.filter((i) => i.online === true).length,
     offline: items.filter((i) => i.online === false).length,
     unknown: items.filter((i) => i.online === null).length,
+    charging: items.filter((i) => i.isCharging === true).length,
   };
 
   return NextResponse.json({ summary, items });

@@ -16,7 +16,10 @@ import { verifyCallbackCode } from "./callback-auth";
 import { handleNotifyRobotPose, notifyRobotPoseSchema } from "./pose";
 import { parsers } from "./parsers";
 import { PuduClient, PuduApiError } from "./client";
-import { syncShops, syncRobots } from "./sync";
+import { db } from "../../../lib/db";
+import { syncShops, syncRobots, syncMaps } from "./sync";
+import { refreshPoseReporting } from "./pose-report";
+import { reconcileStalledCallTasks } from "./reconcile";
 import { mapCallStatus, mapDeliveryStatus } from "./status-map";
 import { DispatchRejectedError, mapPuduErrorToFailureCode } from "./error-map";
 
@@ -191,15 +194,58 @@ async function cancel(tx: Prisma.TransactionClient, missionRef: MissionRef): Pro
   await tx.puduTask.update({ where: { puduTaskId: puduTask.puduTaskId }, data: { status: "CANCEL" } });
 }
 
+/**
+ * Satu-satunya operasi kontrak tanpa parameter yang cocok dijadwalkan
+ * berkala dari worker.ts tanpa mengimpor folder pudu/ langsung (lihat
+ * ADAPTER_CONTRACT.md Section 2) -- jadi dipakai sebagai "titik masuk
+ * pemeliharaan periodik" PUDU: sync shop/robot/peta (tugas aslinya),
+ * refresh NotifyRobotReportPosition, DAN rekonsiliasi task CALL yang
+ * nyangkut (Fase E). `SyncResourcesResult` tidak punya field untuk
+ * pose-report/rekonsiliasi -- hasilnya cuma dilog, bukan dikembalikan
+ * (kontrak types.ts tidak diubah). Keputusan sendiri, dicatat di laporan
+ * akhir: membungkus 3 tugas berbeda jadi satu panggilan karena cuma
+ * operasi ini yang tersedia di kontrak untuk dipanggil tanpa argumen.
+ */
 async function syncResources(): Promise<SyncResourcesResult> {
   const client = getPuduClient();
   const shops = await syncShops(client);
   const robots: SyncResourcesResult["robots"] = [];
+  let mapsSynced = 0;
+  let elementsSynced = 0;
+
   for (const shop of shops) {
     const shopRobots = await syncRobots(client, shop.shop_id);
     for (const r of shopRobots) robots.push({ serialNumber: r.sn, name: r.nickname });
+
+    const puduShop = await db.puduShop.upsert({
+      where: { shopId: shop.shop_id },
+      update: { shopName: shop.shop_name, companyId: shop.company_id, companyName: shop.company_name, syncedAt: new Date() },
+      create: { shopId: shop.shop_id, shopName: shop.shop_name, companyId: shop.company_id, companyName: shop.company_name, syncedAt: new Date() },
+    });
+    try {
+      const mapResult = await syncMaps(db, client, puduShop.puduShopId, shop.shop_id);
+      mapsSynced += mapResult.mapsSynced;
+      elementsSynced += mapResult.elementsSynced;
+    } catch (err) {
+      logger.warn({ shopId: shop.shop_id, errMessage: err instanceof Error ? err.message : String(err) }, "gagal sync peta");
+    }
   }
-  return { robots, locationsSynced: shops.length };
+
+  try {
+    const poseResult = await refreshPoseReporting(db, client);
+    logger.info(poseResult, "syncResources: refresh pose reporting");
+  } catch (err) {
+    logger.warn({ errMessage: err instanceof Error ? err.message : String(err) }, "gagal refresh pose reporting");
+  }
+
+  try {
+    const reconcileResult = await reconcileStalledCallTasks(db, client);
+    logger.info(reconcileResult, "syncResources: rekonsiliasi task CALL");
+  } catch (err) {
+    logger.warn({ errMessage: err instanceof Error ? err.message : String(err) }, "gagal rekonsiliasi task");
+  }
+
+  return { robots, locationsSynced: mapsSynced + elementsSynced };
 }
 
 async function handleInbound(tx: Prisma.TransactionClient, message: InboundMessage): Promise<InboundResult> {

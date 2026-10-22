@@ -10,6 +10,11 @@ import { processPendingLogs } from "./src/modules/equipment-adapter/worker-core"
 // vendor -- adapter mana yang dipanggil ditentukan lewat registri, bukan
 // impor langsung ke folder vendor tertentu.
 let shuttingDown = false;
+// Fase E: syncResources() (sync shop/robot/peta + refresh pose-report +
+// rekonsiliasi task CALL, lihat pudu/index.ts) jauh lebih berat daripada
+// tick IntegrationLog (HTTP ke PUDU berkali-kali) -- dijalankan di siklus
+// terpisah, digerbang waktu, bukan tiap tick ~2 detik.
+let lastSyncAt = 0;
 
 const ADAPTER_KEY = "pudu";
 
@@ -33,6 +38,16 @@ async function tick() {
   });
   if (result.processed > 0) {
     logger.info(result, "worker: selesai satu batch");
+  }
+
+  if (Date.now() - lastSyncAt >= env.PUDU_SYNC_INTERVAL_MS) {
+    lastSyncAt = Date.now();
+    try {
+      const syncResult = await adapter.syncResources();
+      logger.info(syncResult, "worker: syncResources selesai");
+    } catch (err) {
+      logger.warn({ err }, "worker: syncResources gagal");
+    }
   }
 }
 

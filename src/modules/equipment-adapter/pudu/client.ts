@@ -313,6 +313,83 @@ export class PuduClient {
     });
   }
 
+  // Katalog #29, NotifyRobotReportPosition -- BELUM diverifikasi dokumen
+  // resmi (tidak ada di excerpt). Field dari PUDU_INTEGRATION.md Lampiran
+  // #29. Tanpa ini PUDU tidak akan pernah mengirim callback notifyRobotPose
+  // (lihat PUDU_INTEGRATION.md bagian 5 langkah 6) -- dipanggil ulang
+  // berkala dari worker (Fase E) sebelum interval x times habis.
+  notifyRobotReportPosition(payload: { sn: string; interval: number; times: number }) {
+    return this.request<PuduEnvelope>("POST", "/open-platform-service/v1/position_command", {
+      body: { sn: payload.sn, interval: payload.interval, times: payload.times },
+    });
+  }
+
+  // Katalog #30, StoreMapList -- BELUM diverifikasi dokumen resmi. Field
+  // dari PUDU_INTEGRATION.md Lampiran #30.
+  storeMapList(params: { shop_id?: string } = {}) {
+    return this.request<PuduEnvelope<{ list: Array<{ map_name: string }> }>>(
+      "GET",
+      "/data-open-platform-service/v1/api/maps",
+      { query: params },
+    );
+  }
+
+  // Katalog #33, GetMapDetailV2 -- BELUM diverifikasi dokumen resmi. Field
+  // dari PUDU_INTEGRATION.md Lampiran #33. Sumber utama sinkronisasi peta
+  // di syncResources() (sync.ts) -- sudah mencakup metadata peta DAN
+  // element_list dalam satu panggilan, jadi CurrentMap/GetCurrentMapPoints
+  // (di bawah) tidak dipanggil ganda untuk data yang sama di syncResources().
+  getMapDetailV2(params: { map_name: string }) {
+    return this.request<
+      PuduEnvelope<{
+        map_name: string;
+        url?: string;
+        zone_list?: unknown[];
+        map_code?: string;
+        width?: number;
+        height?: number;
+        resolution?: number;
+        origin_list?: [number, number, number];
+        element_list?: Array<{
+          id: string;
+          name: string;
+          type: string;
+          mode?: string;
+          vector_list?: number[];
+          clean_path_list?: unknown;
+          group?: unknown;
+          width?: number;
+          max_speed?: number;
+        }>;
+      }>
+    >("GET", "/map-service/v1/open/map", { query: params });
+  }
+
+  // Katalog #32, CurrentMap -- BELUM diverifikasi dokumen resmi. Field dari
+  // PUDU_INTEGRATION.md Lampiran #32. Disiapkan sesuai instruksi task, TIDAK
+  // dipanggil dari syncResources() (GetMapDetailV2 sudah mencakup element
+  // list yang sama/lebih lengkap) -- hindari panggilan API ganda untuk data
+  // yang sama, keputusan sendiri, dicatat di laporan akhir.
+  currentMap(params: { sn: string }) {
+    return this.request<
+      PuduEnvelope<{
+        name: string;
+        floor?: string;
+        shop_id?: string;
+        elements?: Array<{ type: string; id: string; name: string; mode?: string; group?: unknown; vector?: number[]; width?: number; max_speed?: number }>;
+      }>
+    >("GET", "/map-service/v1/open/current", { query: params });
+  }
+
+  // Katalog #35, GetCurrentMapPoints -- BELUM diverifikasi dokumen resmi.
+  // Field dari PUDU_INTEGRATION.md Lampiran #35. Disiapkan sesuai instruksi
+  // task, TIDAK dipanggil dari syncResources() (lihat catatan currentMap()).
+  getCurrentMapPoints(params: { map_name?: string } = {}) {
+    return this.request<
+      PuduEnvelope<{ total: number; list: Array<{ name: string; type?: string; x?: number; y?: number; z?: number }> }>
+    >("GET", "/map-service/v1/open/point", { query: params });
+  }
+
   // Belum diverifikasi dokumen resmi (DeliveryTask -- API inisiasi -- tidak
   // ada di excerpt; yang ada cuma callback notifyDeliveryTask). Field dari
   // PUDU_INTEGRATION.md Lampiran #5, dibungkus envelope.
