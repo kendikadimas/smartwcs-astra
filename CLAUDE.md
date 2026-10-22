@@ -34,6 +34,7 @@ PUDU sebagai pilot.
 | `prisma/schema.prisma` | Implementasi ERD v3 (Prisma 7). **Sumber kebenaran schema** — harus selalu sinkron dengan `ERD.md` | **Baru 2026-10-19** | Sebelum query/migration apa pun |
 | `docs/PUDU_INTEGRATION.md` | Integrasi PUDU Cloud API: base URL, autentikasi HMAC, alur callback, scope T600, pemetaan status & field ke tabel | **Baru 2026-10-19** | Sebelum menulis kode di `src/modules/equipment-adapter/pudu` |
 | `docs/ADAPTER_CONTRACT.md` | Kontrak netral vendor (`EquipmentAdapter`): operasi, tipe hasil netral, cara registri memilih adapter, langkah menambah vendor baru | **Baru 2026-10-21** | Sebelum menyentuh `src/modules/equipment-adapter/*` (kontrak/registri) atau menambah adapter vendor baru |
+| `docs/TASK_STATE_MACHINE.md` | Status Task/Mission yang benar-benar dipakai kode, pemetaan status PUDU, dan bagian "Belum diputuskan" (retryCount, validasi transisi, dll) | **Baru 2026-10-21** | Sebelum mengubah `apply-status-change.ts`/`status-map.ts` atau menambah endpoint transisi status Task |
 | `docs/API_SPECIFICATION.md` | Ringkasan modul + endpoint, termasuk 4 modul baru | Revisi 2026-10-05 | Referensi cepat endpoint |
 | `docs/ARCHITECTURE.md` | Gambaran arsitektur sistem | Revisi 2026-10-05 | Sebelum setup struktur project |
 | `docs/CHANGELOG.md` | Riwayat perubahan dokumen | Revisi 2026-10-19 | Kalau butuh histori keputusan |
@@ -113,27 +114,36 @@ Material Request.
 Maintenance/Engineer, System Integrator (baku) + Operator Produksi, Operator
 Box/Packaging, Operator Delivery (baru, role/RBAC-nya belum diformalkan).
 
-## Status implementasi (per 2026-10-19)
+## Status implementasi (per 2026-10-21)
 
 - **Infra:** Next.js 16 + custom server (`server.ts`, Socket.IO di path `/ws`),
   Prisma 7 dengan `@prisma/adapter-pg`, PostgreSQL 18 di `docker-compose.yml`.
   Config Prisma ada di `prisma7.config.ts`.
-- **Database:** `prisma/schema.prisma` sudah berisi ERD v3.1 (46 model). Migration
-  belum dibuat. Migration pertama wajib mengikuti langkah di
-  `prisma/sql/pudu_pose_log_partition.sql` (partisi `PuduPoseLog`).
-- **UI:** halaman Overview dan Task Management sudah jadi, **sengaja masih
-  memakai data mock** (`src/data/mock*.ts`). Halaman lain masih
-  `PlaceholderPage`. Tahap ini memang UI statis — jangan sambungkan UI ke
-  database atau PUDU kecuali diminta.
-- **Modul domain** (`src/modules/*`): baru berisi README, belum ada kode.
-- **Backend (branch `feat/backend-pudu-tanpa-api-key` + `refactor/adapter-contract`):**
-  callback PUDU, worker, klien HMAC, API Task + CRUD master data, dan
-  kontrak adapter netral (`src/modules/equipment-adapter/{contract,types,registry}.ts`,
-  lihat `docs/ADAPTER_CONTRACT.md`) sudah ada. Auth, `pg-boss`, dan dispatch
-  nyata dari UI/API ke robot belum (Fase 6, perlu persetujuan terpisah).
+- **Database:** `prisma/schema.prisma` berisi ERD v3.1 (46 model). Migration
+  pertama (`prisma/migrations/`) sudah dibuat dan dipartisi sesuai
+  `prisma/sql/pudu_pose_log_partition.sql`.
+- **UI:** halaman Overview, Task Management, Master Data, Warehouse Map,
+  Dispatch sudah jadi, **sengaja masih memakai data mock** (`src/data/mock*.ts`).
+  Halaman lain masih `PlaceholderPage`. Tahap ini memang UI statis — jangan
+  sambungkan UI ke database atau PUDU kecuali diminta.
+- **Backend:** callback PUDU, worker, klien HMAC, kontrak adapter netral
+  (`src/modules/equipment-adapter/{contract,types,registry}.ts`, lihat
+  `docs/ADAPTER_CONTRACT.md`), API Task + CRUD master data, Event & Alarm
+  (FR-08), dan Monitoring (FR-09, lihat `docs/TASK_STATE_MACHINE.md` untuk
+  state machine Task/Mission) sudah ada. Auth, `pg-boss`, WebSocket live,
+  dan dispatch nyata dari UI/API ke robot belum (perlu persetujuan
+  terpisah).
+- **Endpoint API yang sudah ada:** `/api/tasks` (+`/{id}`), `/api/robots`
+  (+`/{id}`, `/{id}/pose-history`), `/api/equipment` (+`/{id}`),
+  `/api/locations` (+`/{id}`), `/api/zones` (+`/{id}`), `/api/materials`
+  (+`/{id}`), `/api/events` (+`/{id}`), `/api/alarms` (+`/{id}/acknowledge`,
+  `/{id}/clear`), `/api/monitoring/{overview,connections,fleet}`,
+  `/api/warehouse-map`, `/api/integrations/pudu/callback`. Belum ada:
+  endpoint transisi status Task (`PATCH /tasks/{id}/status`, `/cancel`,
+  `/retry`), auth, Integration CRUD.
 - **Dokumen yang dirujuk tapi belum ada di repo:**
-  `API_CONVENTIONS.md`, `TASK_STATE_MACHINE.md`, `DATA_DICTIONARY.md`. Jangan
-  mengasumsikan isinya (lihat catatan di ADR.md Section 9).
+  `API_CONVENTIONS.md`, `DATA_DICTIONARY.md`. Jangan mengasumsikan isinya
+  (lihat catatan di ADR.md Section 9).
 
 ## Aturan kerja untuk Claude Code di repo ini
 
