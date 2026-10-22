@@ -64,7 +64,20 @@ export class PuduClient {
     path: string,
     opts: RequestOptions = {},
   ): Promise<T> {
-    const pathAndParameters = buildPathAndParameters(path, opts.query);
+    // Temuan tambahan Fase D (di luar 2 poin awal task ini): PathAndParameters
+    // yang ditandatangani HARUS path LENGKAP sebagaimana gateway PUDU
+    // benar-benar menerimanya -- termasuk `/pudu-entry` dari `baseUrl`
+    // (PUDU_INTEGRATION.md bagian 3: "path (termasuk /pudu-entry)"). Versi
+    // sebelumnya menandatangani `path` relatif SAJA (tanpa bagian path dari
+    // `baseUrl`) -- di produksi (`PUDU_BASE_URL` selalu berakhiran
+    // `/pudu-entry`) ini akan membuat SEMUA request bertanda tangan salah
+    // (401), tapi lolos di semua tes lama karena `baseUrl` tes selalu tanpa
+    // path (`http://127.0.0.1:<port>`, lihat `mock-pudu-server.ts`) --
+    // bug-nya ketutupan kebetulan. `fullPathname` di bawah SELALU memakai
+    // path lengkap hasil gabungan `baseUrl` + `path`, cocok untuk kasus
+    // tes (tidak berubah) maupun produksi (sekarang benar).
+    const fullPathname = new URL(this.config.baseUrl + path).pathname;
+    const pathAndParameters = buildPathAndParameters(fullPathname, opts.query);
     // Query di URL fetch DIENCODE (encodeURIComponent, lewat
     // buildEncodedQueryString) -- BEDA dari pathAndParameters di atas,
     // yang nilainya MENTAH karena itu yang ditandatangani (jangan disamakan,
