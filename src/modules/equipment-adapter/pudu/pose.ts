@@ -26,6 +26,12 @@ export type NotifyRobotPoseData = z.infer<typeof notifyRobotPoseSchema>;
  * dibuat di sini): pose report baru aktif setelah robotBinding/robotActivate,
  * jadi robotnya seharusnya sudah ada; auto-provisioning di hot path callback
  * dianggap terlalu berat untuk kasus yang seharusnya tidak terjadi.
+ *
+ * PUDU_OFFICIAL_EXCERPT.md RobotPose-notifyRobotPose: "notify_timestamp ...
+ * can be used for out-of-order filtering" -- pesan yang `notify_timestamp`-
+ * nya LEBIH LAMA dari `lastPoseAt` tersimpan tidak menimpa PuduRobotState
+ * (posisi "terkini" robot), tapi TETAP dicatat ke PuduPoseLog (riwayat,
+ * bukan tampilan "sekarang") supaya tidak ada data yang hilang.
  */
 export async function handleNotifyRobotPose(prisma: Prisma.TransactionClient, data: NotifyRobotPoseData) {
   const puduRobot = await prisma.puduRobot.findUnique({ where: { sn: data.sn } });
@@ -37,28 +43,33 @@ export async function handleNotifyRobotPose(prisma: Prisma.TransactionClient, da
     ? new Date(Number(data.notify_timestamp))
     : new Date();
 
+  const current = await prisma.puduRobotState.findUnique({ where: { puduRobotId: puduRobot.puduRobotId } });
+  const isOutOfOrder = Boolean(current?.lastPoseAt && recordedAt.getTime() < current.lastPoseAt.getTime());
+
   // Sequential, bukan $transaction: fungsi ini bisa dipanggil dari dalam
   // transaksi worker yang sudah terbuka (nested transaction tidak didukung
   // baik). Atomicitas bukan kritis untuk pose report frekuensi tinggi --
   // paling buruk satu dari dua tulisan ini gagal sendiri-sendiri.
-  await prisma.puduRobotState.upsert({
-    where: { puduRobotId: puduRobot.puduRobotId },
-    create: {
-      puduRobotId: puduRobot.puduRobotId,
-      x: data.x,
-      y: data.y,
-      yaw: data.yaw,
-      nearestPoint: data.nearest_point,
-      lastPoseAt: recordedAt,
-    },
-    update: {
-      x: data.x,
-      y: data.y,
-      yaw: data.yaw,
-      nearestPoint: data.nearest_point,
-      lastPoseAt: recordedAt,
-    },
-  });
+  if (!isOutOfOrder) {
+    await prisma.puduRobotState.upsert({
+      where: { puduRobotId: puduRobot.puduRobotId },
+      create: {
+        puduRobotId: puduRobot.puduRobotId,
+        x: data.x,
+        y: data.y,
+        yaw: data.yaw,
+        nearestPoint: data.nearest_point,
+        lastPoseAt: recordedAt,
+      },
+      update: {
+        x: data.x,
+        y: data.y,
+        yaw: data.yaw,
+        nearestPoint: data.nearest_point,
+        lastPoseAt: recordedAt,
+      },
+    });
+  }
   await prisma.puduPoseLog.create({
     data: {
       puduRobotId: puduRobot.puduRobotId,
@@ -72,5 +83,5 @@ export async function handleNotifyRobotPose(prisma: Prisma.TransactionClient, da
     },
   });
 
-  return { stored: true as const };
+  return { stored: true as const, outOfOrder: isOutOfOrder };
 }

@@ -40,6 +40,7 @@ describe.skipIf(!hasTestDatabase())("applyPuduTaskStatus", () => {
 
     const result = await applyPuduTaskStatus(testDb!, {
       rawStatus: "CALLING",
+      taskKind: "CALL",
       robotId: robot.robotId,
       missionId: mission.missionId,
       integrationLogId: null,
@@ -65,6 +66,7 @@ describe.skipIf(!hasTestDatabase())("applyPuduTaskStatus", () => {
 
     await applyPuduTaskStatus(testDb!, {
       rawStatus: "QUEUEING",
+      taskKind: "CALL",
       robotId: robot.robotId,
       missionId: mission.missionId,
       integrationLogId: null,
@@ -80,6 +82,7 @@ describe.skipIf(!hasTestDatabase())("applyPuduTaskStatus", () => {
 
     const result = await applyPuduTaskStatus(testDb!, {
       rawStatus: "STATUS_ANEH",
+      taskKind: "CALL",
       robotId: robot.robotId,
       missionId: mission.missionId,
       integrationLogId: null,
@@ -96,12 +99,47 @@ describe.skipIf(!hasTestDatabase())("applyPuduTaskStatus", () => {
     expect(events[0].message).toContain("STATUS_ANEH");
   });
 
+  it("taskKind DELIVERY memakai tabel status DELIVERY, bukan CALL (ON_THE_WAY -> RUNNING)", async () => {
+    const { robot, task, mission } = await setup();
+
+    const result = await applyPuduTaskStatus(testDb!, {
+      rawStatus: "ON_THE_WAY",
+      taskKind: "DELIVERY",
+      robotId: robot.robotId,
+      missionId: mission.missionId,
+      integrationLogId: null,
+      occurredAt: new Date(),
+    });
+
+    expect(result.recognized).toBe(true);
+    const updatedTask = await testDb!.task.findUniqueOrThrow({ where: { taskId: task.taskId } });
+    expect(updatedTask.status).toBe("RUNNING");
+  });
+
+  it("taskKind OTHER (mis. SWITCH_MAP) selalu recognized=false, tidak mengubah status", async () => {
+    const { robot, task, mission } = await setup();
+
+    const result = await applyPuduTaskStatus(testDb!, {
+      rawStatus: "CANCEL", // token yang valid untuk CALL/DELIVERY, tapi OTHER tidak punya tabel sama sekali
+      taskKind: "OTHER",
+      robotId: robot.robotId,
+      missionId: mission.missionId,
+      integrationLogId: null,
+      occurredAt: new Date(),
+    });
+
+    expect(result.recognized).toBe(false);
+    const updatedTask = await testDb!.task.findUniqueOrThrow({ where: { taskId: task.taskId } });
+    expect(updatedTask.status).toBe("DISPATCHED"); // tidak berubah
+  });
+
   it("tidak throw kalau missionId null (task dibuat langsung di PUDU)", async () => {
     const { robot } = await setup();
 
     await expect(
       applyPuduTaskStatus(testDb!, {
         rawStatus: "CALLING",
+        taskKind: "CALL",
         robotId: robot.robotId,
         missionId: null,
         integrationLogId: null,
