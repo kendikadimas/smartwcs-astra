@@ -108,6 +108,24 @@ async function dispatch(tx: Prisma.TransactionClient, command: DispatchCommand):
           "NO_RESOURCE_AVAILABLE",
         );
       }
+      // point_type WAJIB diisi PUDU ("Point type, e.g., table") -- JANGAN
+      // kirim string kosong untuk field wajib, hampir pasti ditolak PUDU.
+      // Sumber nilai ini sekarang adalah `mode` elemen peta (contoh resmi:
+      // "return_point", "" kosong untuk charging_pile/area/elevator) --
+      // BELUM terverifikasi sebagai nilai yang PUDU minta untuk titik
+      // gudang biasa (dokumen resmi cuma memberi contoh "table" untuk
+      // InitiateCallTask, tidak menjelaskan daftar nilai lengkap, dan tidak
+      // membuktikan `mode` == `point_type`; ada juga `type` elemen peta,
+      // mis. "source"/"charging_pile"/"chargeWorkStation" -- dokumen tidak
+      // bilang mana yang dipakai PUDU untuk parameter ini). Lihat
+      // PUDU_INTEGRATION.md untuk pertanyaan terbuka ini. Kalau `mode`
+      // kosong/null, dispatch DITOLAK di sini -- bukan menebak nilai.
+      if (!element.pointType) {
+        throw new DispatchRejectedError(
+          `point_type titik "${command.targetPoint}" tidak diketahui; belum ada di data peta (robot ${puduRobot.sn})`,
+          "NO_RESOURCE_AVAILABLE",
+        );
+      }
       const map = await tx.puduMap.findUnique({ where: { puduMapId: state.currentPuduMapId } });
 
       // priority WCS -> PUDU: 1-5 valid (1 tertinggi), di luar rentang
@@ -119,7 +137,7 @@ async function dispatch(tx: Prisma.TransactionClient, command: DispatchCommand):
         sn: puduRobot.sn,
         map_name: map!.mapName,
         point: command.targetPoint,
-        point_type: element.pointType ?? "",
+        point_type: element.pointType,
         priority,
       });
       vendorTaskId = response.data?.task_id;

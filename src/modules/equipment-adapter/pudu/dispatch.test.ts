@@ -31,7 +31,7 @@ describe.skipIf(!hasTestDatabase())("pudu dispatch() -- run_state dan resolusi p
     await testDb?.$disconnect();
   });
 
-  async function setupRobotWithMap(opts: { runState: string | null; withMapElement?: boolean }) {
+  async function setupRobotWithMap(opts: { runState: string | null; withMapElement?: boolean; pointType?: string | null }) {
     const location = await createLocationFixture(testDb!);
     const robot = await createRobotFixture(testDb!, { locationId: location.locationId, serialNumber: "DISPATCH-TEST-1" });
     const puduRobot = await testDb!.puduRobot.create({
@@ -41,7 +41,13 @@ describe.skipIf(!hasTestDatabase())("pudu dispatch() -- run_state dan resolusi p
     const map = await testDb!.puduMap.create({ data: { puduShopId: shop.puduShopId, mapName: "dispatch-test-map" } });
     if (opts.withMapElement !== false) {
       await testDb!.puduMapElement.create({
-        data: { puduMapId: map.puduMapId, vendorElementId: "P1", name: "P1", elementType: "point", pointType: "table" },
+        data: {
+          puduMapId: map.puduMapId,
+          vendorElementId: "P1",
+          name: "P1",
+          elementType: "point",
+          pointType: opts.pointType === undefined ? "table" : opts.pointType,
+        },
       });
     }
     await testDb!.puduRobotState.create({
@@ -170,5 +176,47 @@ describe.skipIf(!hasTestDatabase())("pudu dispatch() -- run_state dan resolusi p
     await puduAdapter.dispatch(testDb!, { robotId, missionId, kind: "CALL", targetPoint: "P1", priority: 99 });
 
     expect((receivedBody as { priority?: number }).priority).toBeUndefined();
+  });
+
+  // Fase D: point_type WAJIB (PUDU_OFFICIAL_EXCERPT.md InitiateCallTask) --
+  // jangan kirim string kosong untuk field wajib.
+  it.each([null, ""])("titik dengan pointType %p (kosong/null) ditolak TANPA memanggil jaringan", async (pointType) => {
+    const { robotId, missionId } = await setupRobotWithMap({ runState: "IDLE", pointType });
+    let calledPudu = false;
+    const server = await startMockPuduServer(() => {
+      calledPudu = true;
+      return { status: 200, body: { message: "SUCCESS", data: { task_id: "x", state: "QUEUEING" } } };
+    });
+    close = server.close;
+    process.env.PUDU_BASE_URL = server.url;
+
+    vi.resetModules();
+    const { puduAdapter } = await import("./index");
+    const { DispatchRejectedError } = await import("./error-map");
+
+    const err = await puduAdapter
+      .dispatch(testDb!, { robotId, missionId, kind: "CALL", targetPoint: "P1" })
+      .catch((e) => e);
+
+    expect(err).toBeInstanceOf(DispatchRejectedError);
+    expect((err as InstanceType<typeof DispatchRejectedError>).failureCode).toBe("NO_RESOURCE_AVAILABLE");
+    expect(calledPudu).toBe(false);
+  });
+
+  it("titik dengan pointType terisi dikirim apa adanya (bukan ditebak/diterjemahkan)", async () => {
+    const { robotId, missionId } = await setupRobotWithMap({ runState: "IDLE", pointType: "ChargePile" });
+    let receivedBody: unknown;
+    const server = await startMockPuduServer((req) => {
+      receivedBody = req.body;
+      return { status: 200, body: { message: "SUCCESS", data: { task_id: "x", state: "QUEUEING" } } };
+    });
+    close = server.close;
+    process.env.PUDU_BASE_URL = server.url;
+
+    vi.resetModules();
+    const { puduAdapter } = await import("./index");
+    await puduAdapter.dispatch(testDb!, { robotId, missionId, kind: "CALL", targetPoint: "P1" });
+
+    expect((receivedBody as { point_type?: string }).point_type).toBe("ChargePile");
   });
 });
