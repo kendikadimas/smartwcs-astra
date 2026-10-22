@@ -6,6 +6,37 @@ Format: `[file] perubahan` -- dasar perubahan.
 
 ## 2026-10-22
 
+### Header Content-MD5 dan encoding query klien PUDU (putaran ketiga, branch `fix/pudu-sesuai-dokumen-resmi`)
+
+`pudu-signing-golden.json` (baru, `src/test/fixtures/pudu-official/`) --
+dihitung dari contoh KODE JavaScript resmi PUDU (halaman Authentication
+Access), bukan teks excerpt. Tes golden (`signing-golden.test.ts`)
+mengonfirmasi `buildSigningString`/`computeContentMd5`/
+`buildPathAndParameters`/`signRequest` byte-persis benar -- TIDAK diubah.
+
+**Bug ditemukan dan diperbaiki (semua di `client.ts`/`signing.ts`
+pembungkus, bukan fungsi signing murni):**
+- Header `Content-MD5` tidak pernah benar-benar dikirim -- dihitung untuk
+  signing string tapi tidak diteruskan sebagai header HTTP. Request
+  ber-body (dispatch, cancel, laporan posisi) kemungkinan besar ditolak
+  401 di produksi walau signature-nya sendiri benar.
+- Query URL diencode `URLSearchParams` (spasi jadi `+`), bukan
+  `encodeURIComponent` (spasi jadi `%20`) seperti kode resmi.
+  `buildEncodedQueryString()` baru ditambahkan di `signing.ts`.
+- **Ditemukan saat menulis tes level klien** (di luar 2 bug yang
+  diketahui sebelum mulai): path yang ditandatangani cuma `path` relatif
+  method, tidak menyertakan bagian path `baseUrl` (`/pudu-entry` di
+  produksi) -- akan membuat SEMUA signature produksi salah, ketutupan di
+  semua tes lama karena `baseUrl` tes selalu tanpa path.
+
+**Terjawab**: jumlah baris kosong signing string (nol ekstra, sesuai
+pembacaan literal yang sudah dipakai), formula Content-MD5 (dikonfirmasi
+byte-persis). **Masih belum terverifikasi**: penerimaan gateway PUDU
+sungguhan (tidak ada API key asli), urutan nilai array pada query (kode
+resmi tidak mengurutkan, teks dokumen bagian A menyebut "diurutkan").
+
+`docs/PUDU_INTEGRATION.md` bagian 3 dan 9 diperbarui.
+
 ### Integrasi PUDU diselaraskan dengan contoh JSON resmi bagian C/D (putaran kedua, branch `fix/pudu-sesuai-dokumen-resmi`)
 
 `docs/pudu-official/PUDU_OFFICIAL_EXCERPT.md` ditambah bagian C (contoh

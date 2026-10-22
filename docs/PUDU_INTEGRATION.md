@@ -58,6 +58,30 @@ Base URL disimpan di env `PUDU_BASE_URL` dan di `Integration.credentials`. Janga
 
 ## 3. Autentikasi: HMAC signature (bukan Bearer token)
 
+> **[Revisi 2026-10-22, putaran ketiga]** Signing string, formula
+> Content-MD5, dan susunan path+query yang DITANDATANGANI sekarang
+> **diverifikasi byte-persis** terhadap contoh KODE JavaScript resmi PUDU
+> (halaman Authentication Access, bukan cuma teks excerpt yang ambigu) --
+> lewat `src/test/fixtures/pudu-official/pudu-signing-golden.json` +
+> `signing-golden.test.ts` (4 kasus: POST body, POST body kosong, GET
+> query dengan nilai kosong & karakter khusus, GET tanpa query). **Jumlah
+> baris kosong TERJAWAB**: nol baris kosong ekstra -- cuma satu baris
+> kosong alami dari slot Content-MD5 yang kosong (kasus GET), persis
+> pembacaan literal "6 bagian dipisah `\n`" yang sudah dipakai kode sejak
+> putaran pertama. Dua bug BARU ditemukan dan diperbaiki di `client.ts`
+> (BUKAN di fungsi signing murni, yang semuanya terbukti sudah benar):
+> header `Content-MD5` tidak pernah benar-benar dikirim (dihitung tapi
+> tidak diteruskan sebagai header), dan query URL dienkode
+> `URLSearchParams` (spasi jadi `+`) bukan `encodeURIComponent` (spasi
+> jadi `%20`) seperti kode resmi. Satu bug ketiga ditemukan saat menulis
+> tes tingkat klien: path yang ditandatangani cuma `path` relatif method,
+> tidak menyertakan bagian path `baseUrl` (`/pudu-entry`) -- diperbaiki.
+> **Masih belum terverifikasi**: penerimaan oleh gateway PUDU sungguhan
+> (butuh API key asli + `healthCheck`), dan urutan nilai array pada query
+> (kode resmi TIDAK mengurutkan isi array, walau teks dokumen bagian A
+> menyebut "diurutkan" -- belum ada kasus nyata yang memakai query array
+> untuk dibuktikan, lihat bagian 9).
+
 Setiap request wajib ditandatangani dengan `ApiAppKey` + `ApiAppSecret`. Keduanya didapat dari portal distributor PUDU (Application Center > Open Platform) setelah pengajuan disetujui PUDU. Tanpa kredensial ini, semua request ditolak -- termasuk dari Postman.
 
 **Langkah membuat signature:**
@@ -288,8 +312,9 @@ Baris pertama tabel lama ("response sukses saat create task" -> SUBMITTED/DISPAT
 - **Arti 3 angka `vector`/`vector_list`** -- contoh resmi titik biasa punya 3 angka, tapi elemen bertipe `area` punya 8 angka (polygon) -- tidak terbukti 3 angka pertama itu x/y/yaw atau sesuatu yang lain (`GetCurrentMapPoints` justru punya x/y/z EKSPLISIT terpisah, bukan array -- API lain yang mestinya setara). Disimpan ke kolom x/y/z PuduMapElement apa adanya (3 pertama), array lengkap di `geometry`.
 - **Arti `is_used` (1 atau 2) di `AvailableMaps`** -- disimpan mentah, tidak ditafsirkan jadi boolean/currentMapId.
 - `DeliveryCommands`, `Delivery Task List`, `OneKeyRechargeV2`, `GetRealtimeMapPosition`, `GetGroupRobotStatusV2`, `SwitchMap` (API WCS→PUDU), `SendCustomDisplayContent` -- **tidak ada di excerpt sama sekali** (bagian A, B, C, ataupun D), belum diimplementasikan.
-- Format persis `Content-MD5` -- excerpt menyebutnya eksplisit: `Base64(hex(MD5(body)))` (diperbaiki). **Belum diuji end-to-end ke healthCheck sungguhan** (tidak ada ApiAppKey/Secret asli).
-- **Jumlah baris kosong pasti dalam signing string** antara Content-Type dan PathAndParameters -- ambigu di teks hasil scraping, belum diverifikasi byte-persis. **TIDAK disentuh di putaran kedua** (aturan keras: signing string/Content-MD5 menunggu verifikasi dengan `healthCheck` dan API key nyata).
+- ~~Format persis `Content-MD5`~~ -- **TERJAWAB putaran ketiga**: `Base64(hex(MD5(body)))`, dikonfirmasi byte-persis lewat golden fixture dari kode resmi (bukan cuma teks excerpt). Header `Content-MD5` sekarang juga benar-benar DIKIRIM (bug putaran ketiga -- dihitung tapi tidak diteruskan sebagai header sebelumnya).
+- ~~Jumlah baris kosong pasti dalam signing string~~ -- **TERJAWAB putaran ketiga**: nol baris kosong ekstra (cuma satu baris kosong alami dari Content-MD5 kosong untuk GET), dikonfirmasi golden fixture.
+- **Masih belum terverifikasi** (putaran ketiga): penerimaan oleh gateway PUDU SUNGGUHAN -- golden fixture dihitung dari logika kode resmi, bukan dari respons gateway asli (tidak ada ApiAppKey/Secret asli untuk diuji end-to-end lewat `healthCheck`). Urutan nilai array pada query (kode resmi contoh TIDAK mengurutkan isi array, teks dokumen bagian A menyebut "diurutkan" -- dua sumber resmi berbeda belum dicocokkan, dan tidak ada kasus nyata query-array di golden fixture untuk diuji).
 
 ## Lampiran: field PUDU ke kolom database
 
