@@ -6,6 +6,48 @@ Format: `[file] perubahan` -- dasar perubahan.
 
 ## 2026-10-21
 
+### State machine Task/Mission, endpoint Event/Alarm/Monitoring (branch `feat/state-machine-event-monitoring`)
+
+**docs/TASK_STATE_MACHINE.md (baru)** -- ditulis dari kode (`apply-status-change.ts`,
+`status-map.ts`), bukan dari PRD/OpenAPI. Temuan: tidak ada validasi
+transisi apa pun di kode (semua `(fromStatus, toStatus)` diterima begitu
+saja); `retryCount` tidak pernah dibaca/ditambah; `INITIAL_TASK_STATE` di
+`status-map.ts` tidak pernah dipakai; `Mission` tidak pernah dibuat kode
+produksi (cuma fixture test); `VALIDATED`/`QUEUED`/`ASSIGNED`/`RETRY` di
+enum `TaskStatus` OpenAPI tidak pernah diproduksi kode mana pun.
+
+**Event & Alarm (FR-08)** -- `GET /api/events` (+filter `taskId`/paginasi,
+perluasan dari openapi-smart-wcs.yaml), `GET /api/events/{id}` (tidak ada
+di spesifikasi, ditambah), `GET /api/alarms` (+filter lewat relasi Event),
+`POST /api/alarms/{id}/acknowledge` (ACTIVE->ACKNOWLEDGED),
+`POST /api/alarms/{id}/clear` (ACKNOWLEDGED->CLEARED saja; ACTIVE->CLEARED
+langsung ditolak 409). RBAC soal siapa boleh clear/acknowledge belum
+ditegakkan (`src/lib/auth.ts` masih stub, tanpa role).
+
+**Monitoring (FR-09)** -- `GET /api/monitoring/overview` dan
+`GET /api/monitoring/connections` (bentuk persis openapi-smart-wcs.yaml).
+3 endpoint perluasan (tidak ada di YAML/API_SPECIFICATION.md):
+`GET /api/monitoring/fleet` (ringkasan armada dari `PuduRobotState` --
+`RobotStatus` netral tidak pernah ditulis kode produksi mana pun, selalu
+kosong), `GET /api/robots/{id}/pose-history` (riwayat posisi dari
+`PuduPoseLog`, `from`/`to` wajib karena tabel dipartisi per bulan),
+`GET /api/warehouse-map` (path ini disebut API_SPECIFICATION.md tapi tidak
+punya schema sama sekali di openapi-smart-wcs.yaml).
+
+**Perbaikan utang kecil** -- `docs/ADAPTER_CONTRACT.md` Section 5
+dikoreksi (pencocokan adapter itu *nama sama persis* case-insensitive,
+bukan "mengandung" substring; `"PUDU T600"` tidak cocok). Entri "ERD v3"
+yang dobel di bawah ini digabung jadi satu (sisa artefak merge sebelumnya:
+judul lama "43 API" ketiban isi v3.1/46-tabel). Angka "44 tabel" di entri
+Stack hardening diganti 46 (migration yang diverifikasi saat itu sudah
+diganti migration ERD v3.1). `vitest.config.ts` diganti jadi
+`vitest.config.mts` (hilangkan peringatan ESM-di-CommonJS, isi config
+tidak berubah).
+
+**Tidak diperbaiki** -- 36 error ESLint pre-existing semuanya ada di
+`src/app/master-data/page.tsx` dan `src/components/**`, yang dilarang
+disentuh task ini (UI dikerjakan orang lain) -- dibiarkan, dilaporkan.
+
 ### Kontrak adapter netral vendor (refactor `refactor/adapter-contract`)
 
 Backend PUDU yang sudah jalan (`feat/backend-pudu-tanpa-api-key`: callback,
@@ -60,7 +102,7 @@ persetujuan terpisah).
 
 Perbaikan hasil evaluasi tech stack pasca setup `fix/erd-v3-pudu-docs`: satu bug infra (volume Postgres 18), empat fondasi yang belum ada (validasi env, logger, test framework, Dockerfile aplikasi), dan dua keputusan arsitektur dicatat di ADR tapi belum diimplementasikan (Better Auth, worker terpisah).
 
-**docker-compose.yml** -- volume Postgres di-mount ke `/var/lib/postgresql` (bukan `.../data`); image `postgres:18` menyimpan data di `/var/lib/postgresql/18/docker` dengan layout baru, mount lama bikin container menolak start. Diverifikasi: `data_directory` ada di `/var/lib/postgresql/18/`, data bertahan setelah `docker compose down` (tanpa `-v`) + `up`, 44 tabel dan 3 partisi `PuduPoseLog` tetap setelah migration dideploy ulang.
+**docker-compose.yml** -- volume Postgres di-mount ke `/var/lib/postgresql` (bukan `.../data`); image `postgres:18` menyimpan data di `/var/lib/postgresql/18/docker` dengan layout baru, mount lama bikin container menolak start. Diverifikasi: `data_directory` ada di `/var/lib/postgresql/18/`, data bertahan setelah `docker compose down` (tanpa `-v`) + `up`, 46 tabel dan 3 partisi `PuduPoseLog` tetap setelah migration dideploy ulang.
 
 **src/lib/env.ts (baru)** -- validasi env dengan Zod 4: `DATABASE_URL` wajib, `PORT`/`NODE_ENV`/`LOG_LEVEL` dengan default, `AUTH_SECRET` dan semua `PUDU_*` opsional (UI masih statis, nilainya belum ada -- jadi wajib saat adapter dibuat). Pesan error hanya menyebut nama variabel, tidak pernah nilainya. `server.ts` dipindah dari akses `process.env` langsung ke `env`.
 
@@ -78,15 +120,11 @@ Perbaikan hasil evaluasi tech stack pasca setup `fix/erd-v3-pudu-docs`: satu bug
 
 **Tidak diinstal/diimplementasikan** (sengaja, keputusan dicatat tapi eksekusi di tahap berikutnya): `better-auth`, `pg-boss`, `@socket.io/postgres-adapter`, `mqtt`, `node-opcua`. UI tetap statis (data mock); tidak ada API route, kode auth, adapter PUDU, atau `worker.ts` yang dibuat di perubahan ini.
 
-### ERD v3 + integrasi PUDU Cloud API (T600) + perapian repo
-
-Dasar: eksplorasi dokumentasi PUDU Open Platform (43 API & callback dipetakan field per field), audit data model terhadap best practice, dan uji skema di PostgreSQL 16 dengan simulasi alur data PUDU (binding, sync peta, delivery task, callback ganda, error, 600 data posisi).
-
-**ERD.md (ditulis ulang, v3.1)** -- 46 tabel (35 inti + 11 adapter PUDU), dibangkitkan dari model yang sama dengan `prisma/schema.prisma`.
-
 ### ERD v3.1 + integrasi PUDU Cloud API (T600, 47 API) + perapian repo
 
 Dasar: eksplorasi dokumentasi PUDU Open Platform (47 API & callback dipetakan field per field, 40 di scope T600), audit data model terhadap best practice, dan uji skema di PostgreSQL 16 dengan simulasi alur data PUDU (binding, sync peta, delivery task, callback ganda, error, 600 data posisi).
+
+**ERD.md (ditulis ulang, v3.1)** -- 46 tabel (35 inti + 11 adapter PUDU), dibangkitkan dari model yang sama dengan `prisma/schema.prisma`.
 
 - Semua kolom waktu jadi `TIMESTAMPTZ` (UTC).
 - `IntegrationLog` jadi antrean callback: status `PENDING/SUCCESS/FAILED/IGNORED`, kolom baru `traceId`, `messageType`, `robotId`, `callbackCodeValid`, `httpStatus`, `responseCode`, `attempts`, `nextAttemptAt`, `processedAt`; UNIQUE (integrationId, direction, traceId) untuk idempotensi retry PUDU.
