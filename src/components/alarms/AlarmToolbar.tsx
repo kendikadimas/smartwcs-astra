@@ -327,9 +327,9 @@ export function AlarmToolbar({
             }}
           >
             <option value="ALL">All Severities</option>
-            <option value="CRITICAL">🔴 Critical Only</option>
-            <option value="WARNING">🟠 Warning Only</option>
-            <option value="INFO">🔵 Info Only</option>
+            <option value="CRITICAL">Critical Only</option>
+            <option value="WARNING">Warning Only</option>
+            <option value="INFO">Info Only</option>
           </select>
         </div>
 

@@ -131,7 +131,6 @@ export function AlarmTable({
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '5px',
             padding: '3px 8px',
             borderRadius: '6px',
             fontSize: '11px',
@@ -141,16 +140,6 @@ export function AlarmTable({
             border: '1px solid #fecaca',
           }}
         >
-          <span
-            style={{
-              width: '7px',
-              height: '7px',
-              borderRadius: '50%',
-              backgroundColor: '#ef4444',
-              boxShadow: '0 0 6px rgba(239, 68, 68, 0.8)',
-              animation: 'pulse 1.5s infinite',
-            }}
-          />
           CRITICAL
         </span>
       );
@@ -161,7 +150,6 @@ export function AlarmTable({
           style={{
             display: 'inline-flex',
             alignItems: 'center',
-            gap: '5px',
             padding: '3px 8px',
             borderRadius: '6px',
             fontSize: '11px',
@@ -171,14 +159,6 @@ export function AlarmTable({
             border: '1px solid #fde68a',
           }}
         >
-          <span
-            style={{
-              width: '7px',
-              height: '7px',
-              borderRadius: '50%',
-              backgroundColor: '#f59e0b',
-            }}
-          />
           WARNING
         </span>
       );
@@ -188,7 +168,6 @@ export function AlarmTable({
         style={{
           display: 'inline-flex',
           alignItems: 'center',
-          gap: '5px',
           padding: '3px 8px',
           borderRadius: '6px',
           fontSize: '11px',
@@ -198,14 +177,6 @@ export function AlarmTable({
           border: '1px solid #bfdbfe',
         }}
       >
-        <span
-          style={{
-            width: '7px',
-            height: '7px',
-            borderRadius: '50%',
-            backgroundColor: '#3b82f6',
-          }}
-        />
         INFO
       </span>
     );
