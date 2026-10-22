@@ -88,22 +88,24 @@ export function TaskPagination({
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'space-between',
-        padding: '12px 16px',
+        padding: '9px 18px',
         borderTop: '1px solid #e2e8f0',
         backgroundColor: '#ffffff',
         flexWrap: 'wrap',
-        gap: '12px',
+        gap: '10px',
+        flexShrink: 0,
+        marginTop: 'auto',
       }}
     >
       {/* Left: Page Size Selector & Showing X-Y of Z */}
-      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12.5px', color: '#64748b' }}>
+      <div style={{ display: 'flex', alignItems: 'center', gap: '10px', fontSize: '12px', color: '#64748b' }}>
         <div style={{ position: 'relative' }}>
           <select
             value={pageSize}
             onChange={(e) => onPageSizeChange(Number(e.target.value))}
             style={{
-              height: '30px',
-              padding: '0 24px 0 8px',
+              height: '28px',
+              padding: '0 22px 0 8px',
               fontSize: '12px',
               border: '1px solid #e2e8f0',
               borderRadius: '6px',
@@ -123,7 +125,7 @@ export function TaskPagination({
             size={12}
             style={{
               position: 'absolute',
-              right: '7px',
+              right: '6px',
               top: '50%',
               transform: 'translateY(-50%)',
               pointerEvents: 'none',
@@ -135,6 +137,11 @@ export function TaskPagination({
         <span>
           Showing {totalItems > 0 ? startItem : 0}-{endItem} of {totalItems} tasks
         </span>
+      </div>
+
+      {/* Center: Subtle Status Hint */}
+      <div style={{ fontSize: '11px', color: '#94a3b8', display: 'flex', alignItems: 'center', gap: '6px' }}>
+        <span>Demo snapshot • Delayed is an overlapping active-task flag.</span>
       </div>
 
       {/* Right: Pagination Controls */}

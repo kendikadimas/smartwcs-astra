@@ -45,23 +45,23 @@ export function TaskFilterBar({
     filterState.resource !== 'All';
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
       {/* Top Filter Controls Row */}
       <div
         style={{
           display: 'flex',
           alignItems: 'center',
-          gap: '10px',
+          gap: '8px',
           flexWrap: 'wrap',
         }}
       >
         {/* Search Input */}
-        <div style={{ position: 'relative', width: '280px', minWidth: '220px' }}>
+        <div style={{ position: 'relative', width: '280px', minWidth: '200px' }}>
           <Search
-            size={14}
+            size={13}
             style={{
               position: 'absolute',
-              left: '10px',
+              left: '9px',
               top: '50%',
               transform: 'translateY(-50%)',
               color: '#94a3b8',
@@ -74,9 +74,9 @@ export function TaskFilterBar({
             onChange={(e) => onFilterChange({ search: e.target.value })}
             style={{
               width: '100%',
-              height: '34px',
-              padding: '0 12px 0 32px',
-              fontSize: '12.5px',
+              height: '32px',
+              padding: '0 10px 0 30px',
+              fontSize: '12px',
               border: '1px solid #e2e8f0',
               borderRadius: '6px',
               backgroundColor: '#ffffff',
@@ -92,9 +92,9 @@ export function TaskFilterBar({
             value={filterState.status}
             onChange={(e) => onFilterChange({ status: e.target.value })}
             style={{
-              height: '34px',
-              padding: '0 28px 0 10px',
-              fontSize: '12.5px',
+              height: '32px',
+              padding: '0 26px 0 9px',
+              fontSize: '12px',
               border: '1px solid #e2e8f0',
               borderRadius: '6px',
               backgroundColor: '#ffffff',
@@ -114,10 +114,10 @@ export function TaskFilterBar({
             <option value="Failed">Status: Failed</option>
           </select>
           <ChevronDown
-            size={13}
+            size={12}
             style={{
               position: 'absolute',
-              right: '9px',
+              right: '8px',
               top: '50%',
               transform: 'translateY(-50%)',
               pointerEvents: 'none',
@@ -132,9 +132,9 @@ export function TaskFilterBar({
             value={filterState.taskType}
             onChange={(e) => onFilterChange({ taskType: e.target.value })}
             style={{
-              height: '34px',
-              padding: '0 28px 0 10px',
-              fontSize: '12.5px',
+              height: '32px',
+              padding: '0 26px 0 9px',
+              fontSize: '12px',
               border: '1px solid #e2e8f0',
               borderRadius: '6px',
               backgroundColor: '#ffffff',
@@ -152,10 +152,10 @@ export function TaskFilterBar({
             <option value="Putaway">Task type: Putaway</option>
           </select>
           <ChevronDown
-            size={13}
+            size={12}
             style={{
               position: 'absolute',
-              right: '9px',
+              right: '8px',
               top: '50%',
               transform: 'translateY(-50%)',
               pointerEvents: 'none',
@@ -170,9 +170,9 @@ export function TaskFilterBar({
             value={filterState.priority}
             onChange={(e) => onFilterChange({ priority: e.target.value })}
             style={{
-              height: '34px',
-              padding: '0 28px 0 10px',
-              fontSize: '12.5px',
+              height: '32px',
+              padding: '0 26px 0 9px',
+              fontSize: '12px',
               border: '1px solid #e2e8f0',
               borderRadius: '6px',
               backgroundColor: '#ffffff',
@@ -189,10 +189,10 @@ export function TaskFilterBar({
             <option value="Low">Priority: Low</option>
           </select>
           <ChevronDown
-            size={13}
+            size={12}
             style={{
               position: 'absolute',
-              right: '9px',
+              right: '8px',
               top: '50%',
               transform: 'translateY(-50%)',
               pointerEvents: 'none',
@@ -207,9 +207,9 @@ export function TaskFilterBar({
             value={filterState.resource}
             onChange={(e) => onFilterChange({ resource: e.target.value })}
             style={{
-              height: '34px',
-              padding: '0 28px 0 10px',
-              fontSize: '12.5px',
+              height: '32px',
+              padding: '0 26px 0 9px',
+              fontSize: '12px',
               border: '1px solid #e2e8f0',
               borderRadius: '6px',
               backgroundColor: '#ffffff',
@@ -230,10 +230,10 @@ export function TaskFilterBar({
             <option value="Unassigned">Unassigned</option>
           </select>
           <ChevronDown
-            size={13}
+            size={12}
             style={{
               position: 'absolute',
-              right: '9px',
+              right: '8px',
               top: '50%',
               transform: 'translateY(-50%)',
               pointerEvents: 'none',
@@ -246,11 +246,11 @@ export function TaskFilterBar({
         <div style={{ position: 'relative' }}>
           <button
             className="btn-secondary"
-            style={{ height: '34px', padding: '0 10px', fontSize: '12.5px' }}
+            style={{ height: '32px', padding: '0 9px', fontSize: '12px' }}
           >
-            <Calendar size={14} style={{ color: '#64748b' }} />
+            <Calendar size={13} style={{ color: '#64748b' }} />
             <span>Today</span>
-            <ChevronDown size={13} style={{ color: '#64748b' }} />
+            <ChevronDown size={12} style={{ color: '#64748b' }} />
           </button>
         </div>
 
@@ -258,9 +258,9 @@ export function TaskFilterBar({
         <button
           onClick={() => setShowMoreFiltersModal(!showMoreFiltersModal)}
           className="btn-secondary"
-          style={{ height: '34px', padding: '0 10px', fontSize: '12.5px' }}
+          style={{ height: '32px', padding: '0 9px', fontSize: '12px' }}
         >
-          <SlidersHorizontal size={14} style={{ color: '#64748b' }} />
+          <SlidersHorizontal size={13} style={{ color: '#64748b' }} />
           <span>More filters</span>
         </button>
 
@@ -269,7 +269,7 @@ export function TaskFilterBar({
           <button
             onClick={onClearFilters}
             className="btn-link"
-            style={{ fontSize: '12.5px', marginLeft: '2px' }}
+            style={{ fontSize: '12px', marginLeft: '2px' }}
           >
             Clear filters
           </button>

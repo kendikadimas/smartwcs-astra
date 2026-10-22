@@ -293,99 +293,112 @@ export default function TaskManagementPage() {
 
   return (
     <AppShell>
-      {/* Page Title & Action Bar */}
-      <div className="page-header-row">
-        <div>
-          <h1 className="page-title">Task Management</h1>
-          <p className="page-subtitle">
-            Create, monitor, and manage warehouse execution tasks.
-          </p>
-        </div>
-
-        <div className="page-actions">
-          <span style={{ fontSize: '12px', color: '#64748b', marginRight: '6px' }}>
-            Illustrative demo data
-          </span>
-
-          <button onClick={() => setIsCreateModalOpen(true)} className="btn-primary">
-            <Plus size={15} />
-            Create task
-          </button>
-        </div>
-      </div>
-
-      {/* Row 1: Four KPI Cards */}
-      <TaskKpis metrics={dynamicKpis} />
-
-      {/* Main Task List Panel Container */}
-      <div className="panel" style={{ backgroundColor: '#ffffff' }}>
-        {/* Panel Header */}
-        <div style={{ padding: '14px 18px 10px 18px' }}>
-          <h2 style={{ fontSize: '15px', fontWeight: 700, color: '#0f172a' }}>Task list</h2>
-          <p style={{ fontSize: '12px', color: '#64748b', marginTop: '2px' }}>
-            View, filter, and manage warehouse execution tasks.
-          </p>
-        </div>
-
-        {/* Filter Controls & Summary Toolbar */}
-        <div style={{ padding: '0 18px 12px 18px', borderBottom: '1px solid #e2e8f0' }}>
-          <TaskFilterBar
-            filterState={filterState}
-            onFilterChange={handleFilterChange}
-            onClearFilters={handleClearFilters}
-            taskCounts={{
-              total: filteredTasks.length,
-              queued: filteredTasks.filter((t) => t.status === 'Queued').length,
-              running: filteredTasks.filter(
-                (t) => t.status === 'Running' || t.status === 'Executing'
-              ).length,
-              failed: filteredTasks.filter((t) => t.status === 'Failed').length,
-            }}
-            onExportCSV={handleExportCSV}
-            onExportJSON={handleExportJSON}
-          />
-        </div>
-
-        {/* Interactive Data Table */}
-        <TaskTable
-          tasks={paginatedTasks}
-          selectedIds={selectedIds}
-          onToggleSelect={handleToggleSelect}
-          onToggleSelectAll={handleToggleSelectAll}
-          onViewDetails={(task) => setDetailTask(task)}
-          onCancelTask={handleCancelTask}
-          onRetryTask={handleRetryTask}
-          sortColumn={sortColumn}
-          sortDirection={sortDirection}
-          onSort={handleSort}
-        />
-
-        {/* Pagination Bar */}
-        <TaskPagination
-          currentPage={validCurrentPage}
-          totalPages={totalPages}
-          pageSize={pageSize}
-          totalItems={totalItems}
-          startItem={startItem}
-          endItem={endItem}
-          onPageChange={(page) => setCurrentPage(page)}
-          onPageSizeChange={(size) => {
-            setPageSize(size);
-            setCurrentPage(1);
-          }}
-        />
-      </div>
-
-      {/* Bottom Note */}
       <div
         style={{
-          fontSize: '11px',
-          color: '#64748b',
-          textAlign: 'right',
-          padding: '2px 0 10px 0',
+          display: 'flex',
+          flexDirection: 'column',
+          flex: 1,
+          minHeight: '100%',
+          gap: '14px',
         }}
       >
-        Demo snapshot • Delayed is an overlapping active-task flag.
+        {/* Page Title & Action Bar */}
+        <div className="page-header-row" style={{ flexShrink: 0 }}>
+          <div>
+            <h1 className="page-title" style={{ fontSize: '19px' }}>Task Management</h1>
+            <p className="page-subtitle" style={{ fontSize: '12px' }}>
+              Create, monitor, and manage warehouse execution tasks.
+            </p>
+          </div>
+
+          <div className="page-actions">
+            <span style={{ fontSize: '11.5px', color: '#64748b', marginRight: '4px' }}>
+              Illustrative demo data
+            </span>
+
+            <button
+              onClick={() => setIsCreateModalOpen(true)}
+              className="btn-primary"
+              style={{ height: '32px', fontSize: '12.5px' }}
+            >
+              <Plus size={14} />
+              Create task
+            </button>
+          </div>
+        </div>
+
+        {/* Row 1: Four KPI Cards */}
+        <div style={{ flexShrink: 0 }}>
+          <TaskKpis metrics={dynamicKpis} />
+        </div>
+
+        {/* Main Task List Panel Container - Expands Downwards to Fit Laptop Screen */}
+        <div
+          className="panel"
+          style={{
+            backgroundColor: '#ffffff',
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: '400px',
+          }}
+        >
+          {/* Panel Header */}
+          <div style={{ padding: '12px 18px 8px 18px', flexShrink: 0 }}>
+            <h2 style={{ fontSize: '14.5px', fontWeight: 700, color: '#0f172a' }}>Task list</h2>
+            <p style={{ fontSize: '11.5px', color: '#64748b', marginTop: '1px' }}>
+              View, filter, and manage warehouse execution tasks.
+            </p>
+          </div>
+
+          {/* Filter Controls & Summary Toolbar */}
+          <div style={{ padding: '0 18px 10px 18px', borderBottom: '1px solid #e2e8f0', flexShrink: 0 }}>
+            <TaskFilterBar
+              filterState={filterState}
+              onFilterChange={handleFilterChange}
+              onClearFilters={handleClearFilters}
+              taskCounts={{
+                total: filteredTasks.length,
+                queued: filteredTasks.filter((t) => t.status === 'Queued').length,
+                running: filteredTasks.filter(
+                  (t) => t.status === 'Running' || t.status === 'Executing'
+                ).length,
+                failed: filteredTasks.filter((t) => t.status === 'Failed').length,
+              }}
+              onExportCSV={handleExportCSV}
+              onExportJSON={handleExportJSON}
+            />
+          </div>
+
+          {/* Interactive Data Table */}
+          <TaskTable
+            tasks={paginatedTasks}
+            selectedIds={selectedIds}
+            onToggleSelect={handleToggleSelect}
+            onToggleSelectAll={handleToggleSelectAll}
+            onViewDetails={(task) => setDetailTask(task)}
+            onCancelTask={handleCancelTask}
+            onRetryTask={handleRetryTask}
+            sortColumn={sortColumn}
+            sortDirection={sortDirection}
+            onSort={handleSort}
+          />
+
+          {/* Pagination Bar */}
+          <TaskPagination
+            currentPage={validCurrentPage}
+            totalPages={totalPages}
+            pageSize={pageSize}
+            totalItems={totalItems}
+            startItem={startItem}
+            endItem={endItem}
+            onPageChange={(page) => setCurrentPage(page)}
+            onPageSizeChange={(size) => {
+              setPageSize(size);
+              setCurrentPage(1);
+            }}
+          />
+        </div>
       </div>
 
       {/* Create Task Modal */}

@@ -63,7 +63,15 @@ export function TaskTable({
   const isAllSelected = tasks.length > 0 && selectedIds.length === tasks.length;
 
   return (
-    <div className="data-table-wrapper" style={{ minHeight: '340px' }}>
+    <div
+      className="data-table-wrapper"
+      style={{
+        flex: 1,
+        minHeight: '220px',
+        overflowY: 'auto',
+        overflowX: 'auto',
+      }}
+    >
       <table className="data-table">
         <thead>
           <tr>
