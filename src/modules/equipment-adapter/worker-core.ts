@@ -12,6 +12,21 @@ interface ClaimedLog {
 const BASE_BACKOFF_MS = 5_000;
 const MAX_BACKOFF_MS = 10 * 60_000;
 
+/**
+ * Dilempar adapter dari `handleInbound({kind: "queued"})` untuk pesan yang
+ * MEMANG sengaja tidak punya parser (bukan bug) -- mis. traffic control
+ * area, atau callback_type lain yang belum didukung. BEDA dari `Error`
+ * biasa: worker TIDAK menandai baris ini FAILED-dengan-retry (yang akan
+ * gagal selamanya tanpa pernah SUCCESS kalau memang tidak akan pernah ada
+ * parser), melainkan IGNORED sekali, tanpa retry (Fase F).
+ */
+export class IgnoredMessageTypeError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = "IgnoredMessageTypeError";
+  }
+}
+
 export function computeBackoffMs(attempts: number): number {
   return Math.min(BASE_BACKOFF_MS * 2 ** Math.max(attempts - 1, 0), MAX_BACKOFF_MS);
 }
@@ -77,6 +92,13 @@ export async function processPendingLogs(
         });
         return { ok: true as const };
       } catch (err) {
+        if (err instanceof IgnoredMessageTypeError) {
+          await tx.integrationLog.update({
+            where: { logId: row.logId },
+            data: { status: "IGNORED", errorMessage: err.message, processedAt: new Date() },
+          });
+          return { ok: true as const }; // bukan kegagalan -- jangan dihitung "failed"
+        }
         const attempts = row.attempts + 1;
         await tx.integrationLog.update({
           where: { logId: row.logId },

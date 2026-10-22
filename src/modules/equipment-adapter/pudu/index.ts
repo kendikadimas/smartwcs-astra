@@ -20,6 +20,9 @@ import { db } from "../../../lib/db";
 import { syncShops, syncRobots, syncMaps } from "./sync";
 import { refreshPoseReporting } from "./pose-report";
 import { reconcileStalledCallTasks } from "./reconcile";
+import { IgnoredMessageTypeError } from "../worker-core";
+import { recordEvent } from "../../event/record-event";
+import { PUDU_INTEGRATION_ID } from "./integration";
 import { mapCallStatus, mapDeliveryStatus } from "./status-map";
 import { DispatchRejectedError, mapPuduErrorToFailureCode } from "./error-map";
 
@@ -252,7 +255,30 @@ async function handleInbound(tx: Prisma.TransactionClient, message: InboundMessa
   if (message.kind === "queued") {
     const parser = parsers[message.messageType];
     if (!parser) {
-      throw new Error(`Tidak ada parser untuk callback_type "${message.messageType}"`);
+      // Fase F: callback_type tanpa parser (termasuk yang SENGAJA tidak
+      // dikerjakan -- traffic control area, lifting/transport,
+      // robotEmergencyRecover) tidak lagi dilempar sebagai Error biasa,
+      // yang akan membuat worker-core.ts retry selamanya dan tidak pernah
+      // SUCCESS untuk pesan yang memang tidak akan pernah punya parser.
+      // Satu Event INFO per callback_type (dedup lewat externalErrorId),
+      // BUKAN per pesan -- supaya tidak membanjiri Event kalau callback
+      // ini sering masuk.
+      // Event.sourceId berkolom UUID (@db.Uuid) -- bukan teks bebas seperti
+      // dikira sebelumnya (lihat ERD.md), jadi TIDAK bisa diisi messageType
+      // mentah. Dipakai PUDU_INTEGRATION_ID (UUID baris Integration PUDU
+      // yang sudah ada) sebagai sourceId; nama callback_type-nya sendiri
+      // ada di `message` dan `externalErrorId` (dedup).
+      await recordEvent(tx, {
+        eventType: "PUDU_UNSUPPORTED_CALLBACK",
+        sourceType: "INTEGRATION",
+        sourceId: PUDU_INTEGRATION_ID,
+        severity: "INFO",
+        message: `callback_type "${message.messageType}" belum/tidak didukung, diabaikan`,
+        externalErrorId: `unsupported-callback:${message.messageType}`,
+        integrationLogId: message.integrationLogId,
+        occurredAt: message.occurredAt,
+      });
+      throw new IgnoredMessageTypeError(`callback_type "${message.messageType}" tidak punya parser (diabaikan)`);
     }
     await parser({ tx, integrationLogId: message.integrationLogId, occurredAt: message.occurredAt, data: message.data });
     return { kind: "processed" };
