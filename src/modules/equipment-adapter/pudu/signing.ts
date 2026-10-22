@@ -79,6 +79,20 @@ export interface SignedHeaders {
   Accept: string;
   "Content-Type": string;
   Authorization: string;
+  /**
+   * Hanya ada kalau request punya body (dihitung dari body yang sama
+   * dengan yang dipakai di signing string -- lihat `contentMd5` di
+   * bawah). Gateway PUDU membaca NILAI header ini ("the value of the
+   * Content-MD5 header", contoh kode resmi PUDU bagian Authentication
+   * Access) -- tanpa header ini terkirim, request ber-body kemungkinan
+   * besar ditolak 401 walau signature-nya sendiri benar, karena nilai
+   * yang server baca dari header kosong, tidak cocok dengan yang
+   * ditandatangani. Bug ditemukan & diperbaiki saat verifikasi lanjutan
+   * terhadap contoh kode resmi (bukan dari tes golden -- golden hanya
+   * menguji isi signing string/signature, tidak menguji header yang
+   * benar-benar dikirim, itu baru ketahuan di client.ts).
+   */
+  "Content-MD5"?: string;
 }
 
 export function signRequest(params: SignRequestParams): SignedHeaders {
@@ -106,6 +120,7 @@ export function signRequest(params: SignRequestParams): SignedHeaders {
     Accept: accept,
     "Content-Type": contentType,
     Authorization: `hmac id="${params.apiAppKey}", algorithm="${algorithm}", headers="x-date", signature="${signature}"`,
+    ...(contentMd5 ? { "Content-MD5": contentMd5 } : {}),
   };
 }
 
@@ -121,4 +136,28 @@ export function buildPathAndParameters(path: string, query?: Record<string, stri
     return value === "" ? k : `${k}=${value}`;
   });
   return `${path}?${parts.join("&")}`;
+}
+
+/**
+ * Query string untuk URL fetch SUNGGUHAN -- BEDA dari `buildPathAndParameters`
+ * (yang membuat representasi MENTAH untuk ditandatangani, nilai tidak
+ * diencode). Kunci diurutkan sama (supaya konsisten, walau tidak wajib
+ * secara fungsional di sisi URL), nilai di-`encodeURIComponent` (bukan
+ * `URLSearchParams`, yang menulis spasi sebagai `+` -- beda dari kode
+ * resmi PUDU yang memakai `encodeURIComponent`, menulis spasi sebagai
+ * `%20`). Parameter bernilai kosong ditulis key-nya saja (tanpa `=`),
+ * parameter `undefined` dilewati, tanpa `?` kalau kosong (pemanggil yang
+ * menambahkan `?` sendiri).
+ */
+export function buildEncodedQueryString(query?: Record<string, string | number | undefined>): string {
+  if (!query) return "";
+  const keys = Object.keys(query)
+    .filter((k) => query[k] !== undefined)
+    .sort();
+  if (keys.length === 0) return "";
+  const parts = keys.map((k) => {
+    const value = query[k];
+    return value === "" ? encodeURIComponent(k) : `${encodeURIComponent(k)}=${encodeURIComponent(String(value))}`;
+  });
+  return parts.join("&");
 }

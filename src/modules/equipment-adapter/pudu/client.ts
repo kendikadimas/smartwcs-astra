@@ -1,5 +1,5 @@
 import { logger } from "../../../lib/logger";
-import { buildPathAndParameters, signRequest } from "./signing";
+import { buildPathAndParameters, buildEncodedQueryString, signRequest } from "./signing";
 import {
   storeMapListDataSchema,
   availableMapsDataSchema,
@@ -65,12 +65,13 @@ export class PuduClient {
     opts: RequestOptions = {},
   ): Promise<T> {
     const pathAndParameters = buildPathAndParameters(path, opts.query);
-    const url = new URL(this.config.baseUrl + path);
-    if (opts.query) {
-      for (const [key, value] of Object.entries(opts.query)) {
-        if (value !== undefined) url.searchParams.set(key, String(value));
-      }
-    }
+    // Query di URL fetch DIENCODE (encodeURIComponent, lewat
+    // buildEncodedQueryString) -- BEDA dari pathAndParameters di atas,
+    // yang nilainya MENTAH karena itu yang ditandatangani (jangan disamakan,
+    // dan jangan lagi pakai URLSearchParams -- itu menulis spasi sebagai
+    // "+", bukan "%20" seperti kode resmi PUDU).
+    const encodedQuery = buildEncodedQueryString(opts.query);
+    const url = new URL(this.config.baseUrl + path + (encodedQuery ? `?${encodedQuery}` : ""));
 
     const bodyString = opts.body !== undefined ? JSON.stringify(opts.body) : undefined;
     const signed = signRequest({
