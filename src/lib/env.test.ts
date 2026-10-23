@@ -22,6 +22,7 @@ afterEach(() => {
 describe("env", () => {
   it("lolos saat env valid dan menerapkan default", async () => {
     process.env.DATABASE_URL = "postgresql://wcs:wcs@localhost:5432/smartwcs";
+    process.env.AUTH_SECRET = "a".repeat(32);
 
     const { env } = await import("./env");
 
@@ -35,8 +36,18 @@ describe("env", () => {
     await expect(import("./env")).rejects.toThrow(/DATABASE_URL/);
   });
 
-  it("PUDU_* dan AUTH_SECRET boleh kosong", async () => {
+  it("menolak kalau AUTH_SECRET kosong atau kurang dari 32 karakter", async () => {
     process.env.DATABASE_URL = "postgresql://wcs:wcs@localhost:5432/smartwcs";
+    await expect(import("./env")).rejects.toThrow(/AUTH_SECRET/);
+
+    vi.resetModules();
+    process.env.AUTH_SECRET = "pendek";
+    await expect(import("./env")).rejects.toThrow(/AUTH_SECRET/);
+  });
+
+  it("PUDU_* boleh kosong", async () => {
+    process.env.DATABASE_URL = "postgresql://wcs:wcs@localhost:5432/smartwcs";
+    process.env.AUTH_SECRET = "a".repeat(32);
 
     const { env } = await import("./env");
 
@@ -45,11 +56,11 @@ describe("env", () => {
     expect(env.PUDU_API_APP_SECRET).toBeUndefined();
     expect(env.PUDU_CALLBACK_CODE).toBeUndefined();
     expect(env.PUDU_CALLBACK_URL).toBeUndefined();
-    expect(env.AUTH_SECRET).toBeUndefined();
   });
 
   it("pesan error menyebut nama variabel, tanpa nilainya", async () => {
     process.env.DATABASE_URL = "postgresql://wcs:wcs@localhost:5432/smartwcs";
+    process.env.AUTH_SECRET = "a".repeat(32);
     process.env.PORT = "rahasia-tidak-boleh-bocor";
 
     expect.assertions(2);

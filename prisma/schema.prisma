@@ -480,12 +480,32 @@ model OutboxEvent {
 // ===================== Keamanan & konfigurasi =====================
 model User {
   userId String @id @default(uuid()) @db.Uuid
-  username String @unique /// UNIQUE
+  /// [Bagian 1, Better Auth] Kolom baru, SELALU diisi nilai yang sama persis
+  /// dengan userId (satu UUID yang sama, ditulis ke dua kolom saat create --
+  /// lihat src/lib/create-user.ts). Better Auth adapter Prisma meng-HARDCODE
+  /// nama kolom "id" untuk field primary key SETIAP model (tidak bisa
+  /// dipetakan ulang lewat config `fields`, dikonfirmasi lewat pembacaan
+  /// langsung node_modules/@better-auth/core -- getDefaultFieldName selalu
+  /// mengembalikan literal "id"), padahal primary key User di schema ini
+  /// sudah lama bernama userId dan dipakai di puluhan relasi lain -- mengganti
+  /// nama kolom itu terlalu invasif. Kolom `id` ini SATU-SATUNYA jalan lain
+  /// yang tidak menduplikasi tabel User.
+  id String @unique @db.Uuid
+  username String @unique /// UNIQUE; dipakai sebagai field "username" plugin Better Auth (login) DAN disalin ke email (lihat bawah) saat user dibuat
   fullName String
+  /// [Bagian 1, Better Auth] Legacy -- dulu dibaca langsung oleh requireAuth() stub, SEKARANG TIDAK dipakai jalur auth manapun (Better Auth menyimpan hash password sendiri di Account.password, format scrypt). Dipertahankan apa adanya (bukan dihapus) karena di luar "kebutuhan Better Auth" untuk menghapusnya; TODO bersihkan di task lain kalau dikonfirmasi aman.
   passwordHash String
   roleId String @db.Uuid /// FK -> Role
   active Boolean @default(true) /// DELETE /users/{id} menonaktifkan (active=false), bukan menghapus baris
   createdAt DateTime @default(now()) @db.Timestamptz(3)
+  /// [Bagian 1, Better Auth] Kolom baru -- Better Auth mewajibkan field "email" unik di model user inti, terlepas dari plugin username yang dipakai untuk LOGIN. Tidak ada kebutuhan email asli di produk ini (OpenAPI User schema tidak punya field email) -- diisi otomatis `${username}@users.smartwcs.internal` (sintetis, tidak pernah dikirim/dibaca ke mana pun, cuma supaya constraint internal Better Auth terpenuhi). Lihat laporan akhir.
+  email String @unique
+  /// [Bagian 1, Better Auth] Kolom baru, wajib oleh Better Auth. Selalu false (tidak ada alur verifikasi email asli -- email di atas sintetis).
+  emailVerified Boolean @default(false)
+  /// [Bagian 1, Better Auth] Kolom baru, opsional oleh Better Auth (foto profil OAuth). Tidak dipakai (tidak ada OAuth), selalu null.
+  image String?
+  /// [Bagian 1, Better Auth] Kolom baru, wajib oleh Better Auth (waktu user terakhir diubah).
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
   role Role @relation("User_roleId", fields: [roleId], references: [roleId])
   taskStatusHistories TaskStatusHistory[] @relation("TaskStatusHistory_changedBy")
   productionLineRequests ProductionLineRequest[] @relation("ProductionLineRequest_requestedBy")
@@ -494,6 +514,65 @@ model User {
   alarmsByAcknowledgedBy Alarm[] @relation("Alarm_acknowledgedBy")
   alarmsByClearedBy Alarm[] @relation("Alarm_clearedBy")
   auditLogs AuditLog[] @relation("AuditLog_userId")
+  sessions Session[] @relation("Session_userId")
+  accounts Account[] @relation("Account_userId")
+}
+
+/// [Bagian 1, Better Auth, BARU] Sesi login (cookie). Field & nama persis
+/// default Better Auth -- tabel baru, tidak menduplikasi User.
+model Session {
+  /// BUKAN @db.Uuid -- Better Auth membuat baris ini sendiri saat login
+  /// dengan generator id bawaannya (string acak, bukan UUID).
+  id String @id
+  expiresAt DateTime @db.Timestamptz(3)
+  token String @unique
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  ipAddress String?
+  userAgent String?
+  userId String @db.Uuid /// FK -> User
+  user User @relation("Session_userId", fields: [userId], references: [userId], onDelete: Cascade)
+  @@index([userId])
+}
+
+/// [Bagian 1, Better Auth, BARU] Kredensial per metode login (di sini cuma
+/// "credential" / email-password -- field password HASH ada di sini,
+/// BUKAN di User.passwordHash). Field & nama persis default Better Auth.
+model Account {
+  /// BUKAN @db.Uuid -- disamakan dengan Session/Verification (Better Auth
+  /// bisa membuat baris ini sendiri di flow yang belum dipakai task ini,
+  /// mis. ganti provider OAuth) memakai generator id bawaannya sendiri.
+  /// Baris "credential" yang dibuat src/modules/security/users.ts TETAP
+  /// memberi id eksplisit (randomUUID string, tetap valid di kolom text).
+  id String @id
+  accountId String
+  providerId String
+  userId String @db.Uuid /// FK -> User
+  accessToken String?
+  refreshToken String?
+  idToken String?
+  accessTokenExpiresAt DateTime? @db.Timestamptz(3)
+  refreshTokenExpiresAt DateTime? @db.Timestamptz(3)
+  scope String?
+  password String? /// hash password (format Better Auth, scrypt) untuk providerId="credential"
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  user User @relation("Account_userId", fields: [userId], references: [userId], onDelete: Cascade)
+  @@index([userId])
+}
+
+/// [Bagian 1, Better Auth, BARU] Token verifikasi sementara (reset
+/// password, dll). Tidak dipakai alur email-verification asli (tidak ada
+/// kebutuhannya di produk ini), tapi tabelnya wajib ada untuk Better Auth.
+model Verification {
+  /// BUKAN @db.Uuid -- sama seperti Session/Account.
+  id String @id
+  identifier String
+  value String
+  expiresAt DateTime @db.Timestamptz(3)
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt DateTime @updatedAt @db.Timestamptz(3)
+  @@index([identifier])
 }
 
 model Role {

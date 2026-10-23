@@ -1,8 +1,8 @@
 import { z } from "zod";
 
-// Variabel PUDU_* dan AUTH_SECRET opsional untuk saat ini karena UI masih
-// statis dan nilainya belum ada. Jadi WAJIB (ubah ke required) saat
-// adapter PUDU / Better Auth benar-benar dibuat.
+// Variabel PUDU_* opsional untuk saat ini karena belum ada API key PUDU
+// asli. AUTH_SECRET sekarang WAJIB (Bagian 1, Better Auth benar-benar
+// dipasang) -- aplikasi tidak boleh start tanpanya.
 const envSchema = z.object({
   DATABASE_URL: z.string().min(1),
   // Database terpisah untuk test integrasi (Vitest), supaya test tidak
@@ -15,7 +15,18 @@ const envSchema = z.object({
     .enum(["fatal", "error", "warn", "info", "debug", "trace"])
     .default("info"),
 
-  AUTH_SECRET: z.string().optional(),
+  // Bagian 1: kunci enkripsi sesi/token Better Auth (ADR Section 9.1).
+  // Minimal 32 karakter -- rekomendasi resmi Better Auth untuk secret HMAC.
+  AUTH_SECRET: z.string().min(32, "AUTH_SECRET minimal 32 karakter"),
+  // Base URL server ini sendiri -- dibutuhkan Better Auth untuk membangun
+  // URL callback/cookie domain. Default ke localhost:PORT kalau kosong
+  // (dev); WAJIB diisi eksplisit di produksi (domain publik sebenarnya).
+  AUTH_BASE_URL: z.string().optional(),
+
+  // Bagian 1: dipakai prisma/seed.ts untuk membuat user admin awal --
+  // TIDAK PERNAH hardcode password di kode (CLAUDE.md aturan #11).
+  ADMIN_USERNAME: z.string().min(1).default("admin"),
+  ADMIN_PASSWORD: z.string().min(8).optional(),
 
   PUDU_BASE_URL: z.string().optional(),
   PUDU_API_APP_KEY: z.string().optional(),
