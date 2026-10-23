@@ -1,4 +1,5 @@
 import type { PrismaClient } from "../generated/prisma/client";
+import { createUserWithPassword } from "../modules/security/users";
 
 // Fixture minimal reusable antar test integrasi: satu Warehouse/Zone/
 // Location, satu Robot (+ Equipment induk), satu Task, dan satu Mission
@@ -116,6 +117,31 @@ export async function createEventFixture(
       occurredAt: opts.occurredAt ?? new Date(),
     },
   });
+}
+
+/**
+ * User + Role nyata di DB test -- dibutuhkan karena AuditLog.userId adalah
+ * FK ke User (bukan sekadar UUID bebas). Dipakai bersama mock
+ * `requireAuth`/`requireRole` di test route (lihat src/test/auth-mock.ts)
+ * supaya userId yang "login" benar-benar ada di tabel User.
+ */
+export async function createUserFixture(
+  prisma: PrismaClient,
+  opts: { roleName?: string; username?: string } = {},
+) {
+  const roleName = opts.roleName ?? "WCS_ADMINISTRATOR";
+  const role = await prisma.role.upsert({
+    where: { name: roleName },
+    create: { name: roleName, permissions: {} },
+    update: {},
+  });
+  // Tanpa tanda hubung -- better-auth/plugins/username default validator
+  // regex cuma mengizinkan [a-zA-Z0-9_.] (lihat node_modules/better-auth/
+  // dist/plugins/username/index.mjs defaultUsernameValidator).
+  const username = opts.username ?? `test_${roleName.toLowerCase()}_${Math.random().toString(36).slice(2, 8)}`;
+  return prisma.$transaction((tx) =>
+    createUserWithPassword(tx, { username, fullName: "Test User", password: "test-password-123", roleId: role.roleId }),
+  );
 }
 
 export async function createAlarmFixture(

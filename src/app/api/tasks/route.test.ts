@@ -2,6 +2,20 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestDb, hasTestDatabase, truncateAll } from "@/test/db";
 import { createLocationFixture } from "@/test/fixtures";
 
+// Bagian 1 Fase C: lihat komentar sama di equipment/route.test.ts.
+// POST /tasks (RBAC.md Section 3) cuma Warehouse Operator; GET /tasks
+// juga mengizinkan Operator -- satu role ini cukup untuk semua test di sini.
+vi.mock("@/lib/auth", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/auth")>();
+  return {
+    ...actual,
+    requireAuth: vi.fn(async () => ({
+      ok: true as const,
+      auth: { userId: "00000000-0000-0000-0000-000000000001", roleName: "WAREHOUSE_OPERATOR" },
+    })),
+  };
+});
+
 const ORIGINAL_ENV = { ...process.env };
 const testDb = hasTestDatabase() ? createTestDb() : null;
 

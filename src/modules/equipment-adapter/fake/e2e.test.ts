@@ -4,6 +4,20 @@ import { createLocationFixture } from "@/test/fixtures";
 import { registerAdapter, getAdapterForRobot, clearRegistry } from "../registry";
 import { fakeAdapter, resetFakeAdapterState } from "./index";
 
+// Bagian 1 Fase C: POST /api/tasks sekarang butuh requireRole(WAREHOUSE_OPERATOR)
+// -- di-mock supaya test E2E ini tetap fokus ke jalur adapter/registri, bukan
+// Better Auth (lihat komentar sama di equipment/route.test.ts).
+vi.mock("@/lib/auth", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/auth")>();
+  return {
+    ...actual,
+    requireAuth: vi.fn(async () => ({
+      ok: true as const,
+      auth: { userId: "00000000-0000-0000-0000-000000000001", roleName: "WAREHOUSE_OPERATOR" },
+    })),
+  };
+});
+
 const ORIGINAL_ENV = { ...process.env };
 const testDb = hasTestDatabase() ? createTestDb() : null;
 

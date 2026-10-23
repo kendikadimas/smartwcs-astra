@@ -2,6 +2,21 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestDb, hasTestDatabase, truncateAll } from "@/test/db";
 import { createLocationFixture } from "@/test/fixtures";
 
+// Bagian 1 Fase C: route sekarang butuh sesi+role sungguhan (requireRole).
+// Di-mock di sini supaya test fokus ke logika CRUD, bukan Better Auth --
+// auth sendiri sudah diuji di src/lib/auth.test.ts. Equipment POST/PATCH/
+// DELETE butuh WCS_ADMINISTRATOR (RBAC.md Section 2 & 3).
+vi.mock("@/lib/auth", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/auth")>();
+  return {
+    ...actual,
+    requireAuth: vi.fn(async () => ({
+      ok: true as const,
+      auth: { userId: "00000000-0000-0000-0000-000000000001", roleName: "WCS_ADMINISTRATOR" },
+    })),
+  };
+});
+
 const ORIGINAL_ENV = { ...process.env };
 const testDb = hasTestDatabase() ? createTestDb() : null;
 

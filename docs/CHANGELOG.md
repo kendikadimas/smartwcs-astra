@@ -4,6 +4,29 @@ Mencatat perubahan pada `docs/` (ADR, ERD, Functional Boundary, Use Case, RBAC, 
 
 Format: `[file] perubahan` -- dasar perubahan.
 
+## 2026-10-23
+
+### Bagian 1 Fase B+C+D (branch `feat/fase6-auth-dispatch-realtime`) -- auth, RBAC, task lifecycle/dispatch
+
+`ERD.md` -- v3.2: 3 tabel baru (`Session`, `Account`, `Verification`) + 5
+kolom baru di `User` (`id`, `email`, `emailVerified`, `image`,
+`updatedAt`), kebutuhan struktural Better Auth (ADR.md Section 9.1,
+sekarang diimplementasikan). `User.passwordHash` jadi legacy. Lihat detail
+di Section "Security & Configuration Data".
+
+Ringkasan non-schema (laporan lengkap ada di deskripsi PR/laporan akhir
+Bagian 1, bukan di sini -- changelog ini cuma untuk `docs/`):
+- Auth sungguhan (Better Auth + plugin username) menggantikan stub
+  `requireAuth()`.
+- RBAC ditegakkan di SEMUA endpoint yang sudah ada lewat helper
+  `requireRole()` (`src/lib/rbac.ts`), sesuai matriks `RBAC.md`.
+- Race condition acknowledge/clear alarm diperbaiki (update atomik
+  bersyarat).
+- Endpoint baru: `/auth/login`, `/users/me/password`, `/users`,
+  `/users/{id}`, `/roles`, `/tasks/{id}/status`, `/tasks/{id}/cancel`,
+  `/tasks/{id}/retry`, dan `/tasks/{id}/dispatch` (endpoint TAMBAHAN, belum
+  ada di `openapi-smart-wcs.yaml` -- akan disinkronkan di Bagian 2).
+
 ## 2026-10-22
 
 ### Header Content-MD5 dan encoding query klien PUDU (putaran ketiga, branch `fix/pudu-sesuai-dokumen-resmi`)

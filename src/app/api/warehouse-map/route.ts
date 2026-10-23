@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api-response";
-import { requireAuth } from "@/lib/auth";
+import { requireRole } from "@/lib/rbac";
 import { warehouseMapQuerySchema } from "@/modules/monitoring/monitoring-schemas";
 
 /**
@@ -17,8 +17,11 @@ import { warehouseMapQuerySchema } from "@/modules/monitoring/monitoring-schemas
  * dan `puduMaps` (peta visual + titik dari adapter PUDU, dibaca read-only
  * lewat Prisma, TANPA mengimpor apa pun dari src/modules/equipment-adapter/pudu/).
  */
+// Diperlakukan sebagai Monitoring (Read untuk semua role login) -- tidak
+// ada baris khusus di RBAC.md untuk endpoint ini, lihat komentar di atas.
 export async function GET(request: Request) {
-  await requireAuth(request);
+  const authResult = await requireRole(request, []);
+  if (!authResult.ok) return authResult.response;
 
   const url = new URL(request.url);
   const parsed = warehouseMapQuerySchema.safeParse(Object.fromEntries(url.searchParams));

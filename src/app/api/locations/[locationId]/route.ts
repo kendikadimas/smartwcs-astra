@@ -2,11 +2,13 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api-response";
 import { parseJsonBody } from "@/lib/validate";
-import { requireAuth } from "@/lib/auth";
+import { requireRole, ROLE } from "@/lib/rbac";
 import { locationCreateSchema } from "@/modules/master-data/schemas";
 
+// RBAC.md Section 3: "POST/PATCH/DELETE ... /locations ... | WCS Administrator".
 export async function PATCH(request: Request, { params }: { params: Promise<{ locationId: string }> }) {
-  await requireAuth(request);
+  const authResult = await requireRole(request, [ROLE.WCS_ADMINISTRATOR]);
+  if (!authResult.ok) return authResult.response;
   const { locationId } = await params;
 
   const result = await parseJsonBody(request, locationCreateSchema.partial());
@@ -20,7 +22,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ lo
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ locationId: string }> }) {
-  await requireAuth(request);
+  const authResult = await requireRole(request, [ROLE.WCS_ADMINISTRATOR]);
+  if (!authResult.ok) return authResult.response;
   const { locationId } = await params;
 
   const existing = await db.location.findUnique({ where: { locationId } });

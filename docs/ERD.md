@@ -1,8 +1,15 @@
-# ERD -- Data Model Smart WCS Platform (v3)
+# ERD -- Data Model Smart WCS Platform (v3.2)
 
 > **[Revisi 2026-10-19, v3]** Model ditulis ulang setelah integrasi PUDU Open Platform dipetakan field per field dan diaudit terhadap best practice desain database. Sumber kebenaran implementasi adalah `prisma/schema.prisma` -- dokumen ini dan schema dibangkitkan dari model yang sama dan harus selalu sinkron. Ringkasan perubahan ada di `CHANGELOG.md` entri 2026-10-19.
+>
+> **[Revisi 2026-10-23, v3.2, Bagian 1 Fase B]** 3 tabel baru (`Session`,
+> `Account`, `Verification`) + 5 kolom baru di `User` (`id`, `email`,
+> `emailVerified`, `image`, `updatedAt`) -- kebutuhan struktural Better Auth
+> (ADR.md Section 9.1), BUKAN perubahan model bisnis. `User.passwordHash`
+> jadi legacy (hash password sungguhan sekarang di `Account.password`).
+> Detail per kolom di Section "Security & Configuration Data" di bawah.
 
-Total **46 tabel**: 10 Master Data, 9 Transaction Data, 6 ERP & Production Integration Data, 6 Event, Status & Integration Data, 4 Security & Configuration Data, 11 PUDU Adapter Data.
+Total **49 tabel**: 10 Master Data, 9 Transaction Data, 6 ERP & Production Integration Data, 6 Event, Status & Integration Data, 7 Security & Configuration Data, 11 PUDU Adapter Data.
 
 ## Konvensi
 
@@ -279,10 +286,36 @@ Entity scope end-to-end (ADR Section 1.1). **Belum ada di PRD Section 9** -- usu
 | User | userId | UUID | PK |
 | User | username | VARCHAR | UNIQUE; UNIQUE; **[v3 ubah]** |
 | User | fullName | VARCHAR |  |
-| User | passwordHash | VARCHAR |  |
+| User | passwordHash | VARCHAR | **[v3.2, Bagian 1 Fase B]** Legacy -- tidak lagi dibaca jalur auth manapun, hash password sungguhan sekarang di Account.password (lihat bawah) |
 | User | roleId | UUID | FK -> Role |
 | User | active | BOOLEAN | DELETE /users/{id} menonaktifkan (active=false), bukan menghapus baris |
 | User | createdAt | TIMESTAMPTZ |  |
+| User | id | UUID | **[Baru v3.2, Bagian 1 Fase B]** UNIQUE; kebutuhan struktural Better Auth (nama kolom PK "id" di-hardcode adapter Prisma-nya, tidak bisa dipetakan ulang) -- SELALU diisi nilai sama persis dengan userId, bukan identitas kedua |
+| User | email | VARCHAR | **[Baru v3.2, Bagian 1 Fase B]** UNIQUE; sintetis (`${username}@users.smartwcs.internal`), kebutuhan struktural Better Auth (field email unik wajib ada di model user inti terlepas dari plugin username) -- tidak pernah dikirim/dibaca di luar jalur Better Auth |
+| User | emailVerified | BOOLEAN | **[Baru v3.2, Bagian 1 Fase B]** Selalu false, tidak ada alur verifikasi email asli |
+| User | image | VARCHAR | **[Baru v3.2, Bagian 1 Fase B]** nullable, kebutuhan struktural Better Auth (foto profil OAuth), tidak dipakai |
+| User | updatedAt | TIMESTAMPTZ | **[Baru v3.2, Bagian 1 Fase B]** kebutuhan struktural Better Auth |
+| Session | id | VARCHAR | **[Baru v3.2, Bagian 1 Fase B]** PK; ID digenerate Better Auth sendiri (bukan UUID, string acak), bukan `@db.Uuid` |
+| Session | userId | UUID | FK -> User, cascade delete |
+| Session | token | VARCHAR | UNIQUE |
+| Session | expiresAt | TIMESTAMPTZ |  |
+| Session | ipAddress | VARCHAR | nullable |
+| Session | userAgent | VARCHAR | nullable |
+| Session | createdAt | TIMESTAMPTZ |  |
+| Session | updatedAt | TIMESTAMPTZ |  |
+| Account | id | VARCHAR | **[Baru v3.2, Bagian 1 Fase B]** PK; ID digenerate Better Auth sendiri, bukan `@db.Uuid` |
+| Account | userId | UUID | FK -> User, cascade delete |
+| Account | accountId | VARCHAR | ID akun di sisi provider (untuk provider "credential": sama dengan User.userId) |
+| Account | providerId | VARCHAR | "credential" untuk login username+password (satu-satunya provider hari ini) |
+| Account | password | VARCHAR | nullable; hash password sungguhan (scrypt, format Better Auth), menggantikan User.passwordHash |
+| Account | createdAt | TIMESTAMPTZ |  |
+| Account | updatedAt | TIMESTAMPTZ |  |
+| Verification | id | VARCHAR | **[Baru v3.2, Bagian 1 Fase B]** PK; ID digenerate Better Auth sendiri, bukan `@db.Uuid`. Disediakan Better Auth (verifikasi email/reset password) -- TIDAK ADA jalur kode yang memakainya hari ini (tidak ada self-registration/reset password publik) |
+| Verification | identifier | VARCHAR |  |
+| Verification | value | VARCHAR |  |
+| Verification | expiresAt | TIMESTAMPTZ |  |
+| Verification | createdAt | TIMESTAMPTZ | nullable |
+| Verification | updatedAt | TIMESTAMPTZ | nullable |
 | Role | roleId | UUID | PK |
 | Role | name | VARCHAR | UNIQUE; 5 nilai tetap sesuai enum Role di OpenAPI: WAREHOUSE_OPERATOR, WAREHOUSE_SUPERVISOR, WCS_ADMINISTRATOR, MAINTENANCE_ENGINEER, SYSTEM_INTEGRATOR; **[v3 ubah]** |
 | Role | permissions | JSONB |  |

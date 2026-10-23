@@ -1,6 +1,25 @@
 import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestDb, hasTestDatabase, truncateAll } from "@/test/db";
-import { createEventFixture, createAlarmFixture } from "@/test/fixtures";
+import { createEventFixture, createAlarmFixture, createUserFixture } from "@/test/fixtures";
+
+// Bagian 1 Fase C: acknowledge/clear sekarang butuh requireRole DAN menulis
+// AuditLog (FK ke User sungguhan, bukan sekadar UUID) -- berbeda dari file
+// test lain (lihat komentar di equipment/route.test.ts), mock di sini
+// menunjuk ke user NYATA yang dibuat per test lewat `authState`, diisi di
+// beforeEach supaya FK AuditLog.userId valid. WAREHOUSE_SUPERVISOR dipilih
+// karena satu-satunya role yang lolos ketiganya: GET (semua role), acknowledge,
+// DAN clear (RBAC.md Section 3).
+const authState = vi.hoisted(() => ({ userId: "pending" }));
+vi.mock("@/lib/auth", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/auth")>();
+  return {
+    ...actual,
+    requireAuth: vi.fn(async () => ({
+      ok: true as const,
+      auth: { userId: authState.userId, roleName: "WAREHOUSE_SUPERVISOR" },
+    })),
+  };
+});
 
 const ORIGINAL_ENV = { ...process.env };
 const testDb = hasTestDatabase() ? createTestDb() : null;
@@ -14,6 +33,7 @@ describe.skipIf(!hasTestDatabase())("GET /api/alarms", () => {
     process.env = { ...ORIGINAL_ENV };
     process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
     await truncateAll(testDb!);
+    authState.userId = (await createUserFixture(testDb!, { roleName: "WAREHOUSE_SUPERVISOR" })).userId;
   });
 
   afterAll(async () => {
@@ -53,6 +73,7 @@ describe.skipIf(!hasTestDatabase())("POST /api/alarms/[alarmId]/acknowledge dan 
     process.env = { ...ORIGINAL_ENV };
     process.env.DATABASE_URL = process.env.TEST_DATABASE_URL;
     await truncateAll(testDb!);
+    authState.userId = (await createUserFixture(testDb!, { roleName: "WAREHOUSE_SUPERVISOR" })).userId;
   });
 
   async function freshRoutes() {
@@ -132,5 +153,29 @@ describe.skipIf(!hasTestDatabase())("POST /api/alarms/[alarmId]/acknowledge dan 
       params: Promise.resolve({ alarmId: alarm.alarmId }),
     });
     expect(res.status).toBe(409);
+  });
+
+  // Fase C: dua request acknowledge "bersamaan" terhadap alarm ACTIVE yang
+  // sama -- updateMany bersyarat (where: {alarmId, status: "ACTIVE"}) harus
+  // membuat Postgres menyerialkan dua UPDATE itu lewat row lock, jadi cuma
+  // satu yang melihat status ACTIVE (200), yang lain melihat 0 baris (409).
+  // Tanpa fix ini (findUnique+update lama), keduanya bisa lolos cek status
+  // dan keduanya 200.
+  it("dua acknowledge bersamaan terhadap alarm ACTIVE yang sama -- cuma satu 200, satu 409", async () => {
+    const event = await createEventFixture(testDb!);
+    const alarm = await createAlarmFixture(testDb!, { eventId: event.eventId, status: "ACTIVE" });
+    const { ack } = await freshRoutes();
+
+    const [res1, res2] = await Promise.all([
+      ack(makeRequest("http://localhost/api/alarms/x/acknowledge", { method: "POST" }), {
+        params: Promise.resolve({ alarmId: alarm.alarmId }),
+      }),
+      ack(makeRequest("http://localhost/api/alarms/x/acknowledge", { method: "POST" }), {
+        params: Promise.resolve({ alarmId: alarm.alarmId }),
+      }),
+    ]);
+
+    const statuses = [res1.status, res2.status].sort();
+    expect(statuses).toEqual([200, 409]);
   });
 });

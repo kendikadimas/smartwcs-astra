@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api-response";
-import { requireAuth } from "@/lib/auth";
+import { requireRole } from "@/lib/rbac";
 import { overviewQuerySchema } from "@/modules/monitoring/monitoring-schemas";
 
 /**
@@ -22,8 +22,10 @@ import { overviewQuerySchema } from "@/modules/monitoring/monitoring-schemas";
  *   sourceLocation-nya di warehouse ini (Event.sourceId polimorfik, tidak
  *   punya FK langsung ke warehouse -- ini best-effort, lihat laporan akhir).
  */
+// RBAC.md Section 2 "Monitoring": Read untuk semua role login.
 export async function GET(request: Request) {
-  await requireAuth(request);
+  const authResult = await requireRole(request, []);
+  if (!authResult.ok) return authResult.response;
 
   const url = new URL(request.url);
   const parsed = overviewQuerySchema.safeParse(Object.fromEntries(url.searchParams));

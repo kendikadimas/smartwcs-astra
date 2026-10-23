@@ -1,12 +1,14 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api-response";
-import { requireAuth } from "@/lib/auth";
+import { requireRole } from "@/lib/rbac";
 import { alarmListQuerySchema } from "@/modules/event/event-schemas";
 import type { Prisma } from "@/generated/prisma/client";
 
+// RBAC.md Section 2 "Event & Alarm": semua role login punya minimal Read.
 export async function GET(request: Request) {
-  await requireAuth(request);
+  const authResult = await requireRole(request, []);
+  if (!authResult.ok) return authResult.response;
 
   const url = new URL(request.url);
   const parsed = alarmListQuerySchema.safeParse(Object.fromEntries(url.searchParams));

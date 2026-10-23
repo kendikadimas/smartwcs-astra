@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api-response";
 import { parseJsonBody } from "@/lib/validate";
-import { requireAuth } from "@/lib/auth";
+import { requireRole, ROLE } from "@/lib/rbac";
 import { equipmentUpdateSchema } from "@/modules/master-data/schemas";
 
 export async function GET(request: Request, { params }: { params: Promise<{ equipmentId: string }> }) {
-  await requireAuth(request);
+  const authResult = await requireRole(request, []);
+  if (!authResult.ok) return authResult.response;
   const { equipmentId } = await params;
 
   const equipment = await db.equipment.findUnique({ where: { equipmentId } });
@@ -14,8 +15,13 @@ export async function GET(request: Request, { params }: { params: Promise<{ equi
   return NextResponse.json(equipment);
 }
 
+// RBAC.md Section 3: "PATCH /equipment/{id}, /robots/{id} | WCS Administrator,
+// Maintenance/Engineer". Catatan di dokumen: Maintenance cuma boleh ubah
+// field status/konfigurasi teknis, bukan vendor/lokasi -- belum ditegakkan
+// per-field di sini (hanya per-role), lihat laporan akhir.
 export async function PATCH(request: Request, { params }: { params: Promise<{ equipmentId: string }> }) {
-  await requireAuth(request);
+  const authResult = await requireRole(request, [ROLE.WCS_ADMINISTRATOR, ROLE.MAINTENANCE_ENGINEER]);
+  if (!authResult.ok) return authResult.response;
   const { equipmentId } = await params;
 
   const result = await parseJsonBody(request, equipmentUpdateSchema);
@@ -28,8 +34,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ eq
   return NextResponse.json(equipment);
 }
 
+// RBAC.md Section 3: "DELETE /equipment/{id}, /robots/{id} | WCS Administrator".
 export async function DELETE(request: Request, { params }: { params: Promise<{ equipmentId: string }> }) {
-  await requireAuth(request);
+  const authResult = await requireRole(request, [ROLE.WCS_ADMINISTRATOR]);
+  if (!authResult.ok) return authResult.response;
   const { equipmentId } = await params;
 
   const existing = await db.equipment.findUnique({ where: { equipmentId } });

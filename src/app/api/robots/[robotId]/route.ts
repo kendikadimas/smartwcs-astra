@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api-response";
 import { parseJsonBody } from "@/lib/validate";
-import { requireAuth } from "@/lib/auth";
+import { requireRole, ROLE } from "@/lib/rbac";
 import { robotCreateSchema } from "@/modules/master-data/schemas";
 
 export async function GET(request: Request, { params }: { params: Promise<{ robotId: string }> }) {
-  await requireAuth(request);
+  const authResult = await requireRole(request, []);
+  if (!authResult.ok) return authResult.response;
   const { robotId } = await params;
 
   const robot = await db.robot.findUnique({ where: { robotId } });
@@ -14,8 +15,11 @@ export async function GET(request: Request, { params }: { params: Promise<{ robo
   return NextResponse.json(robot);
 }
 
+// RBAC.md Section 3: "PATCH /equipment/{id}, /robots/{id} | WCS Administrator,
+// Maintenance/Engineer".
 export async function PATCH(request: Request, { params }: { params: Promise<{ robotId: string }> }) {
-  await requireAuth(request);
+  const authResult = await requireRole(request, [ROLE.WCS_ADMINISTRATOR, ROLE.MAINTENANCE_ENGINEER]);
+  if (!authResult.ok) return authResult.response;
   const { robotId } = await params;
 
   const result = await parseJsonBody(request, robotCreateSchema.partial());
@@ -28,8 +32,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ro
   return NextResponse.json(robot);
 }
 
+// RBAC.md Section 3: "DELETE /equipment/{id}, /robots/{id} | WCS Administrator".
 export async function DELETE(request: Request, { params }: { params: Promise<{ robotId: string }> }) {
-  await requireAuth(request);
+  const authResult = await requireRole(request, [ROLE.WCS_ADMINISTRATOR]);
+  if (!authResult.ok) return authResult.response;
   const { robotId } = await params;
 
   const existing = await db.robot.findUnique({ where: { robotId } });

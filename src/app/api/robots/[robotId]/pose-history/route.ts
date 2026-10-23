@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api-response";
-import { requireAuth } from "@/lib/auth";
+import { requireRole } from "@/lib/rbac";
 import { poseHistoryQuerySchema } from "@/modules/monitoring/monitoring-schemas";
 
 /**
@@ -13,8 +13,10 @@ import { poseHistoryQuerySchema } from "@/modules/monitoring/monitoring-schemas"
  * (prisma/sql/pudu_pose_log_partition.sql) -- query tanpa rentang recordedAt
  * akan memindai semua partisi.
  */
+// RBAC.md Section 2 "Equipment & Robot": Read untuk semua role login.
 export async function GET(request: Request, { params }: { params: Promise<{ robotId: string }> }) {
-  await requireAuth(request);
+  const authResult = await requireRole(request, []);
+  if (!authResult.ok) return authResult.response;
   const { robotId } = await params;
 
   const url = new URL(request.url);

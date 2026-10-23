@@ -2,6 +2,19 @@ import { afterAll, beforeEach, describe, expect, it, vi } from "vitest";
 import { createTestDb, hasTestDatabase, truncateAll } from "@/test/db";
 import { createEventFixture, createLocationFixture, createTaskFixture } from "@/test/fixtures";
 
+// Bagian 1 Fase C: lihat komentar sama di equipment/route.test.ts. Event&Alarm
+// Read terbuka untuk semua role login -- role di sini sekadar "login apa saja".
+vi.mock("@/lib/auth", async (importOriginal) => {
+  const actual = await importOriginal<typeof import("@/lib/auth")>();
+  return {
+    ...actual,
+    requireAuth: vi.fn(async () => ({
+      ok: true as const,
+      auth: { userId: "00000000-0000-0000-0000-000000000001", roleName: "WCS_ADMINISTRATOR" },
+    })),
+  };
+});
+
 const ORIGINAL_ENV = { ...process.env };
 const testDb = hasTestDatabase() ? createTestDb() : null;
 

@@ -2,11 +2,12 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api-response";
 import { parseJsonBody } from "@/lib/validate";
-import { requireAuth } from "@/lib/auth";
+import { requireRole, ROLE } from "@/lib/rbac";
 import { materialCreateSchema } from "@/modules/master-data/schemas";
 
 export async function PATCH(request: Request, { params }: { params: Promise<{ materialId: string }> }) {
-  await requireAuth(request);
+  const authResult = await requireRole(request, [ROLE.WCS_ADMINISTRATOR]);
+  if (!authResult.ok) return authResult.response;
   const { materialId } = await params;
 
   const result = await parseJsonBody(request, materialCreateSchema.partial());
@@ -20,7 +21,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ ma
 }
 
 export async function DELETE(request: Request, { params }: { params: Promise<{ materialId: string }> }) {
-  await requireAuth(request);
+  const authResult = await requireRole(request, [ROLE.WCS_ADMINISTRATOR]);
+  if (!authResult.ok) return authResult.response;
   const { materialId } = await params;
 
   const existing = await db.material.findUnique({ where: { materialId } });

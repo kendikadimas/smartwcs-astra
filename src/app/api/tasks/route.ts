@@ -2,11 +2,18 @@ import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
 import { apiError } from "@/lib/api-response";
 import { parseJsonBody } from "@/lib/validate";
-import { requireAuth } from "@/lib/auth";
+import { requireRole, ROLE } from "@/lib/rbac";
 import { taskCreateSchema, taskListQuerySchema } from "@/modules/task/task-schemas";
 
+// RBAC.md Section 3: "POST /tasks | Warehouse Operator (source=MANUAL), WMS
+// (source=WMS, lewat Integration)" -- hanya Operator yang disebut eksplisit
+// untuk role manusia (Supervisor punya Write di Section 2, tapi baris
+// eksplisit ini lebih spesifik dan tidak menyebutnya; diikuti sebagai
+// keputusan, lihat laporan akhir). Jalur WMS (source=WMS) lewat Integration
+// Config, bukan endpoint ini, belum ada jalurnya -- di luar scope Bagian 1.
 export async function POST(request: Request) {
-  await requireAuth(request);
+  const authResult = await requireRole(request, [ROLE.WAREHOUSE_OPERATOR]);
+  if (!authResult.ok) return authResult.response;
 
   const result = await parseJsonBody(request, taskCreateSchema);
   if ("error" in result) return result.error;
@@ -38,8 +45,16 @@ export async function POST(request: Request) {
   return NextResponse.json(task, { status: 201 });
 }
 
+// RBAC.md Section 2 "Task Management": Write (Operator/Supervisor, termasuk
+// baca) + Read (Administrator/Integrator). Maintenance/Engineer = None.
 export async function GET(request: Request) {
-  await requireAuth(request);
+  const authResult = await requireRole(request, [
+    ROLE.WAREHOUSE_OPERATOR,
+    ROLE.WAREHOUSE_SUPERVISOR,
+    ROLE.WCS_ADMINISTRATOR,
+    ROLE.SYSTEM_INTEGRATOR,
+  ]);
+  if (!authResult.ok) return authResult.response;
 
   const url = new URL(request.url);
   const parsed = taskListQuerySchema.safeParse(Object.fromEntries(url.searchParams));

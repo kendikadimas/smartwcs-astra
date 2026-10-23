@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { db } from "@/lib/db";
-import { requireAuth } from "@/lib/auth";
+import { requireRole } from "@/lib/rbac";
 
 /**
  * GET /api/monitoring/fleet -- TIDAK ADA di openapi-smart-wcs.yaml maupun
@@ -25,8 +25,10 @@ import { requireAuth } from "@/lib/auth";
  * apa adanya (OFFLINE/DISABLE/BUSY/IDLE) -- vocabulary itu sendiri sudah
  * netral/umum menurut dokumen resmi, bukan istilah internal PUDU.
  */
+// RBAC.md Section 2 "Monitoring": Read untuk semua role login.
 export async function GET(request: Request) {
-  await requireAuth(request);
+  const authResult = await requireRole(request, []);
+  if (!authResult.ok) return authResult.response;
 
   const states = await db.puduRobotState.findMany({
     include: {
