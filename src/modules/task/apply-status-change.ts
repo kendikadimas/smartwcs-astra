@@ -10,6 +10,8 @@ export interface TaskStatusChange {
   taskStatus: string;
   failureCode?: string;
   integrationLogId?: string | null;
+  /** FK -> User, diisi kalau transisi dipicu aksi manusia lewat API (Bagian 1 Fase D: dispatch/cancel/retry) -- tetap kosong untuk callback vendor/rekonsiliasi, konsisten dengan komentar schema.prisma TaskStatusHistory.changedBy. */
+  changedBy?: string | null;
   occurredAt: Date;
 }
 
@@ -39,6 +41,7 @@ export async function applyTaskStatusChange(tx: Prisma.TransactionClient, change
         taskId: mission.task.taskId,
         fromStatus: mission.task.status,
         toStatus: change.taskStatus,
+        changedBy: change.changedBy ?? null,
         integrationLogId: change.integrationLogId ?? null,
         changedAt: change.occurredAt,
       },

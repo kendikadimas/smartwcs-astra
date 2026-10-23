@@ -44,7 +44,27 @@ function nextFakeTaskId(): string {
   return `fake-task-${counter}`;
 }
 
+/**
+ * Error berbentuk sama dengan DispatchRejectedError PUDU (nama + properti
+ * `failureCode`), TANPA mengimpor apa pun dari folder pudu/ -- dicek lewat
+ * duck-typing di src/modules/task/dispatch-rejection.ts. Dipakai test E2E
+ * untuk memicu jalur "penolakan adapter" (Bagian 1 Fase D) tanpa PUDU sama
+ * sekali, lewat sentinel `targetPoint === "REJECT_NO_RESOURCE"`.
+ */
+class FakeDispatchRejectedError extends Error {
+  constructor(
+    message: string,
+    public readonly failureCode: string,
+  ) {
+    super(message);
+    this.name = "DispatchRejectedError";
+  }
+}
+
 async function dispatch(_tx: Prisma.TransactionClient, command: DispatchCommand): Promise<DispatchResult> {
+  if (command.targetPoint === "REJECT_NO_RESOURCE") {
+    throw new FakeDispatchRejectedError("Robot fiktif sengaja menolak dispatch (test)", "NO_RESOURCE_AVAILABLE");
+  }
   const externalTaskId = nextFakeTaskId();
   missions.set(command.missionId, { externalTaskId, status: "DISPATCHED" });
   return { externalTaskId, status: "DISPATCHED" };
