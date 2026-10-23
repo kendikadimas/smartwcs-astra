@@ -5,9 +5,10 @@ import { RobotStatus } from '@/types/overview';
 interface StatusBadgeProps {
   status: TaskDisplayStatus | RobotStatus | string;
   className?: string;
+  style?: React.CSSProperties;
 }
 
-export function StatusBadge({ status, className = '' }: StatusBadgeProps) {
+export function StatusBadge({ status, className = '', style }: StatusBadgeProps) {
   const norm = status.toLowerCase();
   let variantClass = 'badge-status-assigned';
 
@@ -30,7 +31,7 @@ export function StatusBadge({ status, className = '' }: StatusBadgeProps) {
   }
 
   return (
-    <span className={`badge ${variantClass} ${className}`}>
+    <span className={`badge ${variantClass} ${className}`} style={style}>
       <span>{status}</span>
     </span>
   );

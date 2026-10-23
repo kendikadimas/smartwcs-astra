@@ -3,6 +3,7 @@
 import React from 'react';
 import Link from 'next/link';
 import { RobotFleetItem } from '@/types/overview';
+import { StatusBadge } from '@/components/ui/Badge';
 import { Wifi, WifiOff, MoreHorizontal } from 'lucide-react';
 
 interface RobotFleetTableProps {
@@ -62,52 +63,13 @@ export function RobotFleetTable({ fleet }: RobotFleetTableProps) {
               const isLost = robot.link === 'Lost';
               const isLowBatt = robot.battery <= 20;
 
-              // Custom badge styling matching reference image
-              let badgeBg = '#eff6ff';
-              let badgeBorder = '#bfdbfe';
-              let badgeColor = '#2563eb';
-              let dotColor = '#2563eb';
-
-              if (robot.status === 'Idle') {
-                badgeBg = '#ecfdf5';
-                badgeBorder = '#a7f3d0';
-                badgeColor = '#059669';
-                dotColor = '#10b981';
-              } else if (robot.status === 'Charging') {
-                badgeBg = '#fffbeb';
-                badgeBorder = '#fde68a';
-                badgeColor = '#d97706';
-                dotColor = '#f59e0b';
-              } else if (robot.status === 'Offline') {
-                badgeBg = '#f1f5f9';
-                badgeBorder = '#e2e8f0';
-                badgeColor = '#64748b';
-                dotColor = '#94a3b8';
-              }
-
               return (
                 <tr key={robot.id}>
                   <td style={{ fontWeight: 700, color: '#0f172a', fontSize: '11.5px', padding: '7px 6px 7px 14px' }}>
                     {robot.id}
                   </td>
                   <td style={{ padding: '7px 4px' }}>
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '2.5px 8px',
-                        borderRadius: '12px',
-                        fontSize: '10.5px',
-                        fontWeight: 600,
-                        backgroundColor: badgeBg,
-                        border: `1px solid ${badgeBorder}`,
-                        color: badgeColor,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {robot.status}
-                    </span>
+                    <StatusBadge status={robot.status} style={{ minWidth: '72px' }} />
                   </td>
                   <td style={{ color: robot.task === '—' ? '#94a3b8' : '#0f172a', fontSize: '11.5px', fontWeight: robot.task === '—' ? 400 : 500, padding: '7px 4px' }}>
                     {robot.task}
