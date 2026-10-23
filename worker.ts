@@ -1,74 +1,46 @@
+import "dotenv/config";
+import { PgBoss } from "pg-boss";
 import { env } from "./src/lib/env";
 import { logger } from "./src/lib/logger";
 import { db } from "./src/lib/db";
 import "./src/modules/equipment-adapter/adapters";
-import { getAdapter, findIntegrationForAdapterKey } from "./src/modules/equipment-adapter/registry";
-import { processPendingLogs } from "./src/modules/equipment-adapter/worker-core";
+import { registerJobs, kickOffJobs } from "./src/worker/jobs";
 
-// Proses terpisah dari server.ts (ADR Section 9.2): mengurai antrean
-// callback vendor (IntegrationLog PENDING/FAILED) secara berkala. Netral
-// vendor -- adapter mana yang dipanggil ditentukan lewat registri, bukan
-// impor langsung ke folder vendor tertentu.
-let shuttingDown = false;
-// Fase E: syncResources() (sync shop/robot/peta + refresh pose-report +
-// rekonsiliasi task CALL, lihat pudu/index.ts) jauh lebih berat daripada
-// tick IntegrationLog (HTTP ke PUDU berkali-kali) -- dijalankan di siklus
-// terpisah, digerbang waktu, bukan tiap tick ~2 detik.
-let lastSyncAt = 0;
+// Proses terpisah dari server.ts (ADR Section 9.2): job latar belakang
+// (antrean callback vendor, syncResources per integrasi, partisi bulanan
+// PuduPoseLog, retensi log) dijadwalkan lewat pg-boss (job queue di atas
+// PostgreSQL yang sudah ada -- tidak ada komponen infra baru). Logika
+// setiap job ada di src/worker/jobs.ts supaya bisa dites langsung,
+// skrip ini cuma menyalakan pg-boss dan menanganinya.
+async function main() {
+  const boss = new PgBoss(env.DATABASE_URL);
+  boss.on("error", (err) => logger.error({ err }, "worker: pg-boss error"));
+  await boss.start();
 
-const ADAPTER_KEY = "pudu";
-
-async function tick() {
-  const adapter = getAdapter(ADAPTER_KEY);
-  if (!adapter) {
-    logger.warn({ adapterKey: ADAPTER_KEY }, "worker: adapter belum terdaftar, skip tick");
-    return;
-  }
-
-  const integration = await findIntegrationForAdapterKey(db, adapter.key);
-  if (!integration) {
-    logger.warn({ adapterKey: ADAPTER_KEY }, "worker: baris Integration belum ada, skip tick (jalankan prisma/seed.ts)");
-    return;
-  }
-
-  const result = await processPendingLogs(db, {
-    integrationId: integration.integrationId,
-    adapter,
+  await registerJobs(boss, db, {
     maxAttempts: env.PUDU_WORKER_MAX_ATTEMPTS,
+    poseLogRetentionDays: env.POSE_LOG_RETENTION_DAYS,
+    integrationLogRetentionDays: env.INTEGRATION_LOG_RETENTION_DAYS,
+    intervalsMs: {
+      processIntegrationLogs: env.PUDU_WORKER_POLL_INTERVAL_MS,
+      syncResources: env.PUDU_SYNC_INTERVAL_MS,
+      partitionCheck: env.WORKER_PARTITION_CHECK_INTERVAL_MS,
+      retentionCheck: env.WORKER_RETENTION_CHECK_INTERVAL_MS,
+    },
   });
-  if (result.processed > 0) {
-    logger.info(result, "worker: selesai satu batch");
-  }
+  await kickOffJobs(boss);
 
-  if (Date.now() - lastSyncAt >= env.PUDU_SYNC_INTERVAL_MS) {
-    lastSyncAt = Date.now();
-    try {
-      const syncResult = await adapter.syncResources();
-      logger.info(syncResult, "worker: syncResources selesai");
-    } catch (err) {
-      logger.warn({ err }, "worker: syncResources gagal");
-    }
-  }
+  logger.info("Smart WCS worker dimulai (pg-boss)");
+
+  const shutdown = (signal: string) => {
+    logger.info(`worker: menerima ${signal}, berhenti setelah job berjalan selesai`);
+    boss.stop({ graceful: true }).finally(() => process.exit(0));
+  };
+  process.on("SIGINT", () => shutdown("SIGINT"));
+  process.on("SIGTERM", () => shutdown("SIGTERM"));
 }
 
-async function loop() {
-  while (!shuttingDown) {
-    try {
-      await tick();
-    } catch (err) {
-      logger.error({ err }, "worker: tick gagal");
-    }
-    await new Promise((resolve) => setTimeout(resolve, env.PUDU_WORKER_POLL_INTERVAL_MS));
-  }
-}
-
-function shutdown(signal: string) {
-  logger.info(`worker: menerima ${signal}, berhenti setelah tick berjalan selesai`);
-  shuttingDown = true;
-}
-
-process.on("SIGINT", () => shutdown("SIGINT"));
-process.on("SIGTERM", () => shutdown("SIGTERM"));
-
-logger.info("Smart WCS worker dimulai");
-loop();
+main().catch((err) => {
+  logger.error({ err }, "worker: gagal start");
+  process.exit(1);
+});

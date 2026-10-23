@@ -67,6 +67,22 @@ const envSchema = z.object({
   // menit sejak dibuat, jadi default TIMEOUT_MS sedikit di atas itu.
   PUDU_TASK_RECONCILE_CHECK_AFTER_MS: z.coerce.number().int().positive().default(3 * 60_000),
   PUDU_TASK_RECONCILE_TIMEOUT_MS: z.coerce.number().int().positive().default(35 * 60_000),
+
+  // Bagian 1 Fase E -- worker pg-boss: seberapa sering job pembuatan
+  // partisi PuduPoseLog dan retensi log dijalankan ulang. Nilai default
+  // (24 jam) keputusan sendiri -- cukup sering untuk "sebelum bulan
+  // berjalan habis" (prisma/sql/pudu_pose_log_partition.sql), tidak perlu
+  // lebih sering dari itu.
+  WORKER_PARTITION_CHECK_INTERVAL_MS: z.coerce.number().int().positive().default(24 * 60 * 60_000),
+  WORKER_RETENTION_CHECK_INTERVAL_MS: z.coerce.number().int().positive().default(24 * 60 * 60_000),
+  // Retensi: berapa hari partisi PuduPoseLog / baris IntegrationLog
+  // (SUCCESS/IGNORED saja, FAILED/PENDING tidak pernah dihapus otomatis)
+  // disimpan sebelum di-drop/dihapus. Default aman keputusan sendiri --
+  // 90 hari pose log sesuai contoh di pudu_pose_log_partition.sql, 30 hari
+  // integration log (volumenya jauh lebih kecil per baris tapi lebih
+  // sering ditulis).
+  POSE_LOG_RETENTION_DAYS: z.coerce.number().int().positive().default(90),
+  INTEGRATION_LOG_RETENTION_DAYS: z.coerce.number().int().positive().default(30),
 });
 
 function parseEnv() {

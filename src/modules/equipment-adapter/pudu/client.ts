@@ -13,11 +13,11 @@ export interface PuduClientConfig {
   baseUrl: string;
   apiAppKey: string;
   apiAppSecret: string;
-  /** Header Language -- default Mandarin kalau kosong di sisi PUDU, kirim eksplisit supaya nama toko konsisten (PUDU_INTEGRATION.md bagian 6). */
+  /** Header Language untuk konsistensi respon PUDU (mis. "en_US"). */
   language?: string;
   timeoutMs?: number;
   maxRetries?: number;
-  /** Override buat test -- klien tidak boleh pernah memanggil internet sungguhan saat test. */
+  /** Override fetch implementation (digunakan pada unit testing). */
   fetchImpl?: typeof fetch;
 }
 
@@ -25,7 +25,7 @@ export class PuduApiError extends Error {
   constructor(
     message: string,
     public readonly status?: number,
-    /** `message` dari envelope respons PUDU (mis. "CLOUD_OPEN_ROBOT_OFFLINE"), kosong untuk kegagalan transport/HTTP murni. */
+    /** Kode error respon dari envelope PUDU jika ada (mis. "CLOUD_OPEN_ROBOT_OFFLINE"). */
     public readonly code?: string,
     public readonly traceId?: string,
   ) {
@@ -40,10 +40,7 @@ interface RequestOptions {
 }
 
 /**
- * PUDU_OFFICIAL_EXCERPT.md bagian A: envelope respons Open API selalu
- * `{ trace_id, message, data }`, `message` = "SUCCESS" kalau sukses, kode
- * error kalau tidak. Beberapa endpoint (mis. CancelCallTask) tidak punya
- * `data` sama sekali -- field itu opsional.
+ * Format amplop (envelope) standar respon PUDU Open API: { trace_id, message, data }.
  */
 export interface PuduEnvelope<T = unknown> {
   trace_id?: string;
@@ -51,9 +48,7 @@ export interface PuduEnvelope<T = unknown> {
   data?: T;
 }
 
-// Kode error bisnis yang dianggap transien (worth di-retry) -- sisanya
-// (PARAM_ERROR, CLOUD_OPEN_ROBOT_OFFLINE, dst.) adalah kegagalan permanen
-// untuk request yang sama, retry tidak akan mengubah hasil.
+// Kode error bisnis PUDU yang bersifat sementara (dapat di-retry).
 const RETRYABLE_BUSINESS_CODES = new Set(["CLOUD_OPEN_WAIT", "CLOUD_OPEN_TIMEOUT", "SYSTEM_ERROR"]);
 
 export class PuduClient {
@@ -64,25 +59,10 @@ export class PuduClient {
     path: string,
     opts: RequestOptions = {},
   ): Promise<T> {
-    // Temuan tambahan Fase D (di luar 2 poin awal task ini): PathAndParameters
-    // yang ditandatangani HARUS path LENGKAP sebagaimana gateway PUDU
-    // benar-benar menerimanya -- termasuk `/pudu-entry` dari `baseUrl`
-    // (PUDU_INTEGRATION.md bagian 3: "path (termasuk /pudu-entry)"). Versi
-    // sebelumnya menandatangani `path` relatif SAJA (tanpa bagian path dari
-    // `baseUrl`) -- di produksi (`PUDU_BASE_URL` selalu berakhiran
-    // `/pudu-entry`) ini akan membuat SEMUA request bertanda tangan salah
-    // (401), tapi lolos di semua tes lama karena `baseUrl` tes selalu tanpa
-    // path (`http://127.0.0.1:<port>`, lihat `mock-pudu-server.ts`) --
-    // bug-nya ketutupan kebetulan. `fullPathname` di bawah SELALU memakai
-    // path lengkap hasil gabungan `baseUrl` + `path`, cocok untuk kasus
-    // tes (tidak berubah) maupun produksi (sekarang benar).
+    // Susun path lengkap dan query untuk pembuatan signature HMAC
     const fullPathname = new URL(this.config.baseUrl + path).pathname;
     const pathAndParameters = buildPathAndParameters(fullPathname, opts.query);
-    // Query di URL fetch DIENCODE (encodeURIComponent, lewat
-    // buildEncodedQueryString) -- BEDA dari pathAndParameters di atas,
-    // yang nilainya MENTAH karena itu yang ditandatangani (jangan disamakan,
-    // dan jangan lagi pakai URLSearchParams -- itu menulis spasi sebagai
-    // "+", bukan "%20" seperti kode resmi PUDU).
+    // Query string URL di-encode (spasi menjadi %20)
     const encodedQuery = buildEncodedQueryString(opts.query);
     const url = new URL(this.config.baseUrl + path + (encodedQuery ? `?${encodedQuery}` : ""));
 
@@ -109,8 +89,7 @@ export class PuduClient {
       const controller = new AbortController();
       const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       try {
-        // Log tidak pernah menyertakan header (Authorization berisi
-        // signature, bukan secret mentah, tapi tetap tidak dilog demi aman).
+        // Log request tanpa mengekspos header otorisasi sensitif
         const res = await fetchImpl(url.toString(), {
           method,
           headers,
@@ -123,17 +102,12 @@ export class PuduClient {
         if (!res.ok) {
           const text = await res.text();
           if (res.status === 401) {
-            // PUDU_OFFICIAL_EXCERPT.md bagian A: "gateway membalas 401 dan
-            // menyertakan StringToSign milik server di header respons" --
-            // nama header PERSIS tidak disebut dokumen, jadi log semua
-            // header respons (tanpa Authorization request kita sendiri,
-            // yang berisi signature bukan secret, tapi tetap tidak perlu
-            // dilog ulang) untuk debugging manual.
+            // Ambil header respons untuk keperluan penelusuran signature server jika 401
             const responseHeaders: Record<string, string> = {};
             for (const [key, value] of res.headers.entries()) responseHeaders[key] = value;
             logger.warn(
               { method, path, responseHeaders },
-              "pudu client 401 -- cek header respons untuk StringToSign server (nama header belum dikonfirmasi dokumen)",
+              "pudu client 401 -- periksa kesesuaian signature dan kredensial",
             );
           }
           throw new PuduApiError(`PUDU API ${method} ${path} gagal: HTTP ${res.status} ${text}`, res.status);
@@ -150,17 +124,9 @@ export class PuduClient {
         if (typeof envelope.message !== "string") {
           throw new PuduApiError(`PUDU API ${method} ${path}: respons tidak berisi field 'message'`, res.status);
         }
-        // Bagian C PUDU_OFFICIAL_EXCERPT.md: contoh respons resmi
-        // StoreRobotList memakai "success" huruf kecil, bukan "SUCCESS" --
-        // dokumen resmi sendiri tidak konsisten soal huruf besar/kecil.
-        // Dibandingkan tidak peka huruf besar/kecil supaya respons sukses
-        // asli tidak keliru dianggap error bisnis (ditemukan saat
-        // mencocokkan client.ts ke contoh bagian C, di luar 5 poin awal).
+        // Pengecekan status sukses pada envelope (case-insensitive)
         if (envelope.message.toUpperCase() !== "SUCCESS") {
-          // Error bisnis (HTTP 2xx tapi message bukan SUCCESS, lihat
-          // PUDU_OFFICIAL_EXCERPT.md bagian A) -- retry cuma untuk kode
-          // yang dianggap transien, sisanya gagal permanen untuk request
-          // yang sama.
+          // Error bisnis dari gateway PUDU
           const businessErr = new PuduApiError(
             `PUDU API ${method} ${path} gagal: ${envelope.message}`,
             res.status,
@@ -168,16 +134,16 @@ export class PuduClient {
             envelope.trace_id,
           );
           if (!RETRYABLE_BUSINESS_CODES.has(envelope.message)) {
-            throw businessErr; // dilempar langsung, TIDAK lewat retry loop
+            throw businessErr;
           }
-          throw businessErr; // tetap dilempar, tapi ditangkap di bawah dan diretry
+          throw businessErr;
         }
 
         return envelope as T;
       } catch (err) {
         clearTimeout(timeoutId);
         if (err instanceof PuduApiError && err.code && !RETRYABLE_BUSINESS_CODES.has(err.code)) {
-          throw err; // error bisnis permanen -- jangan buang waktu retry
+          throw err;
         }
         lastErr = err;
         logger.warn(
@@ -189,15 +155,12 @@ export class PuduClient {
     throw lastErr instanceof Error ? lastErr : new Error(String(lastErr));
   }
 
-  /** Uji signature pertama kali, sesuai PUDU_OFFICIAL_EXCERPT.md bagian A poin 4. Tidak punya `data` resmi -- dites via `message === "SUCCESS"` saja. */
+  /** Uji koneksi dan validasi signature autentikasi ke PUDU Cloud API. */
   healthCheck() {
     return this.request<PuduEnvelope>("GET", "/data-open-platform-service/v1/api/healthCheck");
   }
 
-  // Field data.list/data.count BELUM diverifikasi dokumen resmi (GetStoreList
-  // tidak ada di excerpt) -- dipertahankan dari PUDU_INTEGRATION.md Lampiran
-  // #44, cuma dibungkus ulang ke bentuk envelope {trace_id, message, data}
-  // yang DIKONFIRMASI resmi (bagian A) untuk semua endpoint Open API.
+  /** Mengambil daftar toko/shop yang terdaftar di akun PUDU (berpaginasi). */
   getStoreList(params: { limit?: number; offset?: number } = {}) {
     return this.request<
       PuduEnvelope<{
@@ -207,8 +170,7 @@ export class PuduClient {
     >("GET", "/data-open-platform-service/v1/api/shop", { query: params });
   }
 
-  // Belum diverifikasi dokumen resmi (StoreRobotList tidak ada di excerpt) --
-  // field dari PUDU_INTEGRATION.md Lampiran #45, dibungkus envelope.
+  /** Mengambil daftar robot yang terhubung pada suatu toko/shop. */
   storeRobotList(params: { limit?: number; offset?: number; shop_id?: string } = {}) {
     return this.request<
       PuduEnvelope<{
@@ -226,23 +188,21 @@ export class PuduClient {
     >("GET", "/data-open-platform-service/v1/api/robot", { query: params });
   }
 
-  // Belum diverifikasi dokumen resmi (GetBoundRobotGroups tidak ada di
-  // excerpt) -- field dari PUDU_INTEGRATION.md Lampiran #46, dibungkus envelope.
+  /** Mengambil daftar grup robot yang terdaftar pada toko/shop. */
   getBoundRobotGroups(params: { limit?: number; offset?: number; shop_id?: string; device?: string } = {}) {
     return this.request<
       PuduEnvelope<{ groups: Array<{ group_id: string; group_name?: string; shop_id?: string; shop_name?: string }> }>
     >("GET", "/open-platform-service/v1/robot/group/list", { query: params });
   }
 
-  // Belum diverifikasi dokumen resmi (GetRobotsInGroup tidak ada di excerpt)
-  // -- field dari PUDU_INTEGRATION.md Lampiran #47, dibungkus envelope.
+  /** Mengambil daftar robot yang tergabung dalam suatu grup robot tertentu. */
   getRobotsInGroup(params: { group_id: string; limit?: number; offset?: number }) {
     return this.request<
       PuduEnvelope<{ robots: Array<{ sn: string; mac?: string; robot_name?: string; shop_id?: string; shop_name?: string }> }>
     >("GET", "/open-platform-service/v1/robot/list_by_device_and_group", { query: params });
   }
 
-  /** Field data.* DIKONFIRMASI PUDU_OFFICIAL_EXCERPT.md (GetRobotStatusV2) persis, termasuk charge_type int32 (1=kabel, 2=dock). */
+  /** Mengambil status real-time robot berdasarkan Serial Number (SN) atau MAC. */
   getRobotStatusV2(params: { sn?: string; mac?: string }) {
     return this.request<
       PuduEnvelope<{
@@ -261,7 +221,7 @@ export class PuduClient {
     >("GET", "/open-platform-service/v2/status/get_by_sn", { query: params });
   }
 
-  /** Field request & data.* DIKONFIRMASI PUDU_OFFICIAL_EXCERPT.md (InitiateCallTask). Bentuk payload lengkap (map_name/point_type wajib, dst.) diperbaiki di Fase C. */
+  /** Memanggil robot ke satu titik target lokasi tertentu (Call Task). */
   initiateCallTask(payload: {
     sn?: string;
     shop_id?: number;
@@ -282,12 +242,12 @@ export class PuduClient {
     );
   }
 
-  /** Katalog API #2, CancelCallTask -- DIKONFIRMASI PUDU_OFFICIAL_EXCERPT.md. Tidak punya `data`. */
+  /** Membatalkan tugas pemanggilan robot (Cancel Call Task). */
   cancelCallTask(payload: { task_id?: string; sn?: string; is_auto_back?: boolean }) {
     return this.request<PuduEnvelope>("POST", "/open-platform-service/v1/custom_call/cancel", { body: payload });
   }
 
-  /** Katalog API #3, CompleteCallTask -- DIKONFIRMASI PUDU_OFFICIAL_EXCERPT.md. */
+  /** Menyelesaikan tugas pemanggilan robot lebih awal (Complete Call Task). */
   completeCallTask(payload: {
     task_id: string;
     next_call_task?: {
@@ -306,7 +266,7 @@ export class PuduClient {
     );
   }
 
-  /** Katalog API #4, GetCallList -- DIKONFIRMASI PUDU_OFFICIAL_EXCERPT.md. Dipakai rekonsiliasi (Fase E). */
+  /** Mengambil daftar riwayat tugas pemanggilan robot (Get Call List) untuk pemantauan/rekonsiliasi. */
   getCallList(params: { sn?: string; task_id?: string; shop_id?: number; status?: string[]; offset?: number; limit?: number }) {
     return this.request<
       PuduEnvelope<{
@@ -332,24 +292,13 @@ export class PuduClient {
         shop_id: params.shop_id,
         offset: params.offset,
         limit: params.limit,
-        // Array<string> -- PUDU_INTEGRATION.md tidak merinci cara encode query
-        // array; dipakai konvensi umum "digabung koma" (dipakai juga untuk
-        // nilai array di PathAndParameters signing, bagian A) -- belum
-        // diverifikasi dokumen resmi untuk endpoint ini secara spesifik.
+        // Parameter status dipisahkan koma jika berupa array
         status: params.status?.join(","),
       },
     });
   }
 
-  /**
-   * Katalog #29, NotifyRobotReportPosition -- DIKONFIRMASI
-   * PUDU_OFFICIAL_EXCERPT.md bagian D. Tanpa ini PUDU tidak akan pernah
-   * mengirim callback notifyRobotPose. Body resmi: `{ sn, payload:
-   * { interval, times } }` (BUKAN `{ sn, interval, times }` rata seperti
-   * versi sebelumnya -- bug ditemukan setelah bagian D didapat). Validasi
-   * sebelum kirim (tanpa memanggil jaringan untuk input tidak valid):
-   * `interval` bulat >= 1 detik, `times` bulat 1..1000, `sn` tidak kosong.
-   */
+  /** Mengaktifkan perintah pelaporan posisi berkala dari robot ke WCS (Notify Robot Report Position). */
   notifyRobotReportPosition(payload: { sn: string; interval: number; times: number }) {
     if (!payload.sn) {
       throw new Error("notifyRobotReportPosition: sn tidak boleh kosong");
@@ -365,12 +314,7 @@ export class PuduClient {
     });
   }
 
-  /**
-   * Katalog #30, StoreMapList -- data DIKONFIRMASI PUDU_OFFICIAL_EXCERPT.md
-   * bagian C. `data` diparse `storeMapListDataSchema` (map-schemas.ts) --
-   * bentuk yang tidak cocok melempar error jelas (dicatat raw ke log),
-   * BUKAN diam-diam menghasilkan list kosong.
-   */
+  /** Mengambil daftar seluruh peta yang tersimpan di toko/shop. */
   async storeMapList(params: { shop_id?: string } = {}) {
     const envelope = await this.request<PuduEnvelope<unknown>>("GET", "/data-open-platform-service/v1/api/maps", {
       query: params,
@@ -381,11 +325,7 @@ export class PuduClient {
     };
   }
 
-  /**
-   * Katalog #31, AvailableMaps -- data DIKONFIRMASI PUDU_OFFICIAL_EXCERPT.md
-   * bagian C. `is_used` (1 atau 2) disimpan MENTAH oleh pemanggil -- arti
-   * persisnya belum dijelaskan dokumen resmi, jangan ditafsirkan di sini.
-   */
+  /** Mengambil daftar peta yang tersedia dan status aktifnya pada robot tertentu. */
   async availableMaps(params: { sn: string }) {
     const envelope = await this.request<PuduEnvelope<unknown>>("GET", "/map-service/v1/open/list", { query: params });
     return {
@@ -394,14 +334,7 @@ export class PuduClient {
     };
   }
 
-  /**
-   * Katalog #33, GetMapDetailV2 -- data DIKONFIRMASI PUDU_OFFICIAL_EXCERPT.md
-   * bagian C (kunci koordinat `vector_list`, BUKAN `vector`). Sumber utama
-   * sinkronisasi peta di syncResources() (sync.ts) -- sudah mencakup
-   * metadata peta DAN element_list dalam satu panggilan, jadi CurrentMap/
-   * GetCurrentMapPoints (di bawah) tidak dipanggil ganda untuk data yang
-   * sama di syncResources().
-   */
+  /** Mengambil detail lengkap peta beserta daftar elemen/titik koordinatnya (Get Map Detail V2). */
   async getMapDetailV2(params: { map_name: string }) {
     const envelope = await this.request<PuduEnvelope<unknown>>("GET", "/map-service/v1/open/map", { query: params });
     return {
@@ -410,15 +343,7 @@ export class PuduClient {
     };
   }
 
-  /**
-   * Katalog #32, CurrentMap -- data DIKONFIRMASI PUDU_OFFICIAL_EXCERPT.md
-   * bagian C (kunci koordinat `vector`, BUKAN `vector_list` -- lihat
-   * GetMapDetailV2 di atas, DUA kunci berbeda untuk data yang serupa).
-   * Disiapkan sesuai instruksi task, TIDAK dipanggil dari syncResources()
-   * (GetMapDetailV2 sudah mencakup element list yang sama/lebih lengkap) --
-   * hindari panggilan API ganda untuk data yang sama, keputusan sendiri,
-   * dicatat di laporan akhir.
-   */
+  /** Mengambil informasi peta yang sedang aktif pada robot tertentu. */
   async currentMap(params: { sn: string }) {
     const envelope = await this.request<PuduEnvelope<unknown>>("GET", "/map-service/v1/open/current", { query: params });
     return {
@@ -427,13 +352,7 @@ export class PuduClient {
     };
   }
 
-  /**
-   * Katalog #35, GetCurrentMapPoints -- data DIKONFIRMASI
-   * PUDU_OFFICIAL_EXCERPT.md bagian C (x/y/z eksplisit per titik, beda dari
-   * CurrentMap/GetMapDetailV2 yang menaruh koordinat dalam array
-   * vector/vector_list). Disiapkan sesuai instruksi task, TIDAK dipanggil
-   * dari syncResources() (lihat catatan currentMap()).
-   */
+  /** Mengambil daftar titik koordinat (points) dari peta tertentu. */
   async getCurrentMapPoints(params: { map_name?: string } = {}) {
     const envelope = await this.request<PuduEnvelope<unknown>>("GET", "/map-service/v1/open/point", { query: params });
     return {
@@ -443,13 +362,7 @@ export class PuduClient {
     };
   }
 
-  // Belum diverifikasi dokumen resmi (DeliveryTask -- API inisiasi -- tidak
-  // ada di excerpt; yang ada cuma callback notifyDeliveryTask). Field dari
-  // PUDU_INTEGRATION.md Lampiran #5, dibungkus envelope.
-  // Field request BELUM diverifikasi dokumen resmi (DeliveryTask -- API
-  // inisiasi -- tidak ada halaman API di bagian B, cuma contoh respons di
-  // bagian C). Tipe `data.code` DIPERBAIKI ke number (contoh resmi: `0`,
-  // bukan string) -- ditemukan saat mencocokkan ke bagian C.
+  /** Mengirimkan tugas pengantaran barang multi-destinasi/tray ke robot (Delivery Task). */
   deliveryTask(payload: {
     sn: string;
     delivery_sort?: string;
