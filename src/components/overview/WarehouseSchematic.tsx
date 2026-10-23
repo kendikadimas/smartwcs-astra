@@ -426,7 +426,8 @@ export function WarehouseSchematic() {
             <div
               style={{
                 position: 'absolute',
-                left: '170px',
+                left: '36%',
+                transform: 'translateX(-50%)',
                 zIndex: 3,
                 display: 'flex',
                 alignItems: 'center',
@@ -471,7 +472,8 @@ export function WarehouseSchematic() {
             <div
               style={{
                 position: 'absolute',
-                left: '305px',
+                left: '64%',
+                transform: 'translateX(-50%)',
                 zIndex: 3,
                 backgroundColor: '#ffffff',
                 border: '1.5px solid #f59e0b',

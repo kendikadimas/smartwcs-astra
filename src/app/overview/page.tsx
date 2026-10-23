@@ -5,8 +5,6 @@ import { AppShell } from '@/components/layout/AppShell';
 import { KpiCards } from '@/components/overview/KpiCards';
 import { WarehouseSchematic } from '@/components/overview/WarehouseSchematic';
 import { RobotFleetTable } from '@/components/overview/RobotFleetTable';
-import { EquipmentHealth } from '@/components/overview/EquipmentHealth';
-import { IntegrationAdapters } from '@/components/overview/IntegrationAdapters';
 import { ActiveTasksMini } from '@/components/overview/ActiveTasksMini';
 import { TaskDistributionChart } from '@/components/overview/TaskDistributionChart';
 import { RecentEventsList } from '@/components/overview/RecentEventsList';
@@ -15,8 +13,6 @@ import { TaskCompletionTrend } from '@/components/overview/TaskCompletionTrend';
 import {
   mockOverviewMetrics,
   mockRobotFleet,
-  mockEquipmentHealth,
-  mockIntegrationAdapters,
   mockActiveTasksMini,
   mockTaskDistribution,
   mockRecentEvents,
@@ -39,17 +35,7 @@ Completed Today: ${mockOverviewMetrics.completedToday}
 In Progress: ${mockOverviewMetrics.inProgress} (${mockOverviewMetrics.inProgressBreakdown})
 Waiting: ${mockOverviewMetrics.waiting}
 Delayed: ${mockOverviewMetrics.delayed}
-Fleet Availability: ${mockOverviewMetrics.fleetAvailability}% (${mockOverviewMetrics.fleetRatio})
-
-[Equipment Health]
-Conveyors: 8/8 ready
-Lifts: 2/3 (LIFT-01 fault)
-Transfer Stations: 8/8 ready
-
-[System Adapters]
-WMS: Connected
-RCS: Connected
-PLC: Connected
+Robot Availability: ${mockOverviewMetrics.fleetAvailability}% (${mockOverviewMetrics.fleetRatio})
 `;
     const blob = new Blob([summaryData], { type: 'text/plain;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
@@ -114,19 +100,13 @@ PLC: Connected
       {/* Row 1: Six KPI Cards */}
       <KpiCards metrics={mockOverviewMetrics} />
 
-      {/* Row 2: Warehouse Schematic + Robot Fleet Status + Equipment & Integration Panel */}
+      {/* Row 2: Warehouse Schematic + Robot Fleet Status */}
       <div className="overview-grid-row2">
         {/* Left: Warehouse Schematic */}
         <WarehouseSchematic />
 
-        {/* Middle: Robot Fleet Status Table */}
+        {/* Right: Robot Fleet Status Table */}
         <RobotFleetTable fleet={mockRobotFleet} />
-
-        {/* Right: Equipment Health + Integration Adapters Stack */}
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', height: '100%' }}>
-          <EquipmentHealth categories={mockEquipmentHealth} />
-          <IntegrationAdapters adapters={mockIntegrationAdapters} />
-        </div>
       </div>
 
       {/* Row 3: Active Tasks + Task Distribution + Task Completion Trend */}

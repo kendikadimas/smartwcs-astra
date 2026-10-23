@@ -9,7 +9,7 @@ import {
   TrendingUp,
   Clock,
   AlertTriangle,
-  Gauge,
+  Bot,
   ChevronRight,
 } from 'lucide-react';
 
@@ -60,11 +60,11 @@ export function KpiCards({ metrics }: KpiCardsProps) {
       href: '/alarms',
     },
     {
-      title: 'Fleet Availability',
+      title: 'Robot Availability',
       value: `${metrics.fleetAvailability}%`,
       subtext: metrics.fleetRatio,
       theme: 'theme-teal',
-      icon: Gauge,
+      icon: Bot,
       href: '/equipment',
     },
   ];

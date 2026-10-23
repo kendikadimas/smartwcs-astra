@@ -1526,7 +1526,7 @@ input[type="checkbox"] {
 /* Operations Overview Layout Grid */
 .overview-grid-row2 {
   display: grid;
-  grid-template-columns: 4.7fr 3.35fr 2.6fr;
+  grid-template-columns: 1.35fr 1fr;
   gap: 14px;
 }
 
