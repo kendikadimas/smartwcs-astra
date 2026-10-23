@@ -9,7 +9,7 @@ import {
   ArrowDownToLine,
   ArrowRight,
 } from 'lucide-react';
-import { PriorityBadge } from '@/components/ui/Badge';
+import { PriorityBadge, StatusBadge } from '@/components/ui/Badge';
 import { ActiveTaskMini } from '@/types/overview';
 
 interface ActiveTasksMiniProps {
@@ -119,24 +119,6 @@ export function ActiveTasksMini({ tasks }: ActiveTasksMiniProps) {
             {mockTasks.map((t) => {
               const Icon = t.icon;
 
-              // Status Badge Styles
-              let statBg = '#eff6ff';
-              let statColor = '#2563eb';
-              let statBorder = '#bfdbfe';
-              let statDot = '#2563eb';
-
-              if (t.status === 'Delayed') {
-                statBg = '#fef2f2';
-                statColor = '#dc2626';
-                statBorder = '#fecaca';
-                statDot = '#dc2626';
-              } else if (t.status === 'Queued') {
-                statBg = '#fffbeb';
-                statColor = '#d97706';
-                statBorder = '#fde68a';
-                statDot = '#d97706';
-              }
-
               return (
                 <tr key={t.id}>
                   <td style={{ fontWeight: 700, color: '#0f172a', fontSize: '11.5px', padding: '7px 4px 7px 16px' }}>
@@ -154,26 +136,10 @@ export function ActiveTasksMini({ tasks }: ActiveTasksMiniProps) {
                   </td>
                   <td style={{ color: '#475569', fontSize: '11.5px', padding: '7px 2px', whiteSpace: 'nowrap' }}>{t.destination}</td>
                   <td style={{ padding: '7px 4px' }}>
-                    <PriorityBadge priority={t.priority} />
+                    <PriorityBadge priority={t.priority} style={{ minWidth: '72px' }} />
                   </td>
                   <td style={{ padding: '7px 4px' }}>
-                    <span
-                      style={{
-                        display: 'inline-flex',
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        padding: '2.5px 8px',
-                        borderRadius: '12px',
-                        fontSize: '10.5px',
-                        fontWeight: 600,
-                        backgroundColor: statBg,
-                        border: `1px solid ${statBorder}`,
-                        color: statColor,
-                        whiteSpace: 'nowrap',
-                      }}
-                    >
-                      {t.status}
-                    </span>
+                    <StatusBadge status={t.status} style={{ minWidth: '72px' }} />
                   </td>
                   <td
                     style={{

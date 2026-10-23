@@ -1385,79 +1385,55 @@ body {
   display: none;
 }
 
-/* Status variants */
+/* Status variants - Card gradient styling */
 .badge-status-running,
 .badge-status-executing {
-  background-color: #e0f2fe;
-  color: #0284c7;
-}
-.badge-status-running .badge-dot,
-.badge-status-executing .badge-dot {
-  background-color: #0284c7;
+  background: linear-gradient(135deg, #0ea5e9 0%, #2563eb 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 6px -1px rgba(37, 99, 235, 0.35);
 }
 
 .badge-status-delayed {
-  background-color: #fee2e2;
-  color: #dc2626;
-}
-.badge-status-delayed .badge-dot {
-  background-color: #dc2626;
+  background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 6px -1px rgba(225, 29, 72, 0.35);
 }
 
 .badge-status-queued {
-  background-color: #fef3c7;
-  color: #b45309;
-}
-.badge-status-queued .badge-dot {
-  background-color: #d97706;
+  background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 6px -1px rgba(217, 119, 6, 0.35);
 }
 
 .badge-status-assigned {
-  background-color: #f1f5f9;
-  color: #475569;
-}
-.badge-status-assigned .badge-dot {
-  background-color: #64748b;
+  background: linear-gradient(135deg, #64748b 0%, #475569 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 6px -1px rgba(100, 116, 139, 0.25);
 }
 
-.badge-status-completed {
-  background-color: #dcfce7;
-  color: #15803d;
-}
-.badge-status-completed .badge-dot {
-  background-color: #16a34a;
+.badge-status-completed,
+.badge-status-idle {
+  background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 6px -1px rgba(16, 185, 129, 0.35);
 }
 
 .badge-status-failed {
-  background-color: #fee2e2;
-  color: #b91c1c;
-}
-.badge-status-failed .badge-dot {
-  background-color: #dc2626;
-}
-
-.badge-status-idle {
-  background-color: #dcfce7;
-  color: #15803d;
-}
-.badge-status-idle .badge-dot {
-  background-color: #16a34a;
+  background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 6px -1px rgba(220, 38, 38, 0.35);
 }
 
 .badge-status-charging {
-  background-color: #ffedd5;
-  color: #c2410c;
-}
-.badge-status-charging .badge-dot {
-  background-color: #ea580c;
+  background: linear-gradient(135deg, #f97316 0%, #ea580c 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 6px -1px rgba(249, 115, 22, 0.35);
 }
 
 .badge-status-offline {
-  background-color: #f1f5f9;
-  color: #64748b;
-}
-.badge-status-offline .badge-dot {
-  background-color: #94a3b8;
+  background: linear-gradient(135deg, #94a3b8 0%, #64748b 100%);
+  color: #ffffff;
+  box-shadow: 0 2px 6px -1px rgba(100, 116, 139, 0.25);
 }
 
 /* Priority Badges */

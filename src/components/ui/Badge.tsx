@@ -40,9 +40,10 @@ export function StatusBadge({ status, className = '', style }: StatusBadgeProps)
 interface PriorityBadgeProps {
   priority: TaskPriority | string;
   className?: string;
+  style?: React.CSSProperties;
 }
 
-export function PriorityBadge({ priority, className = '' }: PriorityBadgeProps) {
+export function PriorityBadge({ priority, className = '', style }: PriorityBadgeProps) {
   const norm = (priority || '').toLowerCase();
 
   let activeColor = '#2563eb';
@@ -75,12 +76,14 @@ export function PriorityBadge({ priority, className = '' }: PriorityBadgeProps) 
       style={{
         display: 'inline-flex',
         alignItems: 'center',
+        justifyContent: 'center',
         gap: '5.5px',
         padding: '2.5px 7.5px',
         borderRadius: '5px',
         backgroundColor: bg,
         border: `1px solid ${border}`,
         whiteSpace: 'nowrap',
+        ...style,
       }}
     >
       {/* 3-Tier Signal Bars */}
